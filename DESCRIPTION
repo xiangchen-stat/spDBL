@@ -1,0 +1,33 @@
+Package: spDBL
+Title: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models
+Version: 1.0.0
+Authors@R: c(
+    person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
+    person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))
+  )
+Description: Provides tools for Bayesian learning of spatiotemporal dynamical mechanistic models.
+    Includes methods for parameter estimation, simulation, and inference using hierarchical and
+    state-space modeling approaches.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.0)
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+LinkingTo:
+    Rcpp,
+    RcppEigen
+Imports:
+    Rcpp,
+    matrixsampling,
+    invgamma,
+    ggpubr,
+    deSolve,
+    LaplacesDemon,
+    matrixcalc,
+    mniw,
+    ReacTran,
+    scales
+Suggests:
+    testthat (>= 3.0.0),
+    here
+Config/testthat/edition: 3

@@ -1,0 +1,45 @@
+## MNIW----
+
+#' Backward sampling
+#'
+#' @return st, St
+#' @export
+BS <- function(res_ff, G_ls, nT, delta = 1){
+  out <- list()
+  out$st <- array(dim = c(dim(res_ff[[nT]]$mt), nT))
+  out$St <- array(dim = c(dim(res_ff[[nT]]$Mt), nT))
+
+  # initialize matirces
+  Gt1 <- G_ls
+
+  # Firstly, calculate t = nT
+  st1 <- res_ff[[nT]]$mt
+  St1 <- res_ff[[nT]]$Mt
+  out$st[,,nT] <- st1
+  out$St[,,nT] <- St1
+
+  # then backward t
+  for (i in (nT-1):1) {
+    if(i %% round(0.1*nT) == 0){
+      print(paste("BS:", i, "/", nT))
+      print(Sys.time())
+    }
+    # Check if G_ls are changing over time
+    # If they are list, change accordingly, otherwise keep unchanged
+    if(is.list(G_ls)){
+      Gt1 <- as.matrix(G_ls[[i+1]])
+    }
+
+    para_nt <- BS_1step_cpp(mt = res_ff[[i]]$mt, Mt = res_ff[[i]]$Mt,
+                            st1 = st1, St1 = St1,
+                            at1 = res_ff[[i+1]]$at, At1 = res_ff[[i+1]]$At,
+                            Gt1 = Gt1, delta = delta)
+    # update st1, St1
+    st1 <- para_nt$st
+    St1 <- para_nt$St
+    out$st[,,i] <- st1
+    out$St[,,i] <- St1
+  }
+
+  return(out)
+}
