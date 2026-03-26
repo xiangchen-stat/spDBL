@@ -114,11 +114,11 @@ man/        documentation files
 tests/      tests
 ```
 
-## Author
-
-**Xiang Chen**  
-PhD Student, Biostatistics  
-University of California, Los Angeles
+# ## Author
+# 
+# **Xiang Chen**  
+# PhD Student, Biostatistics  
+# University of California, Los Angeles
 
 ## License
 
