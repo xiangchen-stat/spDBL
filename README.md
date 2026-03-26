@@ -123,3 +123,7 @@ University of California, Los Angeles
 ## License
 
 This package is released under the **MIT License**.
+
+## Acknowledgement
+
+The hex logo for spDBL was generated with the assistance of ChatGPT (OpenAI) using AI-based image generation tools.
