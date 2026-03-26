@@ -114,12 +114,6 @@ man/        documentation files
 tests/      tests
 ```
 
-# ## Author
-# 
-# **Xiang Chen**  
-# PhD Student, Biostatistics  
-# University of California, Los Angeles
-
 ## License
 
 This package is released under the **MIT License**.
