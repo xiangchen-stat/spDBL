@@ -2,22 +2,35 @@
 % Please edit documentation in R/func_gen_data.R
 \name{gen_ffbs_data}
 \alias{gen_ffbs_data}
-\title{Generate FFBS data in workspace}
+\title{Generate synthetic FFBS data in memory}
 \usage{
 gen_ffbs_data(N, S, p, nT)
 }
 \arguments{
-\item{N}{Number of rows of Y}
+\item{N}{Integer. Number of spatial locations (rows of \eqn{Y_t}).}
 
-\item{S}{Number of columns of Y}
+\item{S}{Integer. Number of response variables (columns of \eqn{Y_t}).}
 
-\item{p}{Number of rows of Theta}
+\item{p}{Integer. Dimension of the state vector (must be \eqn{\geq 2}).}
 
-\item{nT}{Number of time stamps}
+\item{nT}{Integer. Number of time steps.}
 }
 \value{
-A list of .csv files: Y's m0 M0 G0 F0 Sigma RSigma(chol(Sigma)) V0 RVO(chol(V0)) W0
+A named list with:
+\describe{
+\item{Y}{Named list of length \code{nT} (\code{"Y1"}, \ldots,
+\code{"Y<nT>"}), each element an \eqn{N \times S} data matrix.}
+\item{para}{Named list of model parameters: \code{loc}, \code{dist},
+\code{m0}, \code{M0}, \code{G0}, \code{F0}, \code{Sigma},
+\code{RSigma}, \code{V0}, \code{RV0}, \code{W0}, \code{n0},
+\code{D0}.}
+}
 }
 \description{
-Generate FFBS data in workspace
+Simulates data from the MNIW dynamic linear model for \code{nT} time steps
+and returns the generated observations and model parameters as in-memory
+objects.
+}
+\seealso{
+\code{\link{gen_ffbs_csv}}
 }

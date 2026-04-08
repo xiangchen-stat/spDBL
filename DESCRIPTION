@@ -20,14 +20,23 @@ Imports:
     Rcpp,
     matrixsampling,
     invgamma,
-    ggpubr,
     deSolve,
+    ReacTran,
     LaplacesDemon,
     matrixcalc,
     mniw,
-    ReacTran,
+    utils,
+    stats,
+    ggpubr,
+    ggplot2,
+    readr,
+    magrittr,
     scales
 Suggests:
     testthat (>= 3.0.0),
-    here
+    here,
+    knitr,
+    rmarkdown
 Config/testthat/edition: 3
+VignetteBuilder: knitr
+LazyData: true

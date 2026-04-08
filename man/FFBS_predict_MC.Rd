@@ -2,7 +2,7 @@
 % Please edit documentation in R/func_FFBS.R
 \name{FFBS_predict_MC}
 \alias{FFBS_predict_MC}
-\title{prediction using monte carlo method to estimate post mean:st, to get mean of Y_new}
+\title{Monte Carlo prediction using FFBS output (MNIW model)}
 \usage{
 FFBS_predict_MC(
   nsam,
@@ -19,6 +19,46 @@ FFBS_predict_MC(
   delta = 1
 )
 }
+\arguments{
+\item{nsam}{Integer. Number of posterior samples to average over.}
+
+\item{Y}{List of length \code{nT}. Observed data matrices.}
+
+\item{res_ffbs}{List. Posterior samples of \eqn{\Theta_t}, as returned by
+\code{\link{FFBS_sampling}}.}
+
+\item{F_ls}{Covariate matrix or list for observed locations.}
+
+\item{F_new_ls}{Covariate matrix or list for new (prediction) locations.}
+
+\item{input}{Numeric matrix. Coordinates of observed locations
+(\eqn{N \times d}).}
+
+\item{input_new}{Numeric matrix or vector. Coordinates of new locations.}
+
+\item{nT}{Integer. Number of time steps.}
+
+\item{phi_para}{Numeric scalar. Range parameter of the exponential kernel.}
+
+\item{gp_sigma2}{Numeric scalar. Variance parameter of the GP kernel.
+Defaults to \code{1.1}.}
+
+\item{gp_tau2}{Numeric scalar. Nugget variance of the GP kernel. Defaults to
+\code{1e-4}.}
+
+\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+}
+\value{
+A named list of length \code{nT}. Each element \code{"T<t>"} is an
+array of dimension \code{c(N_new, q, nsam)} with posterior predictive mean
+samples at the new locations.
+}
 \description{
-prediction using monte carlo method to estimate post mean:st, to get mean of Y_new
+Estimates posterior predictive means at new spatial locations using Monte
+Carlo integration over the posterior samples of the state \eqn{\Theta_t}.
+Uses an exponential GP kernel to compute the cross-covariance between
+observed and new locations.
+}
+\seealso{
+\code{\link{FFBS_predict_exact}}, \code{\link{gen_exp_kernel}}
 }

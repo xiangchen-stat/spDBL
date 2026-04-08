@@ -2,7 +2,7 @@
 % Please edit documentation in R/func_generate_grid_Dan.R
 \name{generate_grid}
 \alias{generate_grid}
-\title{Generate the indices for a grid for big data traversal. Indexes the grid by a number from 1 to K, where K is the total number of blocks partitioned using the grid.}
+\title{Generate block indices for big data grid traversal}
 \usage{
 generate_grid(
   fnrow,
@@ -16,25 +16,50 @@ generate_grid(
 )
 }
 \arguments{
-\item{fnrow}{The number of rows in the file being read.}
+\item{fnrow}{Integer. Number of rows in the file or matrix.}
 
-\item{fncol}{The number of columns in the file being read.}
+\item{fncol}{Integer. Number of columns in the file or matrix.}
 
-\item{bnrow}{The number of rows in each block being read.}
+\item{bnrow}{Integer. Number of rows per block.}
 
-\item{bncol}{The number of columns in each block being read.}
+\item{bncol}{Integer. Number of columns per block.}
 
-\item{traversal.mode}{The way to traverse the grid. "rowsnake" refers to alternating left-right traversal. "lr" refers to left-right traversal throughout. Defaults to "rowsnake".}
+\item{traversal.mode}{Character. Traversal order for the grid. \code{"rowsnake"}
+uses alternating left-right traversal (snake/boustrophedon order);
+\code{"lr"} uses strict left-to-right traversal throughout. Defaults to
+\code{"rowsnake"}.}
 
-\item{is.flexible}{Whether or not to throw an error if bnrow or bncol do not perfectly divide fnrow and fncol respectively. If set, will override both is.flexible.row and is.flexible.col. Defaults to NULL.}
+\item{is.flexible}{Logical or \code{NULL}. If non-\code{NULL}, overrides both
+\code{is.flexible.row} and \code{is.flexible.col}. When \code{TRUE}, allows
+block dimensions that do not evenly divide the file dimensions. Defaults to
+\code{NULL}.}
 
-\item{is.flexible.row}{Whether or not to throw an error if bnrow does not perfectly divide fnrow. Defaults to FALSE.}
+\item{is.flexible.row}{Logical. If \code{FALSE}, an error is thrown when
+\code{bnrow} does not evenly divide \code{fnrow}. Defaults to \code{FALSE}.}
 
-\item{is.flexible.col}{Whether or not to throw an error if bncol does not perfectly divide fncol. Defaults to FALSE.}
+\item{is.flexible.col}{Logical. If \code{FALSE}, an error is thrown when
+\code{bncol} does not evenly divide \code{fncol}. Defaults to \code{FALSE}.}
 }
 \value{
-A data.frame with the columns for block number, row upper index, row lower index, column left index, and column right index, in that order.
+A \code{data.frame} with columns:
+\describe{
+\item{block_no}{Block index from 1 to K.}
+\item{U}{Upper (first) row index of the block.}
+\item{D}{Lower (last) row index of the block.}
+\item{L}{Left (first) column index of the block.}
+\item{R}{Right (last) column index of the block.}
+}
 }
 \description{
-Generate the indices for a grid for big data traversal. Indexes the grid by a number from 1 to K, where K is the total number of blocks partitioned using the grid.
+Partitions a matrix or file into rectangular blocks and returns a data frame
+of block indices numbered from 1 to K (total number of blocks). Supports
+exact and flexible partitioning, and multiple traversal orders.
+}
+\examples{
+# Exact partition with snake traversal
+generate_grid(100, 100, 10, 10)
+
+# Flexible partition (block size does not divide file size evenly)
+generate_grid(105, 103, 10, 10, is.flexible = TRUE)
+
 }

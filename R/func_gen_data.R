@@ -1,8 +1,13 @@
-#' Generate random matrix
+#' Generate a random matrix with entries scaled to \eqn{[-1, 1]}
 #'
-#' @param nrow Number of rows
-#' @param col Number of columns
-#' @returns A random matrix
+#' Draws a matrix of independent standard normal entries and divides by the
+#' absolute maximum, so all entries lie in \eqn{[-1, 1]}.
+#'
+#' @param nrow Integer. Number of rows.
+#' @param ncol Integer. Number of columns.
+#'
+#' @return A numeric matrix of dimension \code{c(nrow, ncol)}.
+#'
 #' @export
 gen_ran_matrix <- function(nrow, ncol){
   S <- matrix(rnorm(nrow * ncol), nrow  = nrow, ncol  = ncol)
@@ -10,10 +15,17 @@ gen_ran_matrix <- function(nrow, ncol){
   return(S)
 }
 
-#' Generate random positive definite matrix
+#' Generate a random positive definite matrix
 #'
-#' @param dim Number of rows/columns
-#' @returns A random pd matrix
+#' Constructs a positive definite matrix of dimension \code{dim} by forming
+#' \eqn{A^\top A} from a random normal matrix \eqn{A} and then rescaling so the
+#' maximum entry is 1.
+#'
+#' @param dim Integer. Number of rows (and columns) of the output matrix.
+#'
+#' @return A symmetric positive definite numeric matrix of dimension
+#'   \code{c(dim, dim)}.
+#'
 #' @export
 gen_pd_matrix <- function(dim){
   tempS <- matrix(rnorm(dim * dim), nrow  = dim, ncol  = dim)
@@ -22,12 +34,22 @@ gen_pd_matrix <- function(dim){
   return(S)
 }
 
-#' Generate multivariate normal
+#' Draw one sample from a matrix-normal distribution (Cholesky parameterisation)
 #'
-#' @param m Mean matrix
-#' @param RM Upper-triangular Cholesky factor of row covariance matrix
-#' @param RSigma Upper-triangular Cholesky factor of column covariance matrix
-#' @returns A random multivariate normal matrix
+#' Samples \eqn{\Theta \sim MN(m, U, \Sigma)} using the upper-triangular
+#' Cholesky factors \code{RM} and \code{RSigma} of \eqn{U} and \eqn{\Sigma}
+#' respectively: \eqn{\Theta = m + \text{RM}^\top Z \, \text{RSigma}}, where
+#' \eqn{Z} has i.i.d. standard normal entries.
+#'
+#' @param m Numeric matrix. Mean matrix (\eqn{p \times S}).
+#' @param RM Numeric matrix. Upper-triangular Cholesky factor of the row
+#'   covariance \eqn{U} (\eqn{p \times p}).
+#' @param RSigma Numeric matrix. Upper-triangular Cholesky factor of the column
+#'   covariance \eqn{\Sigma} (\eqn{S \times S}).
+#'
+#' @return A numeric matrix of dimension \code{c(p, S)}.
+#'
+#' @seealso \code{\link{rmn_chol_more}}
 #' @export
 rmn_chol <- function(m, RM, RSigma){
   p <- nrow(m)
@@ -39,13 +61,21 @@ rmn_chol <- function(m, RM, RSigma){
 }
 
 
-#' Generate multivariate normal
+#' Draw multiple samples from a matrix-normal distribution (Cholesky parameterisation)
 #'
-#' @param nsam Number of samples
-#' @param m Mean matrix
-#' @param RM Upper-triangular Cholesky factor of row covariance matrix
-#' @param RSigma Upper-triangular Cholesky factor of column covariance matrix
-#' @returns A random multivariate normal matrix
+#' Draws \code{nsam} independent samples from \eqn{MN(m, U, \Sigma)} using
+#' the Cholesky factors of \eqn{U} and \eqn{\Sigma}.
+#'
+#' @param nsam Integer. Number of samples to draw.
+#' @param m Numeric matrix. Mean matrix (\eqn{p \times S}).
+#' @param RM Numeric matrix. Upper-triangular Cholesky factor of the row
+#'   covariance \eqn{U} (\eqn{p \times p}).
+#' @param RSigma Numeric matrix. Upper-triangular Cholesky factor of the column
+#'   covariance \eqn{\Sigma} (\eqn{S \times S}).
+#'
+#' @return An array of dimension \code{c(p, S, nsam)}.
+#'
+#' @seealso \code{\link{rmn_chol}}
 #' @export
 rmn_chol_more <- function(nsam, m, RM, RSigma){
   p <- nrow(m)
@@ -62,13 +92,28 @@ rmn_chol_more <- function(nsam, m, RM, RSigma){
 }
 
 
-#' Generate FFBS data in workspace
+#' Generate synthetic FFBS data in memory
 #'
-#' @param N Number of rows of Y
-#' @param S Number of columns of Y
-#' @param p Number of rows of Theta
-#' @param nT Number of time stamps
-#' @returns A list of .csv files: Y's m0 M0 G0 F0 Sigma RSigma(chol(Sigma)) V0 RVO(chol(V0)) W0
+#' Simulates data from the MNIW dynamic linear model for \code{nT} time steps
+#' and returns the generated observations and model parameters as in-memory
+#' objects.
+#'
+#' @param N Integer. Number of spatial locations (rows of \eqn{Y_t}).
+#' @param S Integer. Number of response variables (columns of \eqn{Y_t}).
+#' @param p Integer. Dimension of the state vector (must be \eqn{\geq 2}).
+#' @param nT Integer. Number of time steps.
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{Y}{Named list of length \code{nT} (\code{"Y1"}, \ldots,
+#'       \code{"Y<nT>"}), each element an \eqn{N \times S} data matrix.}
+#'     \item{para}{Named list of model parameters: \code{loc}, \code{dist},
+#'       \code{m0}, \code{M0}, \code{G0}, \code{F0}, \code{Sigma},
+#'       \code{RSigma}, \code{V0}, \code{RV0}, \code{W0}, \code{n0},
+#'       \code{D0}.}
+#'   }
+#'
+#' @seealso \code{\link{gen_ffbs_csv}}
 #' @export
 gen_ffbs_data <- function(N, S, p, nT){
   out <- list()
@@ -97,9 +142,7 @@ gen_ffbs_data <- function(N, S, p, nT){
   phi <- 0.4 * 3 / max(dist)
   sigma2 <- 1
   tau2 <- 0.01
-  # V0 <- exp(-phi * dist)
   V0 <- gen_gp_kernel(loc = F0, phi = phi, sigma2 = sigma2, tau2 = tau2)
-  # V0 <- gen_pd_matrix(N)
   W0 <- gen_pd_matrix(p)
   RM0 <- chol(M0)
   RSigma <- chol(Sigma)
@@ -146,14 +189,25 @@ gen_ffbs_data <- function(N, S, p, nT){
 }
 
 
-#' Generate FFBS related data
+#' Generate synthetic FFBS data and write to CSV files
 #'
-#' @param N Number of rows of Y
-#' @param S Number of columns of Y
-#' @param p Number of rows of Theta
-#' @param nT Number of time stamps
-#' @param path Path for saving generated data
-#' @returns A list of .csv files: Y's m0 M0 G0 F0 Sigma RSigma(chol(Sigma)) V0 RVO(chol(V0)) W0
+#' Simulates data from the MNIW dynamic linear model for \code{nT} time steps
+#' and writes the observations \eqn{Y_1, \ldots, Y_T} and all model parameters
+#' to CSV files in \code{path}.
+#'
+#' @param N Integer. Number of spatial locations (rows of \eqn{Y_t}).
+#' @param S Integer. Number of response variables (columns of \eqn{Y_t}).
+#' @param p Integer. Dimension of the state vector (must be \eqn{\geq 2}).
+#' @param nT Integer. Number of time steps.
+#' @param path Character. Directory path (with trailing \code{/}) where CSV
+#'   files are written.
+#'
+#' @return Invisibly returns \code{NULL}. Files written: \code{m0.csv},
+#'   \code{MM0.csv}, \code{G0.csv}, \code{F0.csv}, \code{Sigma.csv},
+#'   \code{RSigma.csv}, \code{V0.csv}, \code{RV0.csv}, \code{W0.csv}, and
+#'   \code{Y1.csv} through \code{Y<nT>.csv}.
+#'
+#' @seealso \code{\link{gen_ffbs_data}}
 #' @export
 gen_ffbs_csv <- function(N, S, p, nT, path){
   m0 <- gen_ran_matrix(p, S)
@@ -176,9 +230,7 @@ gen_ffbs_csv <- function(N, S, p, nT, path){
   phi <- 0.4 * 3 / max(dist)
   sigma2 <- 1
   tau2 <- 0.01
-  # V0 <- exp(-phi * dist)
   V0 <- gen_gp_kernel(loc = F0, phi = phi, sigma2 = sigma2, tau2 = tau2)
-  # V0 <- gen_pd_matrix(N)
   W0 <- gen_pd_matrix(p)
   RM0 <- chol(M0)
   RSigma <- chol(Sigma)
@@ -216,7 +268,21 @@ gen_ffbs_csv <- function(N, S, p, nT, path){
 }
 
 
-## calculate Gaussian Process kernel
+#' Compute a Gaussian Process covariance kernel matrix
+#'
+#' Evaluates the isotropic GP exponential kernel
+#' \eqn{k(s, s') = \sigma^2 \exp(-\phi \|s - s'\|) + \tau^2 \mathbf{1}_{s=s'}}
+#' for all pairs of rows in \code{loc}.
+#'
+#' @param loc Numeric matrix. Spatial locations (\eqn{n \times d}).
+#' @param phi Numeric scalar. Range (decay) parameter of the exponential kernel.
+#' @param sigma2 Numeric scalar. Marginal variance parameter.
+#' @param tau2 Numeric scalar. Nugget (white-noise) variance.
+#'
+#' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
+#'
+#' @seealso \code{\link{gen_exp_kernel}}, \code{\link{gen_expsq_kernel}}
+#' @export
 gen_gp_kernel <- function(loc, phi, sigma2, tau2){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
   n <- dim(dist_k)[1]
@@ -224,7 +290,21 @@ gen_gp_kernel <- function(loc, phi, sigma2, tau2){
   return(var_gp)
 }
 
-## calculate Gaussian Process kernel
+#' Compute a squared-exponential (Gaussian) GP kernel matrix
+#'
+#' Evaluates the squared-exponential kernel
+#' \eqn{k(s, s') = \sigma^2 \exp(-\phi \|s - s'\|^2) + \tau^2 \mathbf{1}_{s=s'}}
+#' for all pairs of rows in \code{loc}.
+#'
+#' @param loc Numeric matrix. Spatial locations (\eqn{n \times d}).
+#' @param phi Numeric scalar. Inverse length-scale parameter.
+#' @param sigma2 Numeric scalar. Marginal variance. Defaults to \code{1}.
+#' @param tau2 Numeric scalar. Nugget variance. Defaults to \code{0}.
+#'
+#' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
+#'
+#' @seealso \code{\link{gen_gp_kernel}}, \code{\link{gen_exp_kernel}}
+#' @export
 gen_expsq_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
   n <- dim(dist_k)[1]
@@ -232,6 +312,21 @@ gen_expsq_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
   return(var_gp)
 }
 
+#' Compute an exponential GP kernel matrix
+#'
+#' Evaluates the exponential kernel
+#' \eqn{k(s, s') = \sigma^2 \exp(-\phi \|s - s'\|) + \tau^2 \mathbf{1}_{s=s'}}
+#' for all pairs of rows in \code{loc}.
+#'
+#' @param loc Numeric matrix. Spatial locations (\eqn{n \times d}).
+#' @param phi Numeric scalar. Range (decay) parameter.
+#' @param sigma2 Numeric scalar. Marginal variance. Defaults to \code{1}.
+#' @param tau2 Numeric scalar. Nugget variance. Defaults to \code{0}.
+#'
+#' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
+#'
+#' @seealso \code{\link{gen_gp_kernel}}, \code{\link{gen_expsq_kernel}}
+#' @export
 gen_exp_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
   n <- dim(dist_k)[1]
@@ -240,7 +335,20 @@ gen_exp_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
 }
 
 
-# create F_ls using auto-regressive
+#' Build AR(1) covariate list from a list of response matrices
+#'
+#' Constructs the time-varying covariate list \eqn{F_t} for a first-order
+#' autoregressive model: \eqn{F_t = Y_{t-1}} (with \eqn{F_1 = Y_1}).
+#'
+#' @param Y List of length \code{nT}. Each element is the \eqn{N \times S}
+#'   data matrix at time \eqn{t}.
+#' @param nT Integer. Number of time steps.
+#'
+#' @return A list of length \code{nT} where element \eqn{t} is the covariate
+#'   matrix \eqn{F_t}.
+#'
+#' @seealso \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}
+#' @export
 gen_F_ls_AR1 <- function(Y, nT){
   F_ls <- list()
   for (i in 1:nT) {
@@ -255,34 +363,58 @@ gen_F_ls_AR1 <- function(Y, nT){
   return(F_ls)
 }
 
-
+#' Build AR(2) covariate list from a list of response matrices
+#'
+#' Constructs the time-varying covariate list \eqn{F_t} for a second-order
+#' autoregressive model by column-binding the two most recent lags:
+#' \eqn{F_t = [Y_{t-2}, Y_{t-1}]} (with special handling for \eqn{t = 1, 2}).
+#'
+#' @param Y List of length \code{nT}. Each element is the \eqn{N \times S}
+#'   data matrix at time \eqn{t}.
+#' @param nT Integer. Number of time steps.
+#'
+#' @return A list of length \code{nT} where element \eqn{t} is the
+#'   \eqn{N \times 2S} covariate matrix \eqn{F_t}.
+#'
+#' @seealso \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}
+#' @export
 gen_F_ls_AR2 <- function(Y, nT){
   F_ls <- list()
   for (i in 1:nT) {
     if(i == 1){
-      # Ft <- cbind(1/2 * (Y[[2]] + Y[[3]]),
-      #             1/2 * (Y[[2]] + Y[[4]]))
-      # Ft <- cbind(gen_ran_matrix(nrow = nrow(Y[[1]]), ncol = ncol(Y[[1]])),
-      #             gen_ran_matrix(nrow = nrow(Y[[1]]), ncol = ncol(Y[[1]])))
       Ft <- cbind(Y[[1]],
                   0.01 * gen_ran_matrix(nrow = nrow(Y[[1]]), ncol = ncol(Y[[1]])))
       F_ls[[i]] <- Ft
     } else if(i == 2){
       Ft <- cbind(Y[[1]],
                   1/2 * (Y[[1]] + Y[[3]]))
-      # Ft <- cbind(1/2 * (Y[[1]] + Y[[3]]),
-      #             gen_ran_matrix(nrow = nrow(Y[[1]]), ncol = ncol(Y[[1]])))
       F_ls[[i]] <- Ft
     } else{
       Ft <- cbind(Y[[i - 2]], Y[[i - 1]])
-      # Ft <- cbind(1/2 * (Y[[i]] + Y[[i - 1]]),
-      #             Y[[i - 1]])
       F_ls[[i]] <- Ft
     }
   }
   return(F_ls)
 }
 
+#' Build AR(1) covariate list for the episode-block model
+#'
+#' Generates a flattened covariate list for the episode-partition (EP) model
+#' with AR(1) lags. The output list is indexed by \eqn{(t-1) \times n_b + j},
+#' where \eqn{j} is the block index and \eqn{t} is the time index.
+#'
+#' @param Y List of length \code{nT}. Each element is the full spatial data
+#'   matrix at time \eqn{t}.
+#' @param nT Integer. Number of time steps.
+#' @param n_b Integer. Number of spatial blocks.
+#' @param ind Data frame of block indices as returned by
+#'   \code{\link{generate_grid}}.
+#'
+#' @return A list of length \code{nT * n_b} with block-wise AR(1) covariate
+#'   matrices.
+#'
+#' @seealso \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}
+#' @export
 gen_F_ls_AR1_EP <- function(Y, nT, n_b, ind){
   out <- list()
   F_ls_full <- gen_F_ls_AR1(Y = Y, nT = nT)
@@ -292,10 +424,27 @@ gen_F_ls_AR1_EP <- function(Y, nT, n_b, ind){
       out[[(i-1)*n_b + j]] <- temp_F[ind[j,2]:ind[j,3], ind[j,4]:ind[j,5]]
     }
   }
-  # print("Ft using AR1")
   return(out)
 }
 
+#' Build AR(2) covariate list for the episode-block model
+#'
+#' Generates a flattened covariate list for the episode-partition (EP) model
+#' with AR(2) lags. Both lag-1 and lag-2 column blocks are extracted and
+#' column-bound for each spatial block.
+#'
+#' @param Y List of length \code{nT}. Each element is the full spatial data
+#'   matrix at time \eqn{t}.
+#' @param nT Integer. Number of time steps.
+#' @param n_b Integer. Number of spatial blocks.
+#' @param ind Data frame of block indices as returned by
+#'   \code{\link{generate_grid}}.
+#'
+#' @return A list of length \code{nT * n_b} with block-wise AR(2) covariate
+#'   matrices (each of width \eqn{2 \times \text{bncol}}).
+#'
+#' @seealso \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}
+#' @export
 gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
   out <- list()
   S <- ncol(Y[[1]])
@@ -307,12 +456,27 @@ gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
                                      c(ind[j,4]:ind[j,5], (S + (ind[j,4]:ind[j,5])))]
     }
   }
-  # print("Ft using AR2")
   return(out)
 }
 
 
-# recover form episode season model to regular data dimension
+#' Recover episode-partitioned data to original time dimension (exact)
+#'
+#' Reassembles a flattened episode-partitioned list (as produced by the EP
+#' model) back into a list indexed by the original \code{nT_ori} time steps.
+#' Assumes the number of blocks per season \code{n_block = nT / nT_ori} is an
+#' integer.
+#'
+#' @param dat_EP List of length \code{nT}. Flattened episode-partitioned data.
+#' @param nT_ori Integer. Number of original (non-partitioned) time steps.
+#' @param nT Integer. Total number of episode time steps
+#'   (\code{nT = nT_ori * n_block}).
+#'
+#' @return A named list of length \code{nT_ori} (\code{"T1"}, \ldots,
+#'   \code{"T<nT_ori>"}), each element a matrix covering one original time step.
+#'
+#' @seealso \code{\link{recover_from_EP_MC}}
+#' @export
 recover_from_EP_exact <- function(dat_EP, nT_ori, nT){
   if(length(dat_EP) != nT){
     stop("dimension of dat_EP doesn't match nT")
@@ -330,7 +494,22 @@ recover_from_EP_exact <- function(dat_EP, nT_ori, nT){
   return(out)
 }
 
-# recover for list of arrays
+#' Recover episode-partitioned posterior samples to original time dimension
+#'
+#' Reassembles a flattened episode-partitioned list of posterior sample arrays
+#' back into a list indexed by the original \code{nT_ori} time steps.
+#'
+#' @param dat_EP List of length \code{nT}. Each element is an array of
+#'   dimension \code{c(p, bncol, nsam)}.
+#' @param nT_ori Integer. Number of original time steps.
+#' @param nT Integer. Total number of episode time steps.
+#' @param nsam Integer. Number of posterior samples.
+#'
+#' @return A named list of length \code{nT_ori}. Each element is an array of
+#'   dimension \code{c(p, bncol * n_block, nsam)}.
+#'
+#' @seealso \code{\link{recover_from_EP_exact}}
+#' @export
 recover_from_EP_MC <- function(dat_EP, nT_ori, nT, nsam){
   if(length(dat_EP) != nT){
     stop("dimension of dat_EP doesn't match nT")

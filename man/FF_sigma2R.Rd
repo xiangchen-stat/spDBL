@@ -2,34 +2,48 @@
 % Please edit documentation in R/func_FF.R
 \name{FF_sigma2R}
 \alias{FF_sigma2R}
-\title{Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.}
+\title{Forward Filter for the scalar-sigma-squared-times-R model}
 \usage{
 FF_sigma2R(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1)
 }
 \arguments{
-\item{Y}{The data matrix.}
+\item{Y}{List of length \code{nT}. Each element is the \eqn{N \times S}
+data matrix at the corresponding time step.}
 
-\item{m0}{mean of beta_{t-1} | D_{t-1}}
+\item{F_ls}{Covariate matrix or list of matrices (see \code{\link{FF}}).}
 
-\item{M0}{left-covariance matrix of beta_{t-1} | D_{t-1}}
+\item{G_ls}{State transition matrix or list (see \code{\link{FF}}).}
 
-\item{n0}{the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}}
+\item{W_ls}{State noise left-covariance matrix or list (see \code{\link{FF}}).}
 
-\item{D0}{the scale matrix of the right-covariance matrix Sigma | D_{t-1}}
+\item{V_ls}{Observation noise left-covariance matrix or list
+(see \code{\link{FF}}).}
 
-\item{delta}{The right-variance matrix discount factor}
+\item{m0}{Numeric matrix. Prior state mean (\eqn{p \times S}).}
 
-\item{Ft}{The matrix of covariates F_t.}
+\item{M0}{Numeric matrix. Prior state left-covariance (\eqn{p \times p}).}
 
-\item{Gt}{G_t, the beta transition matrix.}
+\item{n0}{Numeric scalar. Prior shape of \eqn{\sigma^2}.}
 
-\item{Wt}{left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}}
+\item{D0}{Numeric scalar. Prior rate of \eqn{\sigma^2}.}
 
-\item{Vt}{left-covariance matrix of the noise parameter of Y}
+\item{nT}{Integer. Number of time steps.}
+
+\item{R}{Numeric matrix. Fixed spatial correlation matrix (\eqn{S \times S}).
+Its Cholesky inverse is used internally.}
+
+\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
+\code{1.0}.}
 }
 \value{
-The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+A named list of length \code{nT + 1} (same structure as
+\code{\link{FF}}) with an additional scalar \code{Dt} in place of a matrix.
 }
 \description{
-Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+Runs the full forward filtering pass over \code{nT} time steps under the
+model where the right covariance of \eqn{Y} is \eqn{\sigma^2 R} with
+\eqn{\sigma^2 \sim IG(n_0, d_0)}.
+}
+\seealso{
+\code{\link{FF_1step_R_sigma2R}}, \code{\link{FFBS_sigma2R}}
 }

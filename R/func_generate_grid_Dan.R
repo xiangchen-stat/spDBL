@@ -1,14 +1,43 @@
-#' Generate the indices for a grid for big data traversal. Indexes the grid by a number from 1 to K, where K is the total number of blocks partitioned using the grid.
+#' Generate block indices for big data grid traversal
 #'
-#' @param fnrow The number of rows in the file being read.
-#' @param fncol The number of columns in the file being read.
-#' @param bnrow The number of rows in each block being read.
-#' @param bncol The number of columns in each block being read.
-#' @param traversal.mode The way to traverse the grid. "rowsnake" refers to alternating left-right traversal. "lr" refers to left-right traversal throughout. Defaults to "rowsnake".
-#' @param is.flexible Whether or not to throw an error if bnrow or bncol do not perfectly divide fnrow and fncol respectively. If set, will override both is.flexible.row and is.flexible.col. Defaults to NULL.
-#' @param is.flexible.row Whether or not to throw an error if bnrow does not perfectly divide fnrow. Defaults to FALSE.
-#' @param is.flexible.col Whether or not to throw an error if bncol does not perfectly divide fncol. Defaults to FALSE.
-#' @returns A data.frame with the columns for block number, row upper index, row lower index, column left index, and column right index, in that order.
+#' Partitions a matrix or file into rectangular blocks and returns a data frame
+#' of block indices numbered from 1 to K (total number of blocks). Supports
+#' exact and flexible partitioning, and multiple traversal orders.
+#'
+#' @param fnrow Integer. Number of rows in the file or matrix.
+#' @param fncol Integer. Number of columns in the file or matrix.
+#' @param bnrow Integer. Number of rows per block.
+#' @param bncol Integer. Number of columns per block.
+#' @param traversal.mode Character. Traversal order for the grid. \code{"rowsnake"}
+#'   uses alternating left-right traversal (snake/boustrophedon order);
+#'   \code{"lr"} uses strict left-to-right traversal throughout. Defaults to
+#'   \code{"rowsnake"}.
+#' @param is.flexible Logical or \code{NULL}. If non-\code{NULL}, overrides both
+#'   \code{is.flexible.row} and \code{is.flexible.col}. When \code{TRUE}, allows
+#'   block dimensions that do not evenly divide the file dimensions. Defaults to
+#'   \code{NULL}.
+#' @param is.flexible.row Logical. If \code{FALSE}, an error is thrown when
+#'   \code{bnrow} does not evenly divide \code{fnrow}. Defaults to \code{FALSE}.
+#' @param is.flexible.col Logical. If \code{FALSE}, an error is thrown when
+#'   \code{bncol} does not evenly divide \code{fncol}. Defaults to \code{FALSE}.
+#'
+#' @return A \code{data.frame} with columns:
+#'   \describe{
+#'     \item{block_no}{Block index from 1 to K.}
+#'     \item{U}{Upper (first) row index of the block.}
+#'     \item{D}{Lower (last) row index of the block.}
+#'     \item{L}{Left (first) column index of the block.}
+#'     \item{R}{Right (last) column index of the block.}
+#'   }
+#'
+#' @examples
+#' # Exact partition with snake traversal
+#' generate_grid(100, 100, 10, 10)
+#'
+#' # Flexible partition (block size does not divide file size evenly)
+#' generate_grid(105, 103, 10, 10, is.flexible = TRUE)
+#'
+#' @export
 generate_grid <- function(fnrow, fncol, bnrow, bncol, traversal.mode = "rowsnake",
 			  is.flexible=NULL, is.flexible.row = FALSE, is.flexible.col = FALSE) {
     if (!is.null(is.flexible)) {
@@ -24,7 +53,25 @@ generate_grid <- function(fnrow, fncol, bnrow, bncol, traversal.mode = "rowsnake
     if (traversal.mode == "lr") return(generate.grid.lr(fnrow, fncol, bnrow, bncol))
 }
 
-# generate the grid analytically. Does not require a for loop and is designed to be fast.
+#' Generate an exact block grid analytically
+#'
+#' Computes block indices when block dimensions divide file dimensions exactly.
+#' Uses vectorised operations rather than a loop, making it fast for large grids.
+#'
+#' @param fnrow Integer. Number of rows in the file or matrix.
+#' @param fncol Integer. Number of columns in the file or matrix.
+#' @param bnrow Integer. Number of rows per block. Must divide \code{fnrow} exactly.
+#' @param bncol Integer. Number of columns per block. Must divide \code{fncol} exactly.
+#' @param traversal.mode Character. \code{"rowsnake"} or \code{"lr"}. See
+#'   \code{\link{generate_grid}} for details.
+#'
+#' @return A \code{data.frame} with columns \code{block_no}, \code{U}, \code{D},
+#'   \code{L}, \code{R}. See \code{\link{generate_grid}} for column descriptions.
+#'
+#' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.rowsnake}},
+#'   \code{\link{generate.grid.lr}}
+#'
+#' @export
 generate.grid.exact <- function(fnrow, fncol, bnrow, bncol, traversal.mode) {
     Kr <- fnrow/bnrow
     Kc <- fncol/bncol
@@ -42,7 +89,24 @@ generate.grid.exact <- function(fnrow, fncol, bnrow, bncol, traversal.mode) {
     return(out)
 }
 
-# The rowsnake version of the grid generation.
+#' Generate a flexible block grid with snake traversal
+#'
+#' Iteratively computes block indices using a snake (boustrophedon) traversal
+#' order. Handles cases where block dimensions do not evenly divide file
+#' dimensions by allowing the last block in each row or column to be smaller.
+#'
+#' @param fnrow Integer. Number of rows in the file or matrix.
+#' @param fncol Integer. Number of columns in the file or matrix.
+#' @param bnrow Integer. Number of rows per block.
+#' @param bncol Integer. Number of columns per block.
+#'
+#' @return A \code{data.frame} with columns \code{block_no}, \code{U}, \code{D},
+#'   \code{L}, \code{R}. See \code{\link{generate_grid}} for column descriptions.
+#'
+#' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
+#'   \code{\link{generate.grid.lr}}
+#'
+#' @export
 generate.grid.rowsnake <- function(fnrow, fncol, bnrow, bncol) {
     Kr <- ceiling(fnrow/bnrow)
     Kc <- ceiling(fncol/bncol)
@@ -94,6 +158,25 @@ generate.grid.rowsnake <- function(fnrow, fncol, bnrow, bncol) {
     return(out)
 }
 
+#' Generate a flexible block grid with left-to-right traversal
+#'
+#' Iteratively computes block indices using a strict left-to-right traversal
+#' order across all rows. Handles cases where block dimensions do not evenly
+#' divide file dimensions by allowing the last block in each row or column to
+#' be smaller.
+#'
+#' @param fnrow Integer. Number of rows in the file or matrix.
+#' @param fncol Integer. Number of columns in the file or matrix.
+#' @param bnrow Integer. Number of rows per block.
+#' @param bncol Integer. Number of columns per block.
+#'
+#' @return A \code{data.frame} with columns \code{block_no}, \code{U}, \code{D},
+#'   \code{L}, \code{R}. See \code{\link{generate_grid}} for column descriptions.
+#'
+#' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
+#'   \code{\link{generate.grid.rowsnake}}
+#'
+#' @export
 generate.grid.lr <- function(fnrow, fncol, bnrow, bncol) {
     Kr <- ceiling(fnrow/bnrow)
     Kc <- ceiling(fncol/bncol)
@@ -120,4 +203,3 @@ generate.grid.lr <- function(fnrow, fncol, bnrow, bncol) {
     }
     return(out)
 }
-

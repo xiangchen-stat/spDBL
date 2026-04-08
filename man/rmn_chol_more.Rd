@@ -2,22 +2,28 @@
 % Please edit documentation in R/func_gen_data.R
 \name{rmn_chol_more}
 \alias{rmn_chol_more}
-\title{Generate multivariate normal}
+\title{Draw multiple samples from a matrix-normal distribution (Cholesky parameterisation)}
 \usage{
 rmn_chol_more(nsam, m, RM, RSigma)
 }
 \arguments{
-\item{nsam}{Number of samples}
+\item{nsam}{Integer. Number of samples to draw.}
 
-\item{m}{Mean matrix}
+\item{m}{Numeric matrix. Mean matrix (\eqn{p \times S}).}
 
-\item{RM}{Upper-triangular Cholesky factor of row covariance matrix}
+\item{RM}{Numeric matrix. Upper-triangular Cholesky factor of the row
+covariance \eqn{U} (\eqn{p \times p}).}
 
-\item{RSigma}{Upper-triangular Cholesky factor of column covariance matrix}
+\item{RSigma}{Numeric matrix. Upper-triangular Cholesky factor of the column
+covariance \eqn{\Sigma} (\eqn{S \times S}).}
 }
 \value{
-A random multivariate normal matrix
+An array of dimension \code{c(p, S, nsam)}.
 }
 \description{
-Generate multivariate normal
+Draws \code{nsam} independent samples from \eqn{MN(m, U, \Sigma)} using
+the Cholesky factors of \eqn{U} and \eqn{\Sigma}.
+}
+\seealso{
+\code{\link{rmn_chol}}
 }

@@ -2,34 +2,50 @@
 % Please edit documentation in R/func_FFBS.R
 \name{FFBS}
 \alias{FFBS}
-\title{Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.}
+\title{Forward Filter Backward Sampler (MNIW model)}
 \usage{
 FFBS(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1)
 }
 \arguments{
-\item{Y}{The data matrix.}
+\item{Y}{List of length \code{nT}. Each element is the \eqn{N \times q}
+data matrix at the corresponding time step.}
 
-\item{F_ls}{The matrix of covariates F_t.}
+\item{F_ls}{Covariate matrix or list of matrices (see \code{\link{FF}}).}
 
-\item{G_ls}{G_t, the beta transition matrix.}
+\item{G_ls}{State transition matrix or list (see \code{\link{FF}}).}
 
-\item{W_ls}{leF_ls-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}}
+\item{W_ls}{State noise left-covariance matrix or list (see \code{\link{FF}}).}
 
-\item{V_ls}{leF_ls-covariance matrix of the noise parameter of Y}
+\item{V_ls}{Observation noise left-covariance matrix or list
+(see \code{\link{FF}}).}
 
-\item{m0}{mean of beta_{t-1} | D_{t-1}}
+\item{m0}{Numeric matrix. Prior state mean (\eqn{p \times q}).}
 
-\item{M0}{leF_ls-covariance matrix of beta_{t-1} | D_{t-1}}
+\item{M0}{Numeric matrix. Prior state left-covariance (\eqn{p \times p}).}
 
-\item{n0}{the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}}
+\item{n0}{Numeric scalar. Prior degrees of freedom of the inverse-Wishart.}
 
-\item{D0}{the scale matrix of the right-covariance matrix Sigma | D_{t-1}}
+\item{D0}{Numeric matrix. Prior scale matrix of the inverse-Wishart.}
 
-\item{delta}{The right-variance matrix discount factor}
+\item{nT}{Integer. Number of time steps.}
+
+\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
+\code{1.0}.}
 }
 \value{
-The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+A named list with:
+\describe{
+\item{ff}{Output of \code{\link{FF}}: filtered distributions for each
+time step.}
+\item{bs}{Output of \code{\link{BS}}: smoothed state means (\code{st})
+and left-covariances (\code{St}).}
+}
 }
 \description{
-Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+Runs the complete FFBS algorithm under the Matrix Normal Inverse Wishart
+(MNIW) model: first applies the forward filter (\code{\link{FF}}) and then
+the backward sampler (\code{\link{BS}}).
+}
+\seealso{
+\code{\link{FF}}, \code{\link{BS}}, \code{\link{FFBS_sampling}}
 }

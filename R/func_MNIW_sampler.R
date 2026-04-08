@@ -1,13 +1,28 @@
+#' Check and repair a matrix to be positive definite and symmetric
+#'
+#' Verifies that a matrix is approximately symmetric (within a relative and
+#' absolute tolerance). If so, symmetrises it and, if still not positive
+#' definite, adds a small diagonal ridge. Raises an error if the asymmetry
+#' exceeds the tolerance.
+#'
+#' @param C Numeric matrix to check.
+#' @param eps Numeric scalar. Absolute tolerance for the Frobenius norm of
+#'   \code{C - t(C)}. Defaults to \code{1e-5}.
+#' @param per Numeric scalar. Relative tolerance: the ratio of the asymmetry
+#'   norm to the mean of \code{C}. Defaults to \code{0.05}.
+#'
+#' @return The (possibly corrected) positive definite symmetric matrix.
+#'
+#' @seealso \code{\link{make_pds}}
+#' @export
 check_pds <- function(C, eps = 10^(-5), per = 0.05) {
-  # print(C)
   norm_f <- norm(C - t(C), type="F")
   condition <- ((norm_f / mean(C)) < per) || (norm_f < eps)
   if (condition) {
     C <- (C + t(C))/2
-    if (!is.positive.definite(C)) {
+    if (!matrixcalc::is.positive.definite(C)) {
       C <- C + 3 * 10^(-4) * diag(dim(C)[1])
       warning("Matrix is not positive definite.")
-      # print(tail(eigen(C)$values))
     }
     return(C)
   } else {
@@ -17,83 +32,112 @@ check_pds <- function(C, eps = 10^(-5), per = 0.05) {
 }
 
 
+#' Force a matrix to be positive definite and symmetric
+#'
+#' Symmetrises a matrix by averaging it with its transpose and, if the result
+#' is not positive definite, adds a small diagonal ridge.
+#'
+#' @param C Numeric matrix.
+#' @param eps Numeric scalar. Size of the diagonal ridge added when \code{C}
+#'   is not positive definite. Defaults to \code{1e-4}.
+#'
+#' @return The corrected positive definite symmetric matrix.
+#'
+#' @seealso \code{\link{check_pds}}
+#' @export
 make_pds <- function(C, eps = 10^(-4)) {
   C <- (C + t(C))/2
-  if (!is.positive.definite(C)) {
+  if (!matrixcalc::is.positive.definite(C)) {
     C <- C + eps * diag(dim(C)[1])
     warning("Matrix is not positive definite.")
   }
   return(C)
 }
 
-#' Sample from matrix-normal inverse wishart distribution
-#' Y = XB + E, E~MN(O, H, Sigma)
-#' Sigma~IW(v, S)
-#' B | Sigma~MN(C, Vb, Sigma)
+#' Sample from the Matrix Normal Inverse Wishart (MNIW) distribution
 #'
-#' @param nsam Number of samples
-#' @param X Covariate matrix
-#' @param H Row covariance matrix of Y
-#' @param v Degrees of freedom of IW
-#' @param S Scale matrix of IW
-#' @param C Mean matrix of B | Sigma
-#' @param Vb Row covariance matrix of  B | Sigma
-#' @returns List of samples of B and Sigma
+#' Draws \code{nsam} posterior samples of the regression coefficient matrix
+#' \eqn{B} and the covariance matrix \eqn{\Sigma} under the MNIW model:
+#' \deqn{Y = X B + E, \quad E \sim MN(0, H, \Sigma)}
+#' \deqn{\Sigma \sim IW(v, S), \quad B | \Sigma \sim MN(C, V_b, \Sigma).}
+#'
+#' @param nsam Integer. Number of samples to draw.
+#' @param X Numeric matrix. Covariate (design) matrix (\eqn{n \times p}).
+#' @param v Numeric scalar. Degrees of freedom of the inverse-Wishart prior on
+#'   \eqn{\Sigma}.
+#' @param S Numeric matrix. Scale matrix of the inverse-Wishart prior
+#'   (\eqn{q \times q}, positive definite).
+#' @param C Numeric matrix. Prior mean of \eqn{B | \Sigma} (\eqn{p \times q}).
+#' @param Vb Numeric matrix. Prior row covariance of \eqn{B | \Sigma}
+#'   (\eqn{p \times p}, positive definite).
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{sigma}{Array of dimension \code{c(q, q, nsam)} with samples of
+#'       \eqn{\Sigma}.}
+#'     \item{B}{Array of dimension \code{c(p, q, nsam)} with samples of
+#'       \eqn{B}.}
+#'   }
+#'
+#' @seealso \code{\link{MNIG_sampler}}, \code{\link{FFBS_sampling}}
 #' @export
 MNIW_sampler <- function(nsam, X, v, S, C, Vb){
   n <- nrow(X)
   p <- ncol(X)
   q <- ncol(S)
 
-  # adjust symmetric
-  # H <- check_pds(H)
-  # S <- check_pds(S)
-  # Vb <- check_pds(Vb)
-
   sigma <- matrixsampling::rinvwishart(nsam, nu = v, Omega = S, epsilon = 0, checkSymmetry = F)
   B <- array(dim = c(p, q, nsam))
 
-  # zero <- matrix(0, n, q)
-  # E <- array(dim = c(n, q, nsam))
-  # Y <- array(dim = c(n, q, nsam))
-
   for (i in 1:nsam) {
     B[,,i] <- rmn_cpp(m = C, U = Vb, V = sigma[,,i])
-    # B[,,i] <- rmatrixnormal(1, M = C, U = Vb, V = sigma[,,i], checkSymmetry = F, keep = F)
-    # E[,,i] <- rmatrixnormal(1, zero, H, sigma[,,i], checkSymmetry = F, keep = F)
-    # Y[,,i] <- X %*% B[,,i] + E[,,i]
   }
 
-  # out <- list(sigma = sigma, B = B, Y = Y)
   out <- list(sigma = sigma, B = B)
   return(out)
 }
 
-#' @param nsam Number of samples
-#' @param X Covariate matrix
-#' @param C Mean matrix of B | Sigma
-#' @param Vb Row covariance matrix of  B | Sigma
-#' @param v shape of inverse gamma
-#' @param S rate of inverse gamma
-#' @param R covariance kernel
-#' @returns List of samples of B and Sigma
+#' Sample from the Matrix Normal Inverse Gamma (MNIG) distribution
+#'
+#' Draws \code{nsam} posterior samples of the regression coefficient matrix
+#' \eqn{B} and the scalar variance \eqn{\sigma^2} under the MNIG model where
+#' the right covariance of \eqn{B | \sigma^2} is \eqn{\sigma^2 R}:
+#' \deqn{\sigma^2 \sim IG(v, S), \quad B | \sigma^2 \sim MN(C, V_b, \sigma^2 R).}
+#'
+#' @param nsam Integer. Number of samples to draw.
+#' @param X Numeric matrix. Covariate (design) matrix (\eqn{n \times p}).
+#' @param v Numeric scalar. Shape parameter of the inverse-gamma prior on
+#'   \eqn{\sigma^2}.
+#' @param S Numeric scalar. Rate parameter of the inverse-gamma prior on
+#'   \eqn{\sigma^2}.
+#' @param C Numeric matrix. Prior mean of \eqn{B | \sigma^2} (\eqn{p \times q}).
+#' @param Vb Numeric matrix. Prior row covariance of \eqn{B | \sigma^2}
+#'   (\eqn{p \times p}, positive definite).
+#' @param R Numeric matrix. Fixed right correlation matrix (\eqn{q \times q},
+#'   positive definite).
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{sigma2}{Numeric vector of length \code{nsam} with samples of
+#'       \eqn{\sigma^2}.}
+#'     \item{B}{Array of dimension \code{c(p, q, nsam)} with samples of
+#'       \eqn{B}.}
+#'   }
+#'
+#' @seealso \code{\link{MNIW_sampler}}, \code{\link{FFBS_sampling_sigma2R}}
 #' @export
 MNIG_sampler <- function(nsam, X, v, S, C, Vb, R){
   n <- nrow(X)
   p <- ncol(X)
   q <- ncol(C)
 
-  # adjust symmetric
   sigma2 <- invgamma::rinvgamma(n = nsam, shape = v, rate = S)
   B <- array(dim = c(p, q, nsam))
 
   for (i in 1:nsam) {
     B[,,i] <- rmn_cpp(m = C, U = Vb, V = sigma2[i] * R)
-    # B[,,i] <- rmatrixnormal(1, M = C, U = Vb, V = sigma2[i] * R, checkSymmetry = F, keep = F)
   }
 
   out <- list(sigma2 = sigma2, B = B)
   return(out)
 }
-
-

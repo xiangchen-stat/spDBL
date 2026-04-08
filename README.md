@@ -1,4 +1,4 @@
-# spDBL <a href="https://github.com/xiangchen-stat/spDBL"><img src="logo.png" align="right" height="138" alt="spDBL hex logo" /></a>
+# spDBL <a href="https://github.com/xiangchen-stat/spDBL"><img src="man/figures/logo.png" align="right" height="138" alt="spDBL hex logo" /></a>
 
 <!-- badges: start -->
 [![GitHub](https://img.shields.io/badge/GitHub-xiangchen--stat%2FspDBL-black?logo=github)](https://github.com/xiangchen-stat/spDBL)

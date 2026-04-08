@@ -2,13 +2,38 @@
 % Please edit documentation in R/func_BS.R
 \name{BS}
 \alias{BS}
-\title{Backward sampling}
+\title{Backward sampler for the Forward Filter Backward Sampler (FFBS)}
 \usage{
 BS(res_ff, G_ls, nT, delta = 1)
 }
+\arguments{
+\item{res_ff}{List of length \code{nT} (plus a \code{prior} element) returned
+by \code{\link{FF}}. Each element \code{res_ff[[t]]} must contain
+\code{mt}, \code{Mt}, \code{at}, and \code{At}.}
+
+\item{G_ls}{Either a single numeric matrix (state transition matrix \eqn{G},
+constant over time) or a list of \code{nT} matrices (time-varying).}
+
+\item{nT}{Integer. Number of time steps.}
+
+\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
+\code{1}.}
+}
 \value{
-st, St
+A named list with:
+\describe{
+\item{st}{Array of dimension \code{c(p, q, nT)} containing the smoothed
+state means.}
+\item{St}{Array of dimension \code{c(p, p, nT)} containing the smoothed
+state left-covariance matrices.}
+}
 }
 \description{
-Backward sampling
+Performs the backward sampling pass of the FFBS algorithm using the filtered
+distributions produced by \code{\link{FF}}. Iterates from time \eqn{T} back
+to \eqn{1}, drawing smoothed state samples at each step via
+\code{BS_1step_cpp}.
+}
+\seealso{
+\code{\link{FF}}, \code{\link{FFBS}}
 }

@@ -2,34 +2,41 @@
 % Please edit documentation in R/func_MNIW_sampler.R
 \name{MNIW_sampler}
 \alias{MNIW_sampler}
-\title{Sample from matrix-normal inverse wishart distribution
-Y = XB + E, E~MN(O, H, Sigma)
-Sigma~IW(v, S)
-B | Sigma~MN(C, Vb, Sigma)}
+\title{Sample from the Matrix Normal Inverse Wishart (MNIW) distribution}
 \usage{
 MNIW_sampler(nsam, X, v, S, C, Vb)
 }
 \arguments{
-\item{nsam}{Number of samples}
+\item{nsam}{Integer. Number of samples to draw.}
 
-\item{X}{Covariate matrix}
+\item{X}{Numeric matrix. Covariate (design) matrix (\eqn{n \times p}).}
 
-\item{v}{Degrees of freedom of IW}
+\item{v}{Numeric scalar. Degrees of freedom of the inverse-Wishart prior on
+\eqn{\Sigma}.}
 
-\item{S}{Scale matrix of IW}
+\item{S}{Numeric matrix. Scale matrix of the inverse-Wishart prior
+(\eqn{q \times q}, positive definite).}
 
-\item{C}{Mean matrix of B | Sigma}
+\item{C}{Numeric matrix. Prior mean of \eqn{B | \Sigma} (\eqn{p \times q}).}
 
-\item{Vb}{Row covariance matrix of  B | Sigma}
-
-\item{H}{Row covariance matrix of Y}
+\item{Vb}{Numeric matrix. Prior row covariance of \eqn{B | \Sigma}
+(\eqn{p \times p}, positive definite).}
 }
 \value{
-List of samples of B and Sigma
+A named list with:
+\describe{
+\item{sigma}{Array of dimension \code{c(q, q, nsam)} with samples of
+\eqn{\Sigma}.}
+\item{B}{Array of dimension \code{c(p, q, nsam)} with samples of
+\eqn{B}.}
+}
 }
 \description{
-Sample from matrix-normal inverse wishart distribution
-Y = XB + E, E~MN(O, H, Sigma)
-Sigma~IW(v, S)
-B | Sigma~MN(C, Vb, Sigma)
+Draws \code{nsam} posterior samples of the regression coefficient matrix
+\eqn{B} and the covariance matrix \eqn{\Sigma} under the MNIW model:
+\deqn{Y = X B + E, \quad E \sim MN(0, H, \Sigma)}
+\deqn{\Sigma \sim IW(v, S), \quad B | \Sigma \sim MN(C, V_b, \Sigma).}
+}
+\seealso{
+\code{\link{MNIG_sampler}}, \code{\link{FFBS_sampling}}
 }

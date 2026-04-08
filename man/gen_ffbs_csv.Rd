@@ -2,24 +2,33 @@
 % Please edit documentation in R/func_gen_data.R
 \name{gen_ffbs_csv}
 \alias{gen_ffbs_csv}
-\title{Generate FFBS related data}
+\title{Generate synthetic FFBS data and write to CSV files}
 \usage{
 gen_ffbs_csv(N, S, p, nT, path)
 }
 \arguments{
-\item{N}{Number of rows of Y}
+\item{N}{Integer. Number of spatial locations (rows of \eqn{Y_t}).}
 
-\item{S}{Number of columns of Y}
+\item{S}{Integer. Number of response variables (columns of \eqn{Y_t}).}
 
-\item{p}{Number of rows of Theta}
+\item{p}{Integer. Dimension of the state vector (must be \eqn{\geq 2}).}
 
-\item{nT}{Number of time stamps}
+\item{nT}{Integer. Number of time steps.}
 
-\item{path}{Path for saving generated data}
+\item{path}{Character. Directory path (with trailing \code{/}) where CSV
+files are written.}
 }
 \value{
-A list of .csv files: Y's m0 M0 G0 F0 Sigma RSigma(chol(Sigma)) V0 RVO(chol(V0)) W0
+Invisibly returns \code{NULL}. Files written: \code{m0.csv},
+\code{MM0.csv}, \code{G0.csv}, \code{F0.csv}, \code{Sigma.csv},
+\code{RSigma.csv}, \code{V0.csv}, \code{RV0.csv}, \code{W0.csv}, and
+\code{Y1.csv} through \code{Y<nT>.csv}.
 }
 \description{
-Generate FFBS related data
+Simulates data from the MNIW dynamic linear model for \code{nT} time steps
+and writes the observations \eqn{Y_1, \ldots, Y_T} and all model parameters
+to CSV files in \code{path}.
+}
+\seealso{
+\code{\link{gen_ffbs_data}}
 }

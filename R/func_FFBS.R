@@ -1,17 +1,35 @@
 # MNIW----
-#' Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+
+#' Forward Filter Backward Sampler (MNIW model)
 #'
-#' @param Y The data matrix.
-#' @param F_ls The matrix of covariates F_t.
-#' @param G_ls G_t, the beta transition matrix.
-#' @param m0 mean of beta_{t-1} | D_{t-1}
-#' @param M0 leF_ls-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param W_ls leF_ls-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param V_ls leF_ls-covariance matrix of the noise parameter of Y
-#' @param n0 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param D0 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Runs the complete FFBS algorithm under the Matrix Normal Inverse Wishart
+#' (MNIW) model: first applies the forward filter (\code{\link{FF}}) and then
+#' the backward sampler (\code{\link{BS}}).
+#'
+#' @param Y List of length \code{nT}. Each element is the \eqn{N \times q}
+#'   data matrix at the corresponding time step.
+#' @param F_ls Covariate matrix or list of matrices (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param W_ls State noise left-covariance matrix or list (see \code{\link{FF}}).
+#' @param V_ls Observation noise left-covariance matrix or list
+#'   (see \code{\link{FF}}).
+#' @param m0 Numeric matrix. Prior state mean (\eqn{p \times q}).
+#' @param M0 Numeric matrix. Prior state left-covariance (\eqn{p \times p}).
+#' @param n0 Numeric scalar. Prior degrees of freedom of the inverse-Wishart.
+#' @param D0 Numeric matrix. Prior scale matrix of the inverse-Wishart.
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
+#'   \code{1.0}.
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{ff}{Output of \code{\link{FF}}: filtered distributions for each
+#'       time step.}
+#'     \item{bs}{Output of \code{\link{BS}}: smoothed state means (\code{st})
+#'       and left-covariances (\code{St}).}
+#'   }
+#'
+#' @seealso \code{\link{FF}}, \code{\link{BS}}, \code{\link{FFBS_sampling}}
 #' @export
 FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
   # TODO FF_cpp, BS_cpp
@@ -21,7 +39,6 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
               m0 = m0, M0 = M0,
               n0 = n0, D0 = D0,
               nT = nT, delta = delta)
-  # print("Finish FF")
   res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
   print("Finish FFBS")
   out$ff <- res_ff
@@ -30,6 +47,28 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
 }
 
 
+#' Draw posterior samples from FFBS output (MNIW model)
+#'
+#' Given the filtered and smoothed distributions from \code{\link{FFBS}},
+#' draws \code{nsam} joint posterior samples of the state matrices
+#' \eqn{\Theta_1, \ldots, \Theta_T} and the covariance \eqn{\Sigma} using the
+#' MNIW sampler.
+#'
+#' @param nsam Integer. Number of posterior samples to draw.
+#' @param para_ffbs List. Output of \code{\link{FFBS}}, containing elements
+#'   \code{ff} and \code{bs}.
+#' @param F_ls Covariate matrix or list of matrices (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#'
+#' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
+#'   \code{"T<nT>"} are arrays of dimension \code{c(p, q, nsam)} containing
+#'   posterior samples of \eqn{\Theta_t}. The element \code{Sigma} is an array
+#'   of dimension \code{c(q, q, nsam)} containing posterior samples of
+#'   \eqn{\Sigma}.
+#'
+#' @seealso \code{\link{FFBS}}, \code{\link{MNIW_sampler}}
 #' @export
 FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
   out <- list()
@@ -93,8 +132,35 @@ FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
 
 
-#' prediction using monte carlo method to estimate post mean:st, to get mean of Y_new
+#' Monte Carlo prediction using FFBS output (MNIW model)
 #'
+#' Estimates posterior predictive means at new spatial locations using Monte
+#' Carlo integration over the posterior samples of the state \eqn{\Theta_t}.
+#' Uses an exponential GP kernel to compute the cross-covariance between
+#' observed and new locations.
+#'
+#' @param nsam Integer. Number of posterior samples to average over.
+#' @param Y List of length \code{nT}. Observed data matrices.
+#' @param res_ffbs List. Posterior samples of \eqn{\Theta_t}, as returned by
+#'   \code{\link{FFBS_sampling}}.
+#' @param F_ls Covariate matrix or list for observed locations.
+#' @param F_new_ls Covariate matrix or list for new (prediction) locations.
+#' @param input Numeric matrix. Coordinates of observed locations
+#'   (\eqn{N \times d}).
+#' @param input_new Numeric matrix or vector. Coordinates of new locations.
+#' @param nT Integer. Number of time steps.
+#' @param phi_para Numeric scalar. Range parameter of the exponential kernel.
+#' @param gp_sigma2 Numeric scalar. Variance parameter of the GP kernel.
+#'   Defaults to \code{1.1}.
+#' @param gp_tau2 Numeric scalar. Nugget variance of the GP kernel. Defaults to
+#'   \code{1e-4}.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list of length \code{nT}. Each element \code{"T<t>"} is an
+#'   array of dimension \code{c(N_new, q, nsam)} with posterior predictive mean
+#'   samples at the new locations.
+#'
+#' @seealso \code{\link{FFBS_predict_exact}}, \code{\link{gen_exp_kernel}}
 #' @export
 FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
                                      nT, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4),
@@ -137,7 +203,6 @@ FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
     for(j in 1:nsam){
       # Get Thetat
       Thetat <- res_ffbs[[i]][,,j]
-      # post_mean <- Ft_new %*% Thetat + t(Jt) %*% solve(Vt) %*% (Yt - Ft %*% Thetat)
       post_mean[,,j] <- Ft_new %*% Thetat + tJtVtinv %*% (Yt - Ft %*% Thetat)
 
     }
@@ -148,6 +213,32 @@ FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
   return(out)
 }
 
+#' Exact posterior predictive mean using FFBS smoothed states (MNIW model)
+#'
+#' Computes the analytical posterior predictive mean at new spatial locations
+#' using the smoothed state means \eqn{s_t} from \code{\link{FFBS}} and an
+#' exponential GP kernel for the cross-covariance.
+#'
+#' @param Y List of length \code{nT}. Observed data matrices.
+#' @param para_ffbs List. Output of \code{\link{FFBS}}, containing \code{ff}
+#'   and \code{bs}.
+#' @param F_ls Covariate matrix or list for observed locations.
+#' @param F_new_ls Covariate matrix or list for new locations.
+#' @param input Numeric matrix. Coordinates of observed locations.
+#' @param input_new Numeric matrix or vector. Coordinates of new locations.
+#' @param nT Integer. Number of time steps.
+#' @param phi_para Numeric scalar. Range parameter of the exponential kernel.
+#' @param gp_sigma2 Numeric scalar. Variance parameter of the GP kernel.
+#'   Defaults to \code{1.1}.
+#' @param gp_tau2 Numeric scalar. Nugget variance of the GP kernel. Defaults to
+#'   \code{1e-4}.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list of length \code{nT}. Each element \code{"T<t>"} is a
+#'   matrix of dimension \code{c(N_new, q)} with the posterior predictive mean
+#'   at the new locations.
+#'
+#' @seealso \code{\link{FFBS_predict_MC}}, \code{\link{gen_exp_kernel}}
 #' @export
 FFBS_predict_exact <- function(Y, para_ffbs, F_ls, F_new_ls, input, input_new,
                                nT, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4),
@@ -199,19 +290,31 @@ FFBS_predict_exact <- function(Y, para_ffbs, F_ls, F_new_ls, input, input_new,
 
 
 # sigma2R----
-#' Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+
+#' Forward Filter Backward Sampler (scalar sigma-squared-times-R model)
 #'
-#' @param Y The data matrix.
-#' @param F_ls The matrix of covariates F_t.
-#' @param G_ls G_t, the beta transition matrix.
-#' @param m0 mean of beta_{t-1} | D_{t-1}
-#' @param M0 leF_ls-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param W_ls leF_ls-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param V_ls leF_ls-covariance matrix of the noise parameter of Y
-#' @param n0 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param D0 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Runs the complete FFBS algorithm under the model where the right covariance
+#' is \eqn{\sigma^2 R} with \eqn{\sigma^2 \sim IG(n_0, d_0)}.
+#'
+#' @param Y List of length \code{nT}. Data matrices.
+#' @param F_ls Covariate matrix or list (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param W_ls State noise left-covariance matrix or list (see \code{\link{FF}}).
+#' @param V_ls Observation noise left-covariance matrix or list
+#'   (see \code{\link{FF}}).
+#' @param m0 Numeric matrix. Prior state mean.
+#' @param M0 Numeric matrix. Prior state left-covariance.
+#' @param n0 Numeric scalar. Prior shape of \eqn{\sigma^2}.
+#' @param D0 Numeric scalar. Prior rate of \eqn{\sigma^2}.
+#' @param nT Integer. Number of time steps.
+#' @param R Numeric matrix. Fixed spatial correlation matrix.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list with \code{ff} (output of \code{\link{FF_sigma2R}}) and
+#'   \code{bs} (output of \code{\link{BS}}).
+#'
+#' @seealso \code{\link{FF_sigma2R}}, \code{\link{BS}},
+#'   \code{\link{FFBS_sampling_sigma2R}}
 #' @export
 FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1.0){
   # TODO FF_cpp, BS_cpp
@@ -221,7 +324,6 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta
                         m0 = m0, M0 = M0,
                         n0 = n0, D0 = D0,
                         nT = nT, R = R, delta = delta)
-  # print("Finish FF")
   res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
   print("Finish FFBS")
   out$ff <- res_ff
@@ -230,6 +332,26 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta
 }
 
 
+#' Draw posterior samples from FFBS output (scalar sigma-squared-times-R model)
+#'
+#' Draws \code{nsam} posterior samples of the state \eqn{\Theta_t} and the
+#' scalar variance \eqn{\sigma^2} using the MNIG sampler, given the FFBS output
+#' under the scalar-sigma model.
+#'
+#' @param nsam Integer. Number of posterior samples.
+#' @param para_ffbs List. Output of \code{\link{FFBS_sigma2R}}.
+#' @param F_ls Covariate matrix or list (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param nT Integer. Number of time steps.
+#' @param R Numeric matrix. Fixed spatial correlation matrix.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#'
+#' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
+#'   \code{"T<nT>"} are arrays of dimension \code{c(p, q, nsam)} with state
+#'   samples. The element \code{Sigma} is a vector of length \code{nsam} with
+#'   samples of \eqn{\sigma^2}.
+#'
+#' @seealso \code{\link{FFBS_sigma2R}}, \code{\link{MNIG_sampler}}
 #' @export
 FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1){
   out <- list()
@@ -285,6 +407,27 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
 
 
 # I-----
+
+#' Forward Filter Backward Sampler (identity right-covariance)
+#'
+#' Runs the complete FFBS algorithm with the right covariance fixed at the
+#' identity matrix (no inverse-Wishart update for \eqn{\Sigma}).
+#'
+#' @param Y List of length \code{nT}. Data matrices.
+#' @param F_ls Covariate matrix or list (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param W_ls State noise left-covariance matrix or list (see \code{\link{FF}}).
+#' @param V_ls Observation noise left-covariance matrix or list
+#'   (see \code{\link{FF}}).
+#' @param m0 Numeric matrix. Prior state mean.
+#' @param M0 Numeric matrix. Prior state left-covariance.
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list with \code{ff} (output of \code{\link{FF_I}}) and
+#'   \code{bs} (output of \code{\link{BS}}).
+#'
+#' @seealso \code{\link{FF_I}}, \code{\link{BS}}, \code{\link{FFBS_sampling_I}}
 #' @export
 FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
   # TODO FF_cpp, BS_cpp
@@ -293,7 +436,6 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
                                 W_ls = W_ls, V_ls = V_ls,
                                 m0 = m0, M0 = M0,
                                 nT = nT, delta = delta)
-  # print("Finish FF")
   res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
   print("Finish FFBS")
   out$ff <- res_ff
@@ -301,6 +443,24 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
   return(out)
 }
 
+#' Draw posterior samples from FFBS output (identity right-covariance)
+#'
+#' Draws \code{nsam} posterior samples of the state \eqn{\Theta_t} from the
+#' smoothed distributions produced by \code{\link{FFBS_I}}, assuming an
+#' identity right-covariance matrix.
+#'
+#' @param nsam Integer. Number of posterior samples.
+#' @param para_ffbs List. Output of \code{\link{FFBS_I}}.
+#' @param F_ls Covariate matrix or list (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#'
+#' @return A named list of length \code{nT}. Each element \code{"T<t>"} is an
+#'   array of dimension \code{c(p, q, nsam)} with posterior samples of the
+#'   state at time \eqn{t}.
+#'
+#' @seealso \code{\link{FFBS_I}}
 #' @export
 FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
   out <- list()
@@ -347,4 +507,3 @@ FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
   return(out)
 }
-

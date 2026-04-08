@@ -2,20 +2,28 @@
 % Please edit documentation in R/func_gen_data.R
 \name{rmn_chol}
 \alias{rmn_chol}
-\title{Generate multivariate normal}
+\title{Draw one sample from a matrix-normal distribution (Cholesky parameterisation)}
 \usage{
 rmn_chol(m, RM, RSigma)
 }
 \arguments{
-\item{m}{Mean matrix}
+\item{m}{Numeric matrix. Mean matrix (\eqn{p \times S}).}
 
-\item{RM}{Upper-triangular Cholesky factor of row covariance matrix}
+\item{RM}{Numeric matrix. Upper-triangular Cholesky factor of the row
+covariance \eqn{U} (\eqn{p \times p}).}
 
-\item{RSigma}{Upper-triangular Cholesky factor of column covariance matrix}
+\item{RSigma}{Numeric matrix. Upper-triangular Cholesky factor of the column
+covariance \eqn{\Sigma} (\eqn{S \times S}).}
 }
 \value{
-A random multivariate normal matrix
+A numeric matrix of dimension \code{c(p, S)}.
 }
 \description{
-Generate multivariate normal
+Samples \eqn{\Theta \sim MN(m, U, \Sigma)} using the upper-triangular
+Cholesky factors \code{RM} and \code{RSigma} of \eqn{U} and \eqn{\Sigma}
+respectively: \eqn{\Theta = m + \text{RM}^\top Z \, \text{RSigma}}, where
+\eqn{Z} has i.i.d. standard normal entries.
+}
+\seealso{
+\code{\link{rmn_chol_more}}
 }

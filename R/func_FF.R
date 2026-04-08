@@ -1,10 +1,25 @@
+#' Read a rectangular block from a large CSV file
+#'
+#' Efficiently reads a contiguous rectangular block of rows and columns from a
+#' CSV file using \code{readr::read_csv}. Useful for processing big data in
+#' chunks without loading the entire file into memory.
+#'
+#' @param filename Character. Path to the CSV file.
+#' @param rows Integer vector of length 2 giving the first and last row indices
+#'   to read (1-based, excluding the header row if \code{header = TRUE}).
+#'   Use \code{c(1, Inf)} to read all rows. Defaults to \code{c(1, Inf)}.
+#' @param cols Integer vector of length 2 giving the first and last column
+#'   indices to read. Use \code{c(1, Inf)} to read all columns. Defaults to
+#'   \code{c(1, Inf)}.
+#' @param header Logical. Whether the file has a header row. Defaults to
+#'   \code{TRUE}.
+#'
+#' @return A \code{tibble} (from \code{readr}) containing the requested block.
+#'
+#' @export
 read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), header=TRUE) {
 
   if (is.finite(cols[2])) {
-    # headers <- as.character(as.vector(read_csv(filename,
-    #                                            col_names = FALSE, n_max = 1,
-    #                                            col_select = cols[1]:cols[2],
-    #                                            show_col_types=FALSE)))
     #TODO: How to suppress progress bar here?
     out <- read_csv(file = filename, col_names = FALSE,
                     skip = rows[1] - 1 + as.integer(header),
@@ -14,15 +29,12 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 
   } else {
     #TODO: something is going on with this read_csv that is throwing an error, but when I run it in the R shell, it works fine. Oddly, neglecting this option does not throw an error.
-    # headers <- read_csv(filename, col_names = FALSE, n_max = 1,
-    #                     show_col_types=FALSE)
     out <- read_csv(file = filename, col_names = FALSE,
                     skip = rows[1] - 1 + as.integer(header),
                     n_max = rows[2] - rows[1] + 1,
                     show_col_types = FALSE)
   }
 
-  # if (header) colnames(out) <- headers
   return(out)
 }
 
@@ -30,19 +42,42 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 ## MNIW----
 
 # TODO FF_cpp
-#' Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+#' Forward Filter for the MNIW dynamic linear model
 #'
-#' @param Y The data matrix.
-#' @param Ft The matrix of covariates F_t.
-#' @param Gt G_t, the beta transition matrix.
-#' @param m0 mean of beta_{t-1} | D_{t-1}
-#' @param M0 left-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param Wt left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param Vt left-covariance matrix of the noise parameter of Y
-#' @param n0 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param D0 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Runs the full forward filtering pass over \code{nT} time steps under the
+#' Matrix Normal Inverse Wishart (MNIW) model. At each step, calls
+#' \code{FF_1step_cpp} to update the state mean and covariance as well as the
+#' inverse-Wishart parameters for the right-covariance matrix \eqn{\Sigma}.
+#'
+#' @param Y List of length \code{nT}. Each element \code{Y[[t]]} is the
+#'   \eqn{N \times q} data matrix at time \eqn{t}.
+#' @param F_ls Either a single \eqn{N \times p} covariate matrix (constant
+#'   over time) or a list of \code{nT} such matrices (time-varying).
+#' @param G_ls Either a single \eqn{p \times p} state transition matrix or a
+#'   list of \code{nT} such matrices.
+#' @param W_ls Either a single \eqn{p \times p} state noise left-covariance
+#'   matrix or a list of \code{nT} such matrices.
+#' @param V_ls Either a single \eqn{N \times N} observation noise left-covariance
+#'   matrix or a list of \code{nT} such matrices.
+#' @param m0 Numeric matrix. Prior mean of the state \eqn{\beta_0 | D_0}
+#'   (\eqn{p \times q}).
+#' @param M0 Numeric matrix. Prior left-covariance of \eqn{\beta_0 | D_0}
+#'   (\eqn{p \times p}).
+#' @param n0 Numeric scalar. Prior degrees of freedom of the inverse-Wishart on
+#'   \eqn{\Sigma | D_0}.
+#' @param D0 Numeric matrix. Prior scale matrix of the inverse-Wishart on
+#'   \eqn{\Sigma | D_0} (\eqn{q \times q}).
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Discount factor for the right-variance matrix.
+#'   Defaults to \code{1.0}.
+#'
+#' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
+#'   \code{"T<nT>"} each contain a list with filtered parameters
+#'   \code{nt}, \code{Dt}, \code{at}, \code{At}, \code{mt}, \code{Mt}.
+#'   The additional element \code{prior} stores \code{m0}, \code{M0},
+#'   \code{n0}, \code{D0}.
+#'
+#' @seealso \code{\link{BS}}, \code{\link{FFBS}}
 #' @export
 FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
   out <- list()
@@ -104,19 +139,54 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
 
 
 
-#' Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+#' Forward Filter for big data stored in CSV files (MNIW model)
 #'
-#' @param Y The data matrix.
-#' @param Ft The matrix of covariates F_t.
-#' @param Gt G_t, the beta transition matrix.
-#' @param m0 mean of beta_{t-1} | D_{t-1}
-#' @param M0 left-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param Wt left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param Vt left-covariance matrix of the noise parameter of Y
-#' @param n0 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param D0 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Runs the forward filtering pass for large datasets that are partitioned into
+#' spatial blocks and stored as CSV files on disk. At each time step the spatial
+#' domain is traversed block-by-block using a snake traversal order (see
+#' \code{\link{generate.grid.rowsnake}}), and results are written to disk to
+#' avoid exhausting memory.
+#'
+#' @param Y_ls Character vector of length \code{nT}. File paths to the response
+#'   CSV files, one per time step.
+#' @param F_ls Either a single file path (constant \eqn{F_t}) or a character
+#'   vector of length \code{nT} (time-varying). Can also contain a second set
+#'   of columns (AR2 lags) for the same file at offset \code{fncol}.
+#' @param G_ls Either a single file path (constant \eqn{G_t}) or a character
+#'   vector of length \code{nT} (time-varying).
+#' @param W_ls Either a single file path (constant \eqn{W_t}) or a character
+#'   vector of length \code{nT} (time-varying).
+#' @param V_ls Either a single file path (constant \eqn{V_t}) or a character
+#'   vector of length \code{nT} (time-varying). Expected to be a square block
+#'   submatrix indexed by the row range of each spatial block.
+#' @param m0 Numeric matrix. Prior state mean (\eqn{p \times q}).
+#' @param M0 Numeric matrix. Prior left-covariance of the state (\eqn{p \times p}).
+#' @param n0 Numeric scalar. Prior degrees of freedom of the inverse-Wishart.
+#' @param D0 Numeric matrix. Prior scale matrix of the inverse-Wishart.
+#' @param nT Integer. Number of time steps (files).
+#' @param fnrow Integer. Total number of rows in each data file.
+#' @param fncol Integer. Total number of columns in each data file.
+#' @param bnrow Integer. Number of rows per spatial block.
+#' @param bncol Integer. Number of columns per spatial block.
+#' @param path_out Character. Directory path where output CSV files are written.
+#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
+#'   \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, prints progress messages. Defaults to
+#'   \code{FALSE}.
+#'
+#' @return A named list of character vectors with paths to the output CSV files:
+#'   \describe{
+#'     \item{nt_ls}{Paths to filtered degrees-of-freedom files.}
+#'     \item{Dt_ls}{Paths to filtered scale-matrix files.}
+#'     \item{mt_ls}{Paths to filtered state-mean files.}
+#'     \item{Mt_ls}{Paths to filtered left-covariance files.}
+#'     \item{at_ls}{Paths to predicted state-mean files.}
+#'     \item{At_ls}{Paths to predicted left-covariance files.}
+#'     \item{FT}{Path to the covariate matrix at the final time step.}
+#'     \item{VT}{Path to the noise covariance matrix at the final time step.}
+#'   }
+#'
+#' @seealso \code{\link{FF}}, \code{\link{generate.grid.rowsnake}}
 #' @export
 FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
                                 m0, M0, n0, D0, nT,
@@ -125,8 +195,6 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
   # generate index
   ind <- generate.grid.rowsnake(fnrow = fnrow, fncol = fncol, bnrow = bnrow, bncol = bncol)
   n_b <- dim(ind)[1] # number of blocks
-  # n_r <- fnrow / bnrow
-  # n_c <- fncol / bncol
 
   # initialize matirces if Gt and Wt never changes
   if(length(G_ls) == 1){
@@ -224,7 +292,6 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
                                Wt = Wt, Vt = Vt,
                                mt_1 = mt_1, Mt_1 = Mt_1,
                                nt_1 = nt_1, Dt_1 = Dt_1, delta = delta)
-      # one_step <- one_step[c("nt", "Dt", "at", "At", "mt", "Mt")] # extract parameters
       if(i == 1){
         out$nt <- one_step$nt
         out$Dt <- one_step$Dt
@@ -258,10 +325,6 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
     if(verbose == TRUE){
       print(paste0("Forward filter", f, "/", nT))
       print(Sys.time())
-      # if(f %% 10 == 0){
-      #   print(paste("Finish FF at time", f, "/", nT))
-      #   print(Sys.time())
-      # }
     }
   }
 
@@ -285,19 +348,43 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
 }
 
 ##sigma2R----
-#' one time step for the Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+
+#' Single forward filter step (scalar right-covariance, sigma-squared times R)
 #'
-#' @param Yt The data matrix for epoch t.
-#' @param Ft The matrix of covariates F_t.
-#' @param Gt G_t, the beta transition matrix.
-#' @param mt_1 mean of beta_{t-1} | D_{t-1}
-#' @param Mt_1 left-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param Wt left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param Vt left-covariance matrix of the noise parameter of Y
-#' @param nt_1 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param Dt_1 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Performs one step of the forward filter under the model where the right
+#' covariance of \eqn{Y} is \eqn{\sigma^2 R} with \eqn{\sigma^2 \sim IG(n, d)}.
+#' The inverse of \eqn{R} (\code{Rinv}) must be precomputed and passed in.
+#'
+#' @param Yt Numeric matrix. Data matrix at time \eqn{t} (\eqn{N \times S}).
+#' @param Ft Numeric matrix. Covariate matrix at time \eqn{t} (\eqn{N \times p}).
+#' @param Gt Numeric matrix. State transition matrix at time \eqn{t}
+#'   (\eqn{p \times p}).
+#' @param Wt Numeric matrix. State noise left-covariance at time \eqn{t}
+#'   (\eqn{p \times p}).
+#' @param Vt Numeric matrix. Observation noise left-covariance at time \eqn{t}
+#'   (\eqn{N \times N}).
+#' @param mt_1 Numeric matrix. Filtered state mean at \eqn{t-1} (\eqn{p \times S}).
+#' @param Mt_1 Numeric matrix. Filtered state left-covariance at \eqn{t-1}
+#'   (\eqn{p \times p}).
+#' @param nt_1 Numeric scalar. Shape parameter of \eqn{\sigma^2 | D_{t-1}}.
+#' @param Dt_1 Numeric scalar. Rate parameter of \eqn{\sigma^2 | D_{t-1}}.
+#' @param Rinv Numeric matrix. Precomputed inverse of the spatial correlation
+#'   matrix \eqn{R} (\eqn{S \times S}).
+#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
+#'   \code{1.0}.
+#'
+#' @return A named list with updated filtering parameters:
+#'   \describe{
+#'     \item{nt}{Updated shape parameter.}
+#'     \item{Dt}{Updated rate parameter.}
+#'     \item{at}{One-step-ahead state mean (\eqn{p \times S}).}
+#'     \item{At}{One-step-ahead state left-covariance (\eqn{p \times p}).}
+#'     \item{mt}{Filtered state mean (\eqn{p \times S}).}
+#'     \item{Mt}{Filtered state left-covariance (\eqn{p \times p}).}
+#'     \item{delta}{The discount factor passed in.}
+#'   }
+#'
+#' @seealso \code{\link{FF_sigma2R}}
 #' @export
 FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv, delta = 1.0){
   N <- dim(Yt)[1]
@@ -322,19 +409,33 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
 
 
 
-#' Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+#' Forward Filter for the scalar-sigma-squared-times-R model
 #'
-#' @param Y The data matrix.
-#' @param Ft The matrix of covariates F_t.
-#' @param Gt G_t, the beta transition matrix.
-#' @param m0 mean of beta_{t-1} | D_{t-1}
-#' @param M0 left-covariance matrix of beta_{t-1} | D_{t-1}
-#' @param Wt left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}
-#' @param Vt left-covariance matrix of the noise parameter of Y
-#' @param n0 the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}
-#' @param D0 the scale matrix of the right-covariance matrix Sigma | D_{t-1}
-#' @param delta The right-variance matrix discount factor
-#' @returns The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+#' Runs the full forward filtering pass over \code{nT} time steps under the
+#' model where the right covariance of \eqn{Y} is \eqn{\sigma^2 R} with
+#' \eqn{\sigma^2 \sim IG(n_0, d_0)}.
+#'
+#' @param Y List of length \code{nT}. Each element is the \eqn{N \times S}
+#'   data matrix at the corresponding time step.
+#' @param F_ls Covariate matrix or list of matrices (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param W_ls State noise left-covariance matrix or list (see \code{\link{FF}}).
+#' @param V_ls Observation noise left-covariance matrix or list
+#'   (see \code{\link{FF}}).
+#' @param m0 Numeric matrix. Prior state mean (\eqn{p \times S}).
+#' @param M0 Numeric matrix. Prior state left-covariance (\eqn{p \times p}).
+#' @param n0 Numeric scalar. Prior shape of \eqn{\sigma^2}.
+#' @param D0 Numeric scalar. Prior rate of \eqn{\sigma^2}.
+#' @param nT Integer. Number of time steps.
+#' @param R Numeric matrix. Fixed spatial correlation matrix (\eqn{S \times S}).
+#'   Its Cholesky inverse is used internally.
+#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
+#'   \code{1.0}.
+#'
+#' @return A named list of length \code{nT + 1} (same structure as
+#'   \code{\link{FF}}) with an additional scalar \code{Dt} in place of a matrix.
+#'
+#' @seealso \code{\link{FF_1step_R_sigma2R}}, \code{\link{FFBS_sigma2R}}
 #' @export
 FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1.0){
   if (!is.null(dim(D0)) || length(D0) != 1) {
@@ -393,7 +494,6 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta =
                                    mt_1 = mt_1, Mt_1 = Mt_1,
                                    nt_1 = nt_1, Dt_1 = Dt_1,
                                    Rinv = Rinv, delta = delta)
-    # one_step <- one_step[c("nt", "Dt", "at", "At", "mt", "Mt")] # extract parameters
     out[[i]] <- one_step # save results
   }
 
@@ -404,6 +504,33 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta =
 }
 
 # I----
+
+#' Single forward filter step (identity right-covariance)
+#'
+#' Performs one step of the forward filter under the model where the right
+#' covariance of the state and observation is the identity matrix (no
+#' inverse-Wishart update for \eqn{\Sigma}).
+#'
+#' @param Yt Numeric matrix. Data matrix at time \eqn{t} (\eqn{N \times S}).
+#' @param Ft Numeric matrix. Covariate matrix at time \eqn{t} (\eqn{N \times p}).
+#' @param Gt Numeric matrix. State transition matrix (\eqn{p \times p}).
+#' @param Wt Numeric matrix. State noise left-covariance (\eqn{p \times p}).
+#' @param Vt Numeric matrix. Observation noise left-covariance (\eqn{N \times N}).
+#' @param mt_1 Numeric matrix. Filtered state mean at \eqn{t-1} (\eqn{p \times S}).
+#' @param Mt_1 Numeric matrix. Filtered state left-covariance at \eqn{t-1}
+#'   (\eqn{p \times p}).
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{at}{One-step-ahead state mean.}
+#'     \item{At}{One-step-ahead state left-covariance.}
+#'     \item{mt}{Filtered state mean.}
+#'     \item{Mt}{Filtered state left-covariance.}
+#'     \item{delta}{The discount factor passed in.}
+#'   }
+#'
+#' @seealso \code{\link{FF_I}}
 #' @export
 FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
   N <- dim(Yt)[1]
@@ -425,6 +552,29 @@ FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
 }
 
 
+#' Forward Filter with identity right-covariance
+#'
+#' Runs the full forward filtering pass over \code{nT} time steps under the
+#' model where the right covariance is fixed at the identity (no
+#' inverse-Wishart update). Calls \code{\link{FF_1step_R_I}} at each step.
+#'
+#' @param Y List of length \code{nT}. Each element is the data matrix at time
+#'   \eqn{t}.
+#' @param F_ls Covariate matrix or list of matrices (see \code{\link{FF}}).
+#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param W_ls State noise left-covariance matrix or list (see \code{\link{FF}}).
+#' @param V_ls Observation noise left-covariance matrix or list
+#'   (see \code{\link{FF}}).
+#' @param m0 Numeric matrix. Prior state mean.
+#' @param M0 Numeric matrix. Prior state left-covariance.
+#' @param nT Integer. Number of time steps.
+#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#'
+#' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
+#'   \code{"T<nT>"} contain \code{at}, \code{At}, \code{mt}, \code{Mt}. The
+#'   element \code{prior} stores \code{m0} and \code{M0}.
+#'
+#' @seealso \code{\link{FF_1step_R_I}}, \code{\link{FFBS_I}}
 #' @export
 FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
   out <- list()
@@ -470,7 +620,6 @@ FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
                                    Wt = Wt, Vt = Vt,
                                    mt_1 = mt_1, Mt_1 = Mt_1,
                                    delta = delta)
-    # one_step <- one_step[c("nt", "Dt", "at", "At", "mt", "Mt")] # extract parameters
     out[[i]] <- one_step # save results
   }
 

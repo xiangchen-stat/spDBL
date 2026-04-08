@@ -2,34 +2,56 @@
 % Please edit documentation in R/func_FF.R
 \name{FF_1step_R_sigma2R}
 \alias{FF_1step_R_sigma2R}
-\title{one time step for the Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.}
+\title{Single forward filter step (scalar right-covariance, sigma-squared times R)}
 \usage{
 FF_1step_R_sigma2R(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv, delta = 1)
 }
 \arguments{
-\item{Yt}{The data matrix for epoch t.}
+\item{Yt}{Numeric matrix. Data matrix at time \eqn{t} (\eqn{N \times S}).}
 
-\item{Ft}{The matrix of covariates F_t.}
+\item{Ft}{Numeric matrix. Covariate matrix at time \eqn{t} (\eqn{N \times p}).}
 
-\item{Gt}{G_t, the beta transition matrix.}
+\item{Gt}{Numeric matrix. State transition matrix at time \eqn{t}
+(\eqn{p \times p}).}
 
-\item{Wt}{left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}}
+\item{Wt}{Numeric matrix. State noise left-covariance at time \eqn{t}
+(\eqn{p \times p}).}
 
-\item{Vt}{left-covariance matrix of the noise parameter of Y}
+\item{Vt}{Numeric matrix. Observation noise left-covariance at time \eqn{t}
+(\eqn{N \times N}).}
 
-\item{mt_1}{mean of beta_{t-1} | D_{t-1}}
+\item{mt_1}{Numeric matrix. Filtered state mean at \eqn{t-1} (\eqn{p \times S}).}
 
-\item{Mt_1}{left-covariance matrix of beta_{t-1} | D_{t-1}}
+\item{Mt_1}{Numeric matrix. Filtered state left-covariance at \eqn{t-1}
+(\eqn{p \times p}).}
 
-\item{nt_1}{the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}}
+\item{nt_1}{Numeric scalar. Shape parameter of \eqn{\sigma^2 | D_{t-1}}.}
 
-\item{Dt_1}{the scale matrix of the right-covariance matrix Sigma | D_{t-1}}
+\item{Dt_1}{Numeric scalar. Rate parameter of \eqn{\sigma^2 | D_{t-1}}.}
 
-\item{delta}{The right-variance matrix discount factor}
+\item{Rinv}{Numeric matrix. Precomputed inverse of the spatial correlation
+matrix \eqn{R} (\eqn{S \times S}).}
+
+\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
+\code{1.0}.}
 }
 \value{
-The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+A named list with updated filtering parameters:
+\describe{
+\item{nt}{Updated shape parameter.}
+\item{Dt}{Updated rate parameter.}
+\item{at}{One-step-ahead state mean (\eqn{p \times S}).}
+\item{At}{One-step-ahead state left-covariance (\eqn{p \times p}).}
+\item{mt}{Filtered state mean (\eqn{p \times S}).}
+\item{Mt}{Filtered state left-covariance (\eqn{p \times p}).}
+\item{delta}{The discount factor passed in.}
+}
 }
 \description{
-one time step for the Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+Performs one step of the forward filter under the model where the right
+covariance of \eqn{Y} is \eqn{\sigma^2 R} with \eqn{\sigma^2 \sim IG(n, d)}.
+The inverse of \eqn{R} (\code{Rinv}) must be precomputed and passed in.
+}
+\seealso{
+\code{\link{FF_sigma2R}}
 }

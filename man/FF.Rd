@@ -2,34 +2,56 @@
 % Please edit documentation in R/func_FF.R
 \name{FF}
 \alias{FF}
-\title{Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.}
+\title{Forward Filter for the MNIW dynamic linear model}
 \usage{
 FF(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1)
 }
 \arguments{
-\item{Y}{The data matrix.}
+\item{Y}{List of length \code{nT}. Each element \code{Y[[t]]} is the
+\eqn{N \times q} data matrix at time \eqn{t}.}
 
-\item{m0}{mean of beta_{t-1} | D_{t-1}}
+\item{F_ls}{Either a single \eqn{N \times p} covariate matrix (constant
+over time) or a list of \code{nT} such matrices (time-varying).}
 
-\item{M0}{left-covariance matrix of beta_{t-1} | D_{t-1}}
+\item{G_ls}{Either a single \eqn{p \times p} state transition matrix or a
+list of \code{nT} such matrices.}
 
-\item{n0}{the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}}
+\item{W_ls}{Either a single \eqn{p \times p} state noise left-covariance
+matrix or a list of \code{nT} such matrices.}
 
-\item{D0}{the scale matrix of the right-covariance matrix Sigma | D_{t-1}}
+\item{V_ls}{Either a single \eqn{N \times N} observation noise left-covariance
+matrix or a list of \code{nT} such matrices.}
 
-\item{delta}{The right-variance matrix discount factor}
+\item{m0}{Numeric matrix. Prior mean of the state \eqn{\beta_0 | D_0}
+(\eqn{p \times q}).}
 
-\item{Ft}{The matrix of covariates F_t.}
+\item{M0}{Numeric matrix. Prior left-covariance of \eqn{\beta_0 | D_0}
+(\eqn{p \times p}).}
 
-\item{Gt}{G_t, the beta transition matrix.}
+\item{n0}{Numeric scalar. Prior degrees of freedom of the inverse-Wishart on
+\eqn{\Sigma | D_0}.}
 
-\item{Wt}{left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}}
+\item{D0}{Numeric matrix. Prior scale matrix of the inverse-Wishart on
+\eqn{\Sigma | D_0} (\eqn{q \times q}).}
 
-\item{Vt}{left-covariance matrix of the noise parameter of Y}
+\item{nT}{Integer. Number of time steps.}
+
+\item{delta}{Numeric scalar. Discount factor for the right-variance matrix.
+Defaults to \code{1.0}.}
 }
 \value{
-The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+A named list of length \code{nT + 1}. Elements \code{"T1"} through
+\code{"T<nT>"} each contain a list with filtered parameters
+\code{nt}, \code{Dt}, \code{at}, \code{At}, \code{mt}, \code{Mt}.
+The additional element \code{prior} stores \code{m0}, \code{M0},
+\code{n0}, \code{D0}.
 }
 \description{
-Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+Runs the full forward filtering pass over \code{nT} time steps under the
+Matrix Normal Inverse Wishart (MNIW) model. At each step, calls
+\code{FF_1step_cpp} to update the state mean and covariance as well as the
+inverse-Wishart parameters for the right-covariance matrix \eqn{\Sigma}.
+}
+\seealso{
+\code{\link{BS}}, \code{\link{FFBS}}
 }

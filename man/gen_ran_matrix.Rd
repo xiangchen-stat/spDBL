@@ -2,18 +2,19 @@
 % Please edit documentation in R/func_gen_data.R
 \name{gen_ran_matrix}
 \alias{gen_ran_matrix}
-\title{Generate random matrix}
+\title{Generate a random matrix with entries scaled to \eqn{[-1, 1]}}
 \usage{
 gen_ran_matrix(nrow, ncol)
 }
 \arguments{
-\item{nrow}{Number of rows}
+\item{nrow}{Integer. Number of rows.}
 
-\item{col}{Number of columns}
+\item{ncol}{Integer. Number of columns.}
 }
 \value{
-A random matrix
+A numeric matrix of dimension \code{c(nrow, ncol)}.
 }
 \description{
-Generate random matrix
+Draws a matrix of independent standard normal entries and divides by the
+absolute maximum, so all entries lie in \eqn{[-1, 1]}.
 }

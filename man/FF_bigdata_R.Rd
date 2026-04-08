@@ -2,7 +2,7 @@
 % Please edit documentation in R/func_FF.R
 \name{FF_bigdata_R}
 \alias{FF_bigdata_R}
-\title{Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.}
+\title{Forward Filter for big data stored in CSV files (MNIW model)}
 \usage{
 FF_bigdata_R(
   Y_ls,
@@ -25,29 +25,69 @@ FF_bigdata_R(
 )
 }
 \arguments{
-\item{m0}{mean of beta_{t-1} | D_{t-1}}
+\item{Y_ls}{Character vector of length \code{nT}. File paths to the response
+CSV files, one per time step.}
 
-\item{M0}{left-covariance matrix of beta_{t-1} | D_{t-1}}
+\item{F_ls}{Either a single file path (constant \eqn{F_t}) or a character
+vector of length \code{nT} (time-varying). Can also contain a second set
+of columns (AR2 lags) for the same file at offset \code{fncol}.}
 
-\item{n0}{the shape parameter, or degrees of freedom, of the right-covariance matrix Sigma | D_{t-1}}
+\item{G_ls}{Either a single file path (constant \eqn{G_t}) or a character
+vector of length \code{nT} (time-varying).}
 
-\item{D0}{the scale matrix of the right-covariance matrix Sigma | D_{t-1}}
+\item{W_ls}{Either a single file path (constant \eqn{W_t}) or a character
+vector of length \code{nT} (time-varying).}
 
-\item{delta}{The right-variance matrix discount factor}
+\item{V_ls}{Either a single file path (constant \eqn{V_t}) or a character
+vector of length \code{nT} (time-varying). Expected to be a square block
+submatrix indexed by the row range of each spatial block.}
 
-\item{Y}{The data matrix.}
+\item{m0}{Numeric matrix. Prior state mean (\eqn{p \times q}).}
 
-\item{Ft}{The matrix of covariates F_t.}
+\item{M0}{Numeric matrix. Prior left-covariance of the state (\eqn{p \times p}).}
 
-\item{Gt}{G_t, the beta transition matrix.}
+\item{n0}{Numeric scalar. Prior degrees of freedom of the inverse-Wishart.}
 
-\item{Wt}{left-covariance matrix of the noise parameter of beta_{t-1} | D_{t-1}}
+\item{D0}{Numeric matrix. Prior scale matrix of the inverse-Wishart.}
 
-\item{Vt}{left-covariance matrix of the noise parameter of Y}
+\item{nT}{Integer. Number of time steps (files).}
+
+\item{fnrow}{Integer. Total number of rows in each data file.}
+
+\item{fncol}{Integer. Total number of columns in each data file.}
+
+\item{bnrow}{Integer. Number of rows per spatial block.}
+
+\item{bncol}{Integer. Number of columns per spatial block.}
+
+\item{path_out}{Character. Directory path where output CSV files are written.}
+
+\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
+\code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, prints progress messages. Defaults to
+\code{FALSE}.}
 }
 \value{
-The mean and covariance matrices m_t and C_t of one filtering step, the updated inverse-Wishart parameters a_t and B_t for the right-covariance matrix, plus other relevant parameters.
+A named list of character vectors with paths to the output CSV files:
+\describe{
+\item{nt_ls}{Paths to filtered degrees-of-freedom files.}
+\item{Dt_ls}{Paths to filtered scale-matrix files.}
+\item{mt_ls}{Paths to filtered state-mean files.}
+\item{Mt_ls}{Paths to filtered left-covariance files.}
+\item{at_ls}{Paths to predicted state-mean files.}
+\item{At_ls}{Paths to predicted left-covariance files.}
+\item{FT}{Path to the covariate matrix at the final time step.}
+\item{VT}{Path to the noise covariance matrix at the final time step.}
+}
 }
 \description{
-Forward Filter. Computes the FF parameters given the data at the relevant time step and the relevant parameters from the last time step.
+Runs the forward filtering pass for large datasets that are partitioned into
+spatial blocks and stored as CSV files on disk. At each time step the spatial
+domain is traversed block-by-block using a snake traversal order (see
+\code{\link{generate.grid.rowsnake}}), and results are written to disk to
+avoid exhausting memory.
+}
+\seealso{
+\code{\link{FF}}, \code{\link{generate.grid.rowsnake}}
 }

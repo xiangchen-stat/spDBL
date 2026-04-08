@@ -2,16 +2,19 @@
 % Please edit documentation in R/func_gen_data.R
 \name{gen_pd_matrix}
 \alias{gen_pd_matrix}
-\title{Generate random positive definite matrix}
+\title{Generate a random positive definite matrix}
 \usage{
 gen_pd_matrix(dim)
 }
 \arguments{
-\item{dim}{Number of rows/columns}
+\item{dim}{Integer. Number of rows (and columns) of the output matrix.}
 }
 \value{
-A random pd matrix
+A symmetric positive definite numeric matrix of dimension
+\code{c(dim, dim)}.
 }
 \description{
-Generate random positive definite matrix
+Constructs a positive definite matrix of dimension \code{dim} by forming
+\eqn{A^\top A} from a random normal matrix \eqn{A} and then rescaling so the
+maximum entry is 1.
 }

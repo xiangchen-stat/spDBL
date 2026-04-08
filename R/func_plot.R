@@ -1,10 +1,17 @@
-# Set ggplot theme
-# theme_set(theme_minimal(base_size = 22))
-# col_epa <- c("#00e400", "#ffff00", "#ff7e00", "#ff0000", "#99004c", "#7e0023")
-# col_bgr <- c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
-#              "#5bb349", "#f3e35a", "#eda742", "#e36726", "#d64729", "#c52429",
-#              "#a62021", "#871b1c")
-
+#' Quick raster heatmap
+#'
+#' Creates a \code{ggplot2} raster heatmap using the \code{col_bgr} colour
+#' palette with a squished colour scale capped at \code{max_y}.
+#'
+#' @param dt Data frame with columns \code{x} (horizontal position),
+#'   \code{y} (vertical position), and \code{fill} (value to display).
+#' @param max_y Numeric scalar. Upper limit of the colour scale. Values above
+#'   this are squished to the maximum colour.
+#'
+#' @return A \code{ggplot} object.
+#'
+#' @seealso \code{\link{quick_save}}
+#' @export
 quick_heat <- function(dt, max_y){
   p <- ggplot(dt, aes(x = x, y = y, fill = fill)) +
     geom_raster() +
@@ -12,14 +19,26 @@ quick_heat <- function(dt, max_y){
                          limits = c(0, max_y),
                          oob = scales::squish) +
     labs(x = "x", y = "y", fill = "Value")+
-    # scale_x_continuous(limits = c(-123.8, -114.2), expand = c(0, 0)) +
-    # scale_y_continuous(limits = c(32.15, 42.04), expand = c(0, 0)) +
     theme(text = element_text(size=28),
           legend.text = element_text(size = 28),
           legend.key.size = unit(1.5, "cm"))
   return(p)
 }
 
+#' Save a ggplot to a timestamped PNG file
+#'
+#' Saves \code{plot} to a PNG file in \code{path_fig} whose name is
+#' \code{filename} followed by the current Unix timestamp, ensuring unique
+#' file names across repeated calls.
+#'
+#' @param filename Character. Base name for the output file (no extension).
+#' @param path_fig Character. Directory path where the file is saved.
+#' @param plot A \code{ggplot} object to save.
+#'
+#' @return Invisibly returns \code{NULL} (called for its side effect).
+#'
+#' @seealso \code{\link{quick_heat}}
+#' @export
 quick_save <- function(filename, path_fig, plot){
   ggsave(filename = paste(filename, "_", as.numeric(Sys.time()), ".png", sep = ""),
          path = path_fig,
@@ -33,17 +52,35 @@ quick_save <- function(filename, path_fig, plot){
 }
 
 # Emulation ----
-# plot heatmap as a 3x3 panel
+
+#' Plot a 3-by-3 panel of heatmaps across selected time stamps
+#'
+#' Produces nine raster heatmaps arranged in a 3-by-3 grid, one for each time
+#' stamp in \code{tstamp}. Each panel shows the spatial field for a given input
+#' (row) index and time step.
+#'
+#' @param dat List of length \eqn{\geq \max(\code{tstamp})}. Each element is a
+#'   matrix of dimension \code{c(n_inputs, Nx * Ny)}.
+#' @param input_num Integer. Row index within each time-step matrix to plot.
+#' @param tstamp Integer vector of length 9. Time step indices to display.
+#' @param max_y Numeric scalar. Upper limit of the colour scale.
+#' @param Nx Integer. Number of grid points in the x-direction.
+#' @param Ny Integer. Number of grid points in the y-direction.
+#' @param nT Integer. Total number of time steps in \code{dat}.
+#' @param filename Character. Base name for the saved PNG (used when
+#'   \code{savei = TRUE}). Defaults to \code{"plot_panel"}.
+#' @param savei Logical. Whether to save the panel to disk. Defaults to
+#'   \code{TRUE}.
+#'
+#' @return A list of nine \code{ggplot} objects (one per panel).
+#'
+#' @export
 plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, filename = "plot_panel", savei = T){
   plot_ls <- list()
-  # tstamp <- as.integer(seq(1, nT, length.out = 10))
   ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
   ind_plot <- 1
 
   for (i in tstamp) {
-    # if(i == 1 && ind_plot == 1){
-    #   ind_plot <- 1 # start counting
-    # }
     temp <- dat[[i]][input_num,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
@@ -56,8 +93,6 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
                            limits = c(0, max_y),
                            oob = scales::squish) +
       labs(x = "x", y = "y", fill = "Value")+
-      # scale_x_continuous(limits = c(-123.8, -114.2), expand = c(0, 0)) +
-      # scale_y_continuous(limits = c(32.15, 42.04), expand = c(0, 0)) +
       theme(text = element_text(size=28),
             legend.text = element_text(size = 28),
             legend.key.size = unit(1.5, "cm"))
@@ -83,7 +118,6 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
                                        paste("PDE: t =", tstamp[9]-1)),
                             font.label = list(size = 28),
                             vjust = 1.2,
-                            # hjust = -1,
                             align = "hv",
                             common.legend = T,
                             legend = "right"
@@ -100,6 +134,23 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
 }
 
 
+#' Compute median and 95% credible interval across rows
+#'
+#' For each row of the matrix \code{X}, computes the median and the 2.5th and
+#' 97.5th percentiles across columns (samples).
+#'
+#' @param X Numeric matrix. Rows correspond to spatial locations or parameters;
+#'   columns correspond to posterior samples.
+#'
+#' @return A data frame with columns:
+#'   \describe{
+#'     \item{med}{Row-wise median.}
+#'     \item{lower}{Row-wise 2.5th percentile.}
+#'     \item{upper}{Row-wise 97.5th percentile.}
+#'   }
+#'
+#' @seealso \code{\link{cal_errorbar_mean}}
+#' @export
 cal_errorbar <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = median),
                     lower = apply(X = X, MARGIN = 1, FUN = quantile, prob = 0.025),
@@ -108,6 +159,23 @@ cal_errorbar <- function(X){
 }
 
 
+#' Compute mean and 95% credible interval across rows
+#'
+#' For each row of the matrix \code{X}, computes the mean and the 2.5th and
+#' 97.5th percentiles across columns (samples).
+#'
+#' @param X Numeric matrix. Rows correspond to spatial locations or parameters;
+#'   columns correspond to posterior samples.
+#'
+#' @return A data frame with columns:
+#'   \describe{
+#'     \item{med}{Row-wise mean.}
+#'     \item{lower}{Row-wise 2.5th percentile.}
+#'     \item{upper}{Row-wise 97.5th percentile.}
+#'   }
+#'
+#' @seealso \code{\link{cal_errorbar}}
+#' @export
 cal_errorbar_mean <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = mean),
                     lower = apply(X = X, MARGIN = 1, FUN = quantile, prob = 0.025),
@@ -116,7 +184,33 @@ cal_errorbar_mean <- function(X){
 }
 
 # calibration ----
-# plot heatmap as a 3x3 panel
+
+#' Plot a 3-by-3 panel of calibration heatmaps
+#'
+#' Produces nine raster heatmaps for calibration data arranged in a 3-by-3
+#' grid, one for each time stamp in \code{tstamp}. Locations are specified via
+#' \code{loc_cal} rather than a regular grid.
+#'
+#' @param dat Numeric matrix of dimension \code{c(nT, n_locations)}. Rows are
+#'   time steps; columns are calibration locations.
+#' @param tstamp Integer vector of length 9. Time-step indices (rows of
+#'   \code{dat}) to display.
+#' @param max_y Numeric scalar. Upper limit of the colour scale.
+#' @param loc_cal Data frame with columns \code{row} and \code{col} giving the
+#'   spatial coordinates of calibration locations.
+#' @param Nx Integer. Number of grid points in the x-direction (used for
+#'   reference only).
+#' @param Ny Integer. Number of grid points in the y-direction (used for
+#'   reference only).
+#' @param filename Character. Base name for the saved PNG. Defaults to
+#'   \code{"plot_panel"}.
+#' @param savei Logical. Whether to save the panel to disk. Defaults to
+#'   \code{TRUE}.
+#'
+#' @return A list of nine \code{ggplot} objects.
+#'
+#' @seealso \code{\link{plot_panel_heatmap_9_cal_nolab}}
+#' @export
 plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = T){
   plot_ls <- list()
   ind_plot <- 1 # start counting
@@ -134,8 +228,6 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
                            limits = c(0, max_y),
                            oob = scales::squish) +
       labs(x = "x", y = "y", fill = "Value")+
-      # scale_x_continuous(limits = c(-123.8, -114.2), expand = c(0, 0)) +
-      # scale_y_continuous(limits = c(32.15, 42.04), expand = c(0, 0)) +
       theme(text = element_text(size=28),
             legend.text = element_text(size = 28),
             legend.key.size = unit(1.5, "cm"))
@@ -145,7 +237,6 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
   }
 
   if(savei){
-    # ggsave(filename = paste(filename, ".png", sep = ""),
     ggsave(filename = paste(filename, ".png", sep = ""),
            path = path_fig,
            plot = ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
@@ -163,7 +254,6 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
                                        paste("t =", tstamp[9]-1)),
                             font.label = list(size = 28),
                             vjust = 1.2,
-                            # hjust = -1,
                             align = "hv",
                             common.legend = T,
                             legend = "right"
@@ -180,6 +270,28 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
   return(plot_ls)
 }
 
+#' Plot a 3-by-3 panel of calibration heatmaps without axis labels
+#'
+#' Like \code{\link{plot_panel_heatmap_9_cal}} but suppresses x- and y-axis
+#' labels and supports a custom lower colour-scale limit (\code{min_y}).
+#'
+#' @param dat Numeric matrix of dimension \code{c(nT, n_locations)}.
+#' @param tstamp Integer vector of length 9. Time-step indices to display.
+#' @param min_y Numeric scalar. Lower limit of the colour scale. Defaults to
+#'   \code{0}.
+#' @param max_y Numeric scalar. Upper limit of the colour scale.
+#' @param loc_cal Data frame with columns \code{row} and \code{col}.
+#' @param Nx Integer. Number of grid points in the x-direction.
+#' @param Ny Integer. Number of grid points in the y-direction.
+#' @param filename Character. Base name for the saved PNG. Defaults to
+#'   \code{"plot_panel"}.
+#' @param savei Logical. Whether to save the panel to disk. Defaults to
+#'   \code{TRUE}.
+#'
+#' @return A list of nine \code{ggplot} objects.
+#'
+#' @seealso \code{\link{plot_panel_heatmap_9_cal}}
+#' @export
 plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = T){
   plot_ls <- list()
   ind_plot <- 1 # start counting
@@ -197,8 +309,6 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
                            limits = c(min_y, max_y),
                            oob = scales::squish) +
       labs(x = NULL, y = NULL, fill = "Value")+
-      # scale_x_continuous(limits = c(-123.8, -114.2), expand = c(0, 0)) +
-      # scale_y_continuous(limits = c(32.15, 42.04), expand = c(0, 0)) +
       theme(text = element_text(size=28),
             legend.text = element_text(size = 28),
             legend.key.size = unit(1.5, "cm"))
@@ -208,7 +318,6 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
   }
 
   if(savei){
-    # ggsave(filename = paste(filename, ".png", sep = ""),
     ggsave(filename = paste(filename, ".png", sep = ""),
            path = path_fig,
            plot = ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
@@ -226,7 +335,6 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
                                        paste("t =", tstamp[9]-1)),
                             font.label = list(size = 28),
                             vjust = 1.2,
-                            # hjust = -1,
                             align = "hv",
                             common.legend = T,
                             legend = "right"
