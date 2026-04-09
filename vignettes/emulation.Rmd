@@ -1,8 +1,8 @@
 ---
-title: "emulation"
+title: "PDE Emulation with FFBS"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{emulation}
+  %\VignetteIndexEntry{PDE Emulation with FFBS}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -13,6 +13,38 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 ```
+
+## Overview
+
+This vignette demonstrates how to use `spDBL` to build a statistical emulator for
+a spatiotemporal mechanistic model. The target application is a
+**Partial Differential Equation (PDE)** solver that maps input parameters to
+time-evolving spatial fields. Because running the PDE solver for every new
+parameter configuration is expensive, we train a surrogate model on a small
+collection of simulator runs and use it to predict the PDE output for unseen
+parameter values.
+
+The emulator is built around the **Forward Filter Backward Sampler (FFBS)**
+under a Matrix Normal Inverse-Wishart (MNIW) dynamic linear model. The spatial
+field is modelled with an autoregressive (AR) structure in time, and a Gaussian
+Process (GP) prior captures correlation across the PDE input-parameter space.
+Prediction for new parameter values is then carried out via GP-based
+interpolation of the smoothed state trajectories.
+
+## Data
+
+The package ships with `dt_emulation`, a list containing training and test
+objects from a simulated PDE study:
+
+- `pde_para_train` / `pde_para_test`: matrices of PDE input parameters for the
+  training and test sets, respectively.
+- `dt_pde_train` / `dt_pde_test`: lists of length `nT` (number of time steps),
+  where each element is a matrix of PDE output values over the spatial domain
+  for every parameter configuration.
+
+The spatial domain is a 10 × 10 regular grid (`Nx = Ny = 10`, giving
+`N_sp = 100` spatial locations). The population size `N_people = 10,000` is
+used for rescaling outputs to proportions in the diagnostic plots.
 
 ```{r setup}
 require(spDBL)
@@ -120,9 +152,41 @@ m0 <- matrix(1, nrow = p, ncol = S)
 M0 <- diag(p)
 D0 <- diag(S)
 delta <- 1
-gc()
+# gc()
 # print("emulation succeed")
 ```
+
+### Setup notes
+
+**Episode-partition (EP) blocking.** To keep the MNIW state dimension
+manageable, the `N_train × N_sp` data array is partitioned into rectangular
+blocks using `generate.grid.rowsnake()`. Each block covers all training
+parameter configurations (`bnrow = n_train`) and one column-strip of the
+spatial grid (`bncol = Ny`), giving `n_block` blocks per time step.
+
+**AR(2) covariates.** The covariate matrices `F_ls` encode an AR(2) temporal
+structure: `gen_F_ls_AR2_EP()` stacks the lag-1 and lag-2 spatial blocks
+side-by-side so the state equation at each time step regresses on the two
+preceding field values. An identity state-transition matrix `G_ls = I` and
+identity noise matrices `W_ls = I` are used; the discount factor `delta = 1`
+means no variance inflation is applied.
+
+**Gaussian Process prior on parameters.** `V_para` is the GP covariance matrix
+over the `n_train` training parameter configurations, constructed with an
+exponential kernel (`gen_exp_kernel()`). This matrix acts as the left-variance
+of the MNIW observation noise, encoding the assumption that runs with similar
+parameter values produce similar PDE outputs.
+
+## Running FFBS
+
+With the model matrices assembled, we run `FFBS()` to obtain the filtered and
+smoothed state distributions, and then draw posterior samples of the latent
+state trajectory with `FFBS_sampling()`.
+
+`FFBS()` sweeps forward in time applying the Kalman filter equations under the
+MNIW conjugate prior, then sweeps backward to produce smoothed means and
+covariances. `FFBS_sampling()` draws `nsam` joint samples of the full state
+trajectory from the smoothed posterior.
 
 ```{r FFBS}
 ## FFBS----
@@ -177,6 +241,29 @@ res_pre_exact <- recover_from_EP_exact(dat_EP = res_pre_exact_EP, nT_ori = nT_or
 res_pre_MC <- recover_from_EP_MC(dat_EP = res_pre_MC_EP, nT_ori = nT_ori, nT = nT, nsam = nsam)
 ```
 
+### Prediction notes
+
+Two prediction strategies are available:
+
+- **Exact (`FFBS_predict_exact`)**: Conditions on the smoothed state means and
+  computes the analytic posterior predictive mean for each test input. This is
+  deterministic and fast.
+- **Monte Carlo (`FFBS_predict_MC`)**: Propagates the `nsam` sampled state
+  trajectories through the GP interpolation, yielding a full sample-based
+  predictive distribution that supports uncertainty quantification.
+
+The EP-structured predictions are then reassembled into the original
+`nT_ori × N_test × N_sp` format using `recover_from_EP_exact()` and
+`recover_from_EP_MC()`.
+
+## Results
+
+### PDE solution over time
+
+The heatmaps below show the true PDE output at nine equally spaced time steps
+for the first test parameter configuration. The color scale is shared across all
+panels so that temporal dynamics are directly comparable.
+
 ```{r plot 1 prepare}
 # Plot file ----
 # Set ggplot theme
@@ -230,6 +317,7 @@ max_y <- max(as.vector(unlist(dat))) # set max limit for all plots
 
 pde_heat <- plot_ls
 ```
+
 ```{r plot 1, fig.width=12, fig.height=10, out.width="100%", warning=FALSE, message=FALSE}
 labels <- paste0("PDE: t = ", tstamp[1:9] - 1)
 
@@ -246,6 +334,14 @@ ggarrange(
   legend = "right"
 )
 ```
+
+### FFBS emulation vs. PDE solution
+
+The next figure compares the true PDE solution (top row) with the FFBS
+emulator's exact posterior predictive mean (bottom row) at three representative
+time points. Close visual agreement between the two rows indicates that the
+emulator has successfully learned the spatiotemporal dynamics from the training
+runs.
 
 ```{r plot 2 prepare}
 dat <- res_pre_exact # this is exact
@@ -281,6 +377,7 @@ dat <- res_pre_exact # this is exact
 
 ffbs_heat <- plot_ls
 ```
+
 ```{r plot 2, fig.width=12, fig.height=7, out.width="100%", warning=FALSE, message=FALSE}
 labels <- c(
   paste0("PDE solution: t = ", tstamp[c(4, 6, 8)] - 1),
@@ -303,6 +400,16 @@ ggarrange(
   legend = "right"
 )
 ```
+
+### Uncertainty quantification
+
+The final diagnostic evaluates the MC predictive distribution. Each panel is a
+scatter plot where the x-axis shows the true PDE value (rescaled by
+`N_people`) and the y-axis shows the FFBS posterior median. Error bars span the
+2.5th–97.5th percentile of the `nsam` MC draws. Points falling near the red
+diagonal indicate accurate emulation; narrow bars indicate low predictive
+uncertainty. The three panels correspond to the same three time points used
+above.
 
 ```{r plot 3 prepare}
 {
@@ -396,6 +503,7 @@ ggarrange(
   }
 }
 ```
+
 ```{r plot 3, fig.width=13, fig.height=4.5, out.width="100%", warning=FALSE, message=FALSE}
 labels <- paste0("t = ", tstamp[c(4, 6, 8)] - 1)
 
@@ -411,3 +519,21 @@ ggarrange(
   common.legend = TRUE,
   legend = "right"
 )
+```
+
+## Summary
+
+This vignette illustrated the full `spDBL` emulation workflow:
+
+1. **Data preparation** — Load training/test PDE runs and set up GP covariance
+   matrices for both the parameter space and the spatial domain.
+2. **Episode-partition blocking** — Reorganise the data into spatial blocks to
+   keep the MNIW state dimension tractable.
+3. **AR(2) covariates** — Encode temporal dependence by stacking lag-1 and
+   lag-2 spatial blocks as covariates for the dynamic linear model.
+4. **FFBS** — Run the forward filter and backward sampler to obtain smoothed
+   state distributions over the training parameter configurations.
+5. **Prediction** — Interpolate to unseen parameter values using either the
+   exact posterior predictive mean or a Monte Carlo sample-based distribution.
+6. **Diagnostics** — Validate emulation accuracy through side-by-side heatmaps
+   and scatter plots with uncertainty intervals.
