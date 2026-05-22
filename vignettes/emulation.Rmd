@@ -14,28 +14,48 @@ knitr::opts_chunk$set(
 )
 ```
 
-## Overview
+## What this tutorial shows
 
-This vignette demonstrates how to use `spDBL` to construct a statistical emulator for a spatiotemporal mechanistic model. The example is adapted from the framework presented in Banerjee, Chen, Frankenburg, and Zhou (2025), [*Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models*](https://www.jmlr.org/papers/v26/22-0896.html), *Journal of Machine Learning Research*, 26(146), 1–43. To make the workflow easier to reproduce, we present a smaller-scale version of the original example.
+This vignette walks through a complete, small-scale example of PDE emulation with `spDBL`. The goal is to build a fast statistical surrogate for a spatiotemporal Partial Differential Equation (PDE) simulator. Instead of rerunning the expensive PDE solver for every new parameter setting, we first learn from a set of training simulator runs and then predict the PDE output for held-out parameter values.
 
-The target application is a **Partial Differential Equation (PDE)** solver that maps input parameters to time-evolving spatial fields. Because running the PDE solver for every new parameter configuration can be computationally expensive, we train a surrogate model on a small collection of simulator runs and use it to predict PDE outputs at unseen parameter values.
+The example follows the emulation strategy introduced in Banerjee, Chen, Frankenburg, and Zhou (2025), [*Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models*](https://www.jmlr.org/papers/v26/22-0896.html), *Journal of Machine Learning Research*, 26(146), 1--43. To keep the tutorial easy to run, this vignette uses a smaller simulated dataset included in the package.
 
-The emulator is built on the **Forward Filter Backward Sampler (FFBS)** under a Matrix Normal-Inverse-Wishart (MNIW) dynamic linear model. The spatial field is modeled using a time-series autoregressive (AR) structure, while a Gaussian Process (GP) prior captures dependence across the PDE input-parameter space. Prediction at new parameter values is then performed through GP-based interpolation of the smoothed state trajectories.
+By the end of the tutorial, you will have:
 
-## Data
+1. loaded the example training and test PDE data,
+2. fitted an FFBS-based emulator using `emulator_learn()`,
+3. predicted held-out PDE outputs using `emulator_predict()`, and
+4. checked the emulator using heatmaps and uncertainty plots.
 
-The package ships with `dt_emulation`, a list containing training and test
-objects from a simulated PDE study:
+## Main idea
 
-- `pde_para_train` / `pde_para_test`: matrices of PDE input parameters for the
-  training and test sets, respectively.
-- `dt_pde_train` / `dt_pde_test`: lists of length `nT` (number of time steps),
-  where each element is a matrix of PDE output values over the spatial domain
-  for every parameter configuration.
+A PDE simulator maps input parameters to spatial fields that evolve over time. In this vignette, each simulator output is observed on a regular $10 \times 10$ spatial grid. For each time point, the data are stored as a matrix whose rows represent different PDE parameter settings and whose columns represent spatial grid locations.
 
-The spatial domain is a 10 × 10 regular grid (`Nx = Ny = 10`, giving
-`N_sp = 100` spatial locations). The population size `N_people = 10,000` is
-used for rescaling outputs to proportions in the diagnostic plots.
+The emulator combines three ingredients:
+
+- **Episode-partition blocking**, which breaks large spatial output matrices into smaller blocks.
+- **Autoregressive temporal features**, which use previous PDE states to predict the current state.
+- **Gaussian Process interpolation over input parameters**, which allows prediction at new parameter values by borrowing information from nearby training runs.
+
+The tutorial uses two wrapper functions:
+
+- `emulator_learn()` fits the emulator from training PDE runs.
+- `emulator_predict()` predicts PDE outputs for new parameter values using the fitted emulator.
+
+These wrappers are written directly in the vignette so that users can see the full workflow. In your own analysis, you can treat them as templates and adapt the settings to your simulator output.
+
+## 1. Load packages and example data
+
+The package includes an example dataset called `dt_emulation`. It contains both training and test PDE runs.
+
+The main objects are:
+
+- `pde_para_train`: parameter values used to train the emulator,
+- `pde_para_test`: held-out parameter values used for prediction,
+- `dt_pde_train`: time-indexed list of training PDE outputs,
+- `dt_pde_test`: time-indexed list of test PDE outputs.
+
+Each element of `dt_pde_train` or `dt_pde_test` is a matrix. Rows correspond to parameter configurations, and columns correspond to spatial grid locations.
 
 ```{r setup}
 require(spDBL)
@@ -45,190 +65,93 @@ require(ggpubr)
 seed <- 1234
 set.seed(seed)
 
-# read  data
+# Load example data
 data("dt_emulation")
 pde_para_train = dt_emulation$pde_para_train
 pde_para_test  = dt_emulation$pde_para_test
 dt_pde_train   = dt_emulation$dt_pde_train
 dt_pde_test    = dt_emulation$dt_pde_test
 
-n_train <- dim(pde_para_train)[1]
-n_test <- dim(pde_para_test)[1]
-prop_train <- n_train / (n_train + n_test)
-nT <- length(dt_pde_train)
-nT_ori <- nT
-
-AR_choice <- 2
-nsam <- 10
 Nx <- 10
 Ny <- 10
-N_sp <- Nx * Ny
-N_people <- 10000
-gp_tune <- 0.5
-gp_sigma2 <- 1.1
-gp_tau2 <- 10^(-4)
-
-bnrow <- n_train 
-bnrow_test <- n_test 
-bncol <- Ny * 1 
-ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
-
-
-# Initialize para for FFBS
-# Get covariance matrix
-dist_para <- as.matrix(stats::dist(pde_para_train, method = "euclidean", diag = T, upper = T))
-phi_para <- 3 / (gp_tune * max(dist_para))
-V_para <- gen_exp_kernel(loc = pde_para_train, phi = phi_para, sigma2 = gp_sigma2, tau2 = gp_tau2) # exponential kernel
-
-ind_sp_EP <- ind_sp[1:bncol, ]
-dist_sp <- as.matrix(stats::dist(ind_sp_EP, method = "euclidean", diag = T, upper = T))
-phi_sp <- 3 / (gp_tune * max(dist_sp))
-
-# generate season-episode data
-V_para_full <- V_para 
-Y_full = dt_pde_train 
-Y_test_full <- dt_pde_test 
-
-fnrow_train <- n_train 
-fnrow_test <- n_test 
-fncol <- Nx * Ny
-N <- bnrow
-S <- bncol
-n_block <- fnrow_train / bnrow * fncol / bncol
-nT_block <- n_block * nT
-# generate index
-ind <- generate.grid.rowsnake(fnrow = fnrow_train, fncol = fncol, bnrow = bnrow, bncol = bncol)
-ind_test <- generate.grid.rowsnake(fnrow = fnrow_test, fncol = fncol, bnrow = bnrow_test, bncol = bncol)
-n_b <- n_block
-n_b_test <- dim(ind_test)[1]
-Y <- list()
-
-# set F
-if(AR_choice == 1){
-  F_ls_train <- gen_F_ls_AR1_EP(nT = nT_ori, n_b = n_b, ind = ind, Y = Y_full)
-  F_ls_test <- gen_F_ls_AR1_EP(nT = nT_ori, n_b = n_b, ind = ind_test, Y = Y_test_full)
-} else if(AR_choice == 2){
-  F_ls_train <- gen_F_ls_AR2_EP(nT = nT_ori, n_b = n_b, ind = ind, Y = Y_full)
-  F_ls_test <- gen_F_ls_AR2_EP(nT = nT_ori, n_b = n_b, ind = ind_test, Y = Y_test_full)
-}
-
-# set Y
-for (i in 1:nT) {
-  temp_Y <- Y_full[[i]]
-  for (j in 1:n_b) {
-    Y[[(i-1)*n_b + j]] <- temp_Y[ind[j,2]:ind[j,3], ind[j,4]:ind[j,5]]
-  }
-}
-
-F_ls <- F_ls_train
-V_ls <- V_para
-N <- bnrow
-S <- bncol
-nT_ori <- nT
-nT <- nT_block
-p <- dim(F_ls[[1]])[2]
-G_ls <- diag(p)
-W_ls <- diag(p)
-n0 <- p + 3
-m0 <- matrix(1, nrow = p, ncol = S)
-M0 <- diag(p)
-D0 <- diag(S)
-delta <- 1
 ```
 
-### Setup notes
+In this example, `Nx = 10` and `Ny = 10`, so each PDE field has `Nx * Ny = 100` spatial locations. We use the test data only for evaluating the emulator after prediction.
 
-**Episode-partition (EP) blocking.** To keep the MNIW state dimension
-manageable, the `N_train × N_sp` data array is partitioned into rectangular
-blocks using `generate.grid.rowsnake()`. Each block covers all training
-parameter configurations (`bnrow = n_train`) and one column-strip of the
-spatial grid (`bncol = Ny`), giving `n_block` blocks per time step.
+## 2. Introduce the learning and prediction wrappers
 
-**AR(2) covariates.** The covariate matrices `F_ls` encode an AR(2) temporal
-structure: `gen_F_ls_AR2_EP()` stacks the lag-1 and lag-2 spatial blocks
-side-by-side so the state equation at each time step regresses on the two
-preceding field values. An identity state-transition matrix `G_ls = I` and
-identity noise matrices `W_ls = I` are used; the discount factor `delta = 1`
-means no variance inflation is applied.
+This section introduces two helper functions showing how the FFBS emulator is assembled.
 
-**Gaussian Process prior on parameters.** `V_para` is the GP covariance matrix
-over the `n_train` training parameter configurations, constructed with an
-exponential kernel (`gen_exp_kernel()`). This matrix acts as the left-variance
-of the MNIW observation noise, encoding the assumption that runs with similar
-parameter values produce similar PDE outputs.
+### Learning step: `emulator_learn()`
 
-## Running FFBS
+`emulator_learn()` takes the training parameter matrix and the training PDE outputs as input. Internally, it:
 
-With the model matrices assembled, we run `FFBS()` to obtain the filtered and
-smoothed state distributions, and then draw posterior samples of the latent
-state trajectory with `FFBS_sampling()`.
+1. computes a Gaussian Process covariance matrix over the training parameter values,
+2. partitions each PDE output matrix into smaller episode-partition blocks,
+3. constructs autoregressive covariates from lagged PDE outputs,
+4. runs `FFBS()` to estimate the dynamic emulator, and
+5. draws posterior state samples with `FFBS_sampling()`.
 
-`FFBS()` sweeps forward in time applying the Kalman filter equations under the
-MNIW conjugate prior, then sweeps backward to produce smoothed means and
-covariances. `FFBS_sampling()` draws `nsam` joint samples of the full state
-trajectory from the smoothed posterior.
+The fitted object stores everything needed for later prediction, including FFBS quantities, sampled state trajectories, kernel parameters, and blocking information.
 
-```{r FFBS}
-## FFBS----
-para_ffbs <- FFBS(Y = Y, F_ls = F_ls, G_ls = G_ls,
-                  W_ls = W_ls, V_ls = V_ls,
-                  m0 = m0, M0 = M0,
-                  n0 = n0, D0 = D0,
-                  nT = nT, delta = 1.0)
+### Prediction step: `emulator_predict()`
 
-# sampling
-res_ffbs <- FFBS_sampling(nsam = nsam, para_ffbs = para_ffbs, 
-                          F_ls = F_ls, G_ls = G_ls,
-                          nT = nT, delta = 1)
+`emulator_predict()` takes the fitted emulator and a new matrix of input parameters. It supports two prediction modes:
 
-# Prediction----
-input <- pde_para_train
-input_new <- pde_para_test
-n_input_new <- dim(input_new)[1]
-F_new_ls <- F_ls_test
+- `MC = FALSE`: exact posterior prediction using `FFBS_predict_exact()`;
+- `MC = TRUE`: Monte Carlo prediction using `FFBS_predict_MC()`.
 
-res_pre_exact_EP <- FFBS_predict_exact(Y = Y, para_ffbs = para_ffbs,
-                                       input = input, input_new = input_new,
-                                       F_ls = F_ls, F_new_ls = F_new_ls,
-                                       nT = nT, phi_para = phi_para, gp_sigma2 = gp_sigma2,
-                                       gp_tau2 = gp_tau2, delta = 1.0)
-res_pre_MC_EP <- FFBS_predict_MC(nsam = nsam, Y = Y, res_ffbs = res_ffbs,
-                                 input = input, input_new = input_new,
-                                 F_ls = F_ls, F_new_ls = F_new_ls,
-                                 nT = nT, phi_para = phi_para, gp_sigma2 = gp_sigma2,
-                                 gp_tau2 = gp_tau2, delta = 1.0)
+The exact version is usually faster and returns a posterior predictive mean. The Monte Carlo version returns posterior draws and is useful when you want predictive uncertainty intervals.
 
-### transfer back ----
-# from episode season to season only
-res_pre_exact <- recover_from_EP_exact(dat_EP = res_pre_exact_EP, nT_ori = nT_ori, nT = nT)
-res_pre_MC <- recover_from_EP_MC(dat_EP = res_pre_MC_EP, nT_ori = nT_ori, nT = nT, nsam = nsam)
+
+## 3. Fit the emulator and predict new PDE outputs
+
+Now we run the full emulation workflow. First, `emulator_learn()` fits the model using the training simulator runs. Then `emulator_predict()` predicts the PDE output at the held-out test parameter values.
+
+The first prediction, `res_pre_exact`, is the exact posterior prediction. The second prediction, `res_pre_MC`, is the Monte Carlo predictive distribution. The MC version is used later to draw uncertainty intervals.
+
+```{r}
+## Fit the emulator and predict at held-out inputs ----
+emulator <- emulator_learn(pde_para_train = pde_para_train,
+                         # pde_para_test = pde_para_test,
+                         dt_pde_train = dt_pde_train,
+                         # dt_pde_test = dt_pde_test, 
+                         Nx = Nx,
+                         Ny = Ny)
+
+res_pre_exact <- emulator_predict(emulator = emulator,
+                 input_new = pde_para_test,
+                 dt_pde_test = dt_pde_test)
+
+res_pre_MC <- emulator_predict(emulator = emulator,
+                 input_new = pde_para_test,
+                 dt_pde_test = dt_pde_test,
+                 MC = TRUE)
 ```
 
-### Prediction notes
+### What is returned?
 
-Two prediction strategies are available:
+The fitted object `emulator` is a list with three main components:
 
-- **Exact (`FFBS_predict_exact`)**: Conditions on the smoothed state means and
-  computes the analytic posterior predictive mean for each test input. This is
-  deterministic and fast.
-- **Monte Carlo (`FFBS_predict_MC`)**: Propagates the `nsam` sampled state
-  trajectories through the GP interpolation, yielding a full sample-based
-  predictive distribution that supports uncertainty quantification.
+- `emulator$para_ffbs`: analytic quantities from the FFBS recursion,
+- `emulator$res_ffbs`: posterior samples of the latent state process,
+- `emulator$setup`: saved settings and intermediate objects needed for prediction.
 
-The EP-structured predictions are then reassembled into the original
-`nT_ori × N_test × N_sp` format using `recover_from_EP_exact()` and
-`recover_from_EP_MC()`.
+The prediction objects are also lists indexed by time. For example, `res_pre_exact[[t]]` stores the exact predicted PDE output at time `t`. The MC object additionally stores posterior samples, which are used for uncertainty quantification.
 
-## Results
+## 4. Visualize the true PDE solution
 
-### PDE solution over time
+Before checking the emulator, it is helpful to look at the true PDE output for one held-out test input. The following code plots the PDE field at nine equally spaced time points for the first test parameter configuration.
 
-The heatmaps below show the true PDE output at nine equally spaced time steps
-for the first test parameter configuration. The color scale is shared across all
-panels so that temporal dynamics are directly comparable.
+A common color scale is used across panels, so the heatmaps can be compared directly over time.
 
 ```{r plot 1 prepare}
-# Plot file ----
+para_ffbs <- emulator$para_ffbs
+res_ffbs <- emulator$res_ffbs
+nT_ori <- emulator$setup$nT_ori
+N_sp <- emulator$setup$N_sp
+N_people <- emulator$setup$N_people
+# Plot settings ----
 # Set ggplot theme
 col_epa <- c("#00e400", "#ffff00", "#ff7e00", "#ff0000", "#99004c", "#7e0023")
 col_bgr <- c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
@@ -236,7 +159,7 @@ col_bgr <- c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
              "#a62021", "#871b1c")
 
 ## Plot PDE results ----
-### Heat Map----
+### Heat map ----
 
 input_num <- 1
 tstamp <- as.integer(seq(1, nT_ori, length.out = 9))
@@ -287,13 +210,13 @@ ggarrange(
 )
 ```
 
-### FFBS emulation vs. PDE solution
+The heatmaps show how the spatial field changes over time under the true PDE simulator. This is the target pattern we want the emulator to reproduce.
 
-The next figure compares the true PDE solution (top row) with the FFBS
-emulator's exact posterior predictive mean (bottom row) at three representative
-time points. Close visual agreement between the two rows indicates that the
-emulator has successfully learned the spatiotemporal dynamics from the training
-runs.
+## 5. Compare FFBS emulation with the PDE solution
+
+Next, we compare the true PDE output with the FFBS emulator prediction. The top row shows the PDE simulator output, and the bottom row shows the exact posterior predictive mean from the emulator.
+
+Good emulator performance should show similar spatial patterns in the two rows, especially at the main high- and low-value regions of the spatial field.
 
 ```{r plot 2 prepare}
 dat <- res_pre_exact 
@@ -347,20 +270,25 @@ ggarrange(
 )
 ```
 
-### Uncertainty quantification
+This side-by-side plot is a quick visual diagnostic. If the emulator misses important spatial features, possible next steps include increasing the number of training runs, changing the AR order, modifying the episode-window size, or tuning the GP covariance parameters.
 
-The final diagnostic evaluates the MC predictive distribution. Each panel is a
-scatter plot where the x-axis shows the true PDE value (rescaled by
-`N_people`) and the y-axis shows the FFBS posterior median. Error bars span the
-2.5th–97.5th percentile of the `nsam` MC draws. Points falling near the red
-diagonal indicate accurate emulation; narrow bars indicate low predictive
-uncertainty. The three panels correspond to the same three time points used
-above.
+## 6. Check predictive uncertainty
+
+The Monte Carlo prediction `res_pre_MC` provides posterior predictive draws. We use those draws to compare the predicted and true PDE values over all spatial locations for the selected held-out input.
+
+In each panel:
+
+- the x-axis is the true PDE value,
+- the y-axis is the posterior median of the FFBS prediction,
+- vertical intervals show the 2.5th and 97.5th posterior predictive percentiles,
+- the diagonal line represents perfect prediction.
+
+Points close to the diagonal indicate accurate emulation. Wider intervals indicate larger predictive uncertainty.
 
 ```{r plot 3 prepare}
 {
-  ### Error plot----
-  #### specific time, location, all inputs (point)----
+  ### Error plot ----
+  #### Specific time, one spatial location, all inputs ----
   {
     alpha_error <- 0.5
     res_pre <- res_pre_MC
@@ -380,7 +308,7 @@ above.
       geom_abline(col = "red")
   }
   
-  #### specific time, input, all locations (field)----
+  #### Specific time, one input, all spatial locations ----
   {
     time_num <- 20
     sp_num <- c(1:N_sp)
@@ -457,19 +385,23 @@ ggarrange(
 )
 ```
 
+For a package vignette, we use a small value of `nsam` so that the example runs quickly. In real applications, you should increase `nsam` if you want more stable posterior uncertainty summaries.
+
+## Practical tips
+
+- Start with `AR_choice = 1` or `AR_choice = 2`. AR(2) can capture richer temporal dependence but creates a larger state vector.
+- Increase `episode_window` only when you want each block to contain a wider spatial strip. Larger blocks may capture more spatial structure but require more computation.
+- Tune `gp_tune`, `gp_sigma2`, and `gp_tau2` when predictions appear too smooth, too noisy, or poorly calibrated.
+- Use exact prediction for fast point prediction and MC prediction when uncertainty intervals are needed.
+- Keep the training and prediction inputs on the same scale before constructing the GP covariance.
+
 ## Summary
 
-This vignette illustrated the full `spDBL` emulation workflow:
+This tutorial showed how to use `spDBL` to build an FFBS emulator for time-indexed spatial PDE outputs. The workflow has four main steps:
 
-1. **Data preparation** — Load training/test PDE runs and set up GP covariance
-   matrices for both the parameter space and the spatial domain.
-2. **Episode-partition blocking** — Reorganise the data into spatial blocks to
-   keep the MNIW state dimension tractable.
-3. **AR(2) covariates** — Encode temporal dependence by stacking lag-1 and
-   lag-2 spatial blocks as covariates for the dynamic linear model.
-4. **FFBS** — Run the forward filter and backward sampler to obtain smoothed
-   state distributions over the training parameter configurations.
-5. **Prediction** — Interpolate to unseen parameter values using either the
-   exact posterior predictive mean or a Monte Carlo sample-based distribution.
-6. **Diagnostics** — Validate emulation accuracy through side-by-side heatmaps
-   and scatter plots with uncertainty intervals.
+1. Load the training and test PDE data.
+2. Fit the emulator with `emulator_learn()`.
+3. Predict held-out PDE outputs with `emulator_predict()`.
+4. Evaluate the emulator using heatmaps and uncertainty plots.
+
+The wrapper functions in this vignette are intended to be reusable starting points. For a new PDE simulator, the main changes are usually the data-loading step, the spatial grid dimensions, the AR order, and the GP covariance tuning parameters.
