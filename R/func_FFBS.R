@@ -100,9 +100,9 @@ FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.1*(nT-1)) == 0){
+    if(i %% round(0.5*(nT-1)) == 0){
       print(paste("Sampling:", i, "/", nT))
-      print(Sys.time())
+      # print(Sys.time())
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -376,9 +376,9 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.1*(nT-1)) == 0){
+    if(i %% round(0.5*(nT-1)) == 0){
       print(paste("Sampling:", i, "/", nT))
-      print(Sys.time())
+      # print(Sys.time())
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -481,9 +481,9 @@ FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
   # backward nT
   for (i in nT:1) {
-    if(i %% round(0.1*(nT-1)) == 0){
+    if(i %% round(0.5*(nT-1)) == 0){
       print(paste("Sampling:", i, "/", nT))
-      print(Sys.time())
+      # print(Sys.time())
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

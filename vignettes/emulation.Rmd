@@ -16,20 +16,11 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-This vignette demonstrates how to use `spDBL` to build a statistical emulator for
-a spatiotemporal mechanistic model. The target application is a
-**Partial Differential Equation (PDE)** solver that maps input parameters to
-time-evolving spatial fields. Because running the PDE solver for every new
-parameter configuration is expensive, we train a surrogate model on a small
-collection of simulator runs and use it to predict the PDE output for unseen
-parameter values.
+This vignette demonstrates how to use `spDBL` to construct a statistical emulator for a spatiotemporal mechanistic model. The example is adapted from the framework presented in Banerjee, Chen, Frankenburg, and Zhou (2025), [*Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models*](https://www.jmlr.org/papers/v26/22-0896.html), *Journal of Machine Learning Research*, 26(146), 1–43. To make the workflow easier to reproduce, we present a smaller-scale version of the original example.
 
-The emulator is built around the **Forward Filter Backward Sampler (FFBS)**
-under a Matrix Normal Inverse-Wishart (MNIW) dynamic linear model. The spatial
-field is modelled with an autoregressive (AR) structure in time, and a Gaussian
-Process (GP) prior captures correlation across the PDE input-parameter space.
-Prediction for new parameter values is then carried out via GP-based
-interpolation of the smoothed state trajectories.
+The target application is a **Partial Differential Equation (PDE)** solver that maps input parameters to time-evolving spatial fields. Because running the PDE solver for every new parameter configuration can be computationally expensive, we train a surrogate model on a small collection of simulator runs and use it to predict PDE outputs at unseen parameter values.
+
+The emulator is built on the **Forward Filter Backward Sampler (FFBS)** under a Matrix Normal-Inverse-Wishart (MNIW) dynamic linear model. The spatial field is modeled using a time-series autoregressive (AR) structure, while a Gaussian Process (GP) prior captures dependence across the PDE input-parameter space. Prediction at new parameter values is then performed through GP-based interpolation of the smoothed state trajectories.
 
 ## Data
 
@@ -48,7 +39,6 @@ used for rescaling outputs to proportions in the diagnostic plots.
 
 ```{r setup}
 require(spDBL)
-# devtools::load_all() 
 require(magrittr)
 require(ggplot2)
 require(ggpubr)
@@ -78,9 +68,9 @@ gp_tune <- 0.5
 gp_sigma2 <- 1.1
 gp_tau2 <- 10^(-4)
 
-bnrow <- n_train #
-bnrow_test <- n_test #
-bncol <- Ny * 1 #
+bnrow <- n_train 
+bnrow_test <- n_test 
+bncol <- Ny * 1 
 ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
 
 
@@ -93,16 +83,14 @@ V_para <- gen_exp_kernel(loc = pde_para_train, phi = phi_para, sigma2 = gp_sigma
 ind_sp_EP <- ind_sp[1:bncol, ]
 dist_sp <- as.matrix(stats::dist(ind_sp_EP, method = "euclidean", diag = T, upper = T))
 phi_sp <- 3 / (gp_tune * max(dist_sp))
-# R <- gen_gp_kernel(loc = ind_sp_EP, phi = phi_sp, sigma2 = gp_sigma2, tau2 = gp_tau2)
-# R <- sigma_sp[1:bncol, 1:bncol]
 
 # generate season-episode data
-V_para_full <- V_para #
-Y_full = dt_pde_train #
-Y_test_full <- dt_pde_test #
+V_para_full <- V_para 
+Y_full = dt_pde_train 
+Y_test_full <- dt_pde_test 
 
-fnrow_train <- n_train #
-fnrow_test <- n_test #
+fnrow_train <- n_train 
+fnrow_test <- n_test 
 fncol <- Nx * Ny
 N <- bnrow
 S <- bncol
@@ -114,20 +102,15 @@ ind_test <- generate.grid.rowsnake(fnrow = fnrow_test, fncol = fncol, bnrow = bn
 n_b <- n_block
 n_b_test <- dim(ind_test)[1]
 Y <- list()
-# Y_test <- list()
-# V_para <- list()
 
 # set F
 if(AR_choice == 1){
   F_ls_train <- gen_F_ls_AR1_EP(nT = nT_ori, n_b = n_b, ind = ind, Y = Y_full)
   F_ls_test <- gen_F_ls_AR1_EP(nT = nT_ori, n_b = n_b, ind = ind_test, Y = Y_test_full)
-  # print("using AR1")
 } else if(AR_choice == 2){
   F_ls_train <- gen_F_ls_AR2_EP(nT = nT_ori, n_b = n_b, ind = ind, Y = Y_full)
   F_ls_test <- gen_F_ls_AR2_EP(nT = nT_ori, n_b = n_b, ind = ind_test, Y = Y_test_full)
-  # print("using AR2")
 }
-
 
 # set Y
 for (i in 1:nT) {
@@ -136,7 +119,6 @@ for (i in 1:nT) {
     Y[[(i-1)*n_b + j]] <- temp_Y[ind[j,2]:ind[j,3], ind[j,4]:ind[j,5]]
   }
 }
-
 
 F_ls <- F_ls_train
 V_ls <- V_para
@@ -152,8 +134,6 @@ m0 <- matrix(1, nrow = p, ncol = S)
 M0 <- diag(p)
 D0 <- diag(S)
 delta <- 1
-# gc()
-# print("emulation succeed")
 ```
 
 ### Setup notes
@@ -190,32 +170,16 @@ trajectory from the smoothed posterior.
 
 ```{r FFBS}
 ## FFBS----
-time_start <- Sys.time()
-# print("Start FFBS")
-# print(time_start)
 para_ffbs <- FFBS(Y = Y, F_ls = F_ls, G_ls = G_ls,
                   W_ls = W_ls, V_ls = V_ls,
                   m0 = m0, M0 = M0,
                   n0 = n0, D0 = D0,
                   nT = nT, delta = 1.0)
-time_end <- Sys.time()
-# print("End FFBS")
-# print(time_end)
-# print("Time FFBS")
-# print(time_end - time_start)
 
 # sampling
-time_start <- Sys.time()
-# print("Start sampling")
-# print(time_start)
 res_ffbs <- FFBS_sampling(nsam = nsam, para_ffbs = para_ffbs, 
                           F_ls = F_ls, G_ls = G_ls,
                           nT = nT, delta = 1)
-time_end <- Sys.time()
-# print("End sampling")
-# print(time_end)
-# print("Time sampling")
-# print(time_end - time_start)
 
 # Prediction----
 input <- pde_para_train
@@ -233,7 +197,6 @@ res_pre_MC_EP <- FFBS_predict_MC(nsam = nsam, Y = Y, res_ffbs = res_ffbs,
                                  F_ls = F_ls, F_new_ls = F_new_ls,
                                  nT = nT, phi_para = phi_para, gp_sigma2 = gp_sigma2,
                                  gp_tau2 = gp_tau2, delta = 1.0)
-
 
 ### transfer back ----
 # from episode season to season only
@@ -267,7 +230,6 @@ panels so that temporal dynamics are directly comparable.
 ```{r plot 1 prepare}
 # Plot file ----
 # Set ggplot theme
-# theme_set(theme_minimal(base_size = 22))
 col_epa <- c("#00e400", "#ffff00", "#ff7e00", "#ff0000", "#99004c", "#7e0023")
 col_bgr <- c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
              "#5bb349", "#f3e35a", "#eda742", "#e36726", "#d64729", "#c52429",
@@ -276,17 +238,11 @@ col_bgr <- c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
 ## Plot PDE results ----
 ### Heat Map----
 
-# ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
-# plot_ls <- list() 
-# tstamp <- as.integer(seq(1, nT, length.out = 9))
 input_num <- 1
 tstamp <- as.integer(seq(1, nT_ori, length.out = 9))
 dat <- dt_pde_test
 max_y <- max(as.vector(unlist(dat))) # set max limit for all plots
-# max_y <- max(as.vector(unlist(res_pre_exact))) # set max limit for all plots
 
-# pde_heat <- plot_panel_heatmap_9(dat = dat, tstamp = tstamp, filename = "plot_panel_pde",
-#                                  input_num = input_num, max_y = max_y, Nx = Nx, Ny = Ny, nT = nT_ori, savei = F)
 {
   plot_ls <- list()
   ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
@@ -305,10 +261,6 @@ max_y <- max(as.vector(unlist(dat))) # set max limit for all plots
                            limits = c(0, max_y),
                            oob = scales::squish) +
       labs(x = "x", y = "y", fill = "Value") 
-    # +
-    #   theme(text = element_text(size=28),
-    #         legend.text = element_text(size = 28),
-    #         legend.key.size = unit(1.5, "cm"))
 
     plot_ls[[ind_plot]] <- p
     ind_plot <- ind_plot + 1
@@ -344,9 +296,7 @@ emulator has successfully learned the spatiotemporal dynamics from the training
 runs.
 
 ```{r plot 2 prepare}
-dat <- res_pre_exact # this is exact
-# ffbs_heat <- plot_panel_heatmap_9(dat = dat, tstamp = tstamp, filename = "plot_panel_ffbs", savei = F,
-#                                   input_num = input_num, max_y = max_y, Nx = Nx, Ny = Ny, nT = nT)
+dat <- res_pre_exact 
 {
   plot_ls <- list()
   ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
@@ -365,10 +315,6 @@ dat <- res_pre_exact # this is exact
                            limits = c(0, max_y),
                            oob = scales::squish) +
       labs(x = "x", y = "y", fill = "Value")
-    # +
-    #   theme(text = element_text(size=28),
-    #         legend.text = element_text(size = 28),
-    #         legend.key.size = unit(1.5, "cm"))
 
     plot_ls[[ind_plot]] <- p
     ind_plot <- ind_plot + 1
@@ -429,7 +375,6 @@ above.
                              upper = apply(X = y_pre, MARGIN = 1, FUN = quantile, prob = 0.975))
     error_width <- (max(y_true) - min(y_true)) / 30 # denominator is for aesthetic 
     y_pre_stat %>% ggplot(aes(x = y_true, y = med)) + 
-      # geom_linerange(aes(ymin = lower, ymax = upper)) 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width) + 
       geom_abline(col = "red")
@@ -439,7 +384,6 @@ above.
   {
     time_num <- 20
     sp_num <- c(1:N_sp)
-    # input_num <- 1
     y_true <- dt_pde_test[[time_num]][input_num,sp_num]
     y_pre <- res_pre[[time_num]][input_num,sp_num,]
     y_pre_stat <- data.frame(y_true = y_true,
@@ -449,7 +393,6 @@ above.
     y_pre_stat <- y_pre_stat / N_people
     error_width <- (max(y_pre_stat["y_true"]) - min(y_pre_stat["y_true"])) / 30
     plot_error_1 <- y_pre_stat %>% ggplot(aes(x = y_true, y = med)) + 
-      # geom_linerange(aes(ymin = lower, ymax = upper)) 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2, alpha = alpha_error)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width, alpha = alpha_error) + 
       geom_abline(col = "red") + 
@@ -478,7 +421,6 @@ above.
     # scatter plot
     error_width <- (max(y_pre_stat_error_comp_ls[[t]]["y_true"]) - min(y_pre_stat_error_comp_ls[[t]]["y_true"])) / 30
     plot_error_1 <- y_pre_stat_error_comp_ls[[t]] %>% ggplot(aes(x = y_true, y = med)) + 
-      # geom_linerange(aes(ymin = lower, ymax = upper)) 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2, alpha = alpha_error / 3)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width, alpha = alpha_error / 3) + 
       geom_abline(col = "red") + 
@@ -486,18 +428,12 @@ above.
     plot_error_comp_ls[[t]] <- plot_error_1
     
     # error band plot
-    # fsize <- 34
     plot_band_predict <- y_pre_stat_error_comp_ls[[t]] %>%
       ggplot(aes(x = y_true, y = med)) + 
       geom_ribbon(aes(ymin = lower, ymax = upper, x = y_true), fill = "#A6CEE3", alpha = 1) +
       geom_point(aes(y = med), color = "#1F78B4", size = 0.7, alpha = 1) +
       geom_abline(color = "#E31A1C", linewidth = 1) + 
       labs(x = "PDE solution", y = "FFBS emulation") +
-      # theme(
-      #   axis.title.x = element_text(size = fsize),
-      #   axis.title.y = element_text(size = fsize),
-      #   axis.text = element_text(size = fsize)  # Adjust axis tick labels as needed
-      # ) + 
       theme_minimal()
     plot_band_ls[[t]] <- plot_band_predict
   }

@@ -42,9 +42,9 @@ BS <- function(res_ff, G_ls, nT, delta = 1){
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.1*nT) == 0){
+    if(i %% round(0.5*nT) == 0){
       print(paste("BS:", i, "/", nT))
-      print(Sys.time())
+      # print(Sys.time())
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

@@ -89,9 +89,9 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
   Vt <- V_ls
 
   for (i in 1:nT) {
-    if(i %% round(0.1*nT) == 0){
+    if(i %% round(0.5*nT) == 0){
       print(paste("FF:", i, "/", nT))
-      print(Sys.time())
+      # print(Sys.time())
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

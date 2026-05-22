@@ -10,3 +10,5 @@ src/*.dll
 inst/doc
 /doc/
 /Meta/
+/temp/
+
