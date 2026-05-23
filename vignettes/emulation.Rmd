@@ -1,5 +1,6 @@
 ---
 title: "PDE Emulation with FFBS"
+author: Xiang Chen and Sudipto Banerjee, UCLA
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{PDE Emulation with FFBS}
@@ -405,3 +406,7 @@ This tutorial showed how to use `spDBL` to build an FFBS emulator for time-index
 4. Evaluate the emulator using heatmaps and uncertainty plots.
 
 The wrapper functions in this vignette are intended to be reusable starting points. For a new PDE simulator, the main changes are usually the data-loading step, the spatial grid dimensions, the AR order, and the GP covariance tuning parameters.
+
+## References
+
+Banerjee, S., Chen, X., Frankenburg, I., and Zhou, D. (2025). Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models. *Journal of Machine Learning Research*, 26(146), 1--43. <https://jmlr.org/papers/v26/22-0896.html>

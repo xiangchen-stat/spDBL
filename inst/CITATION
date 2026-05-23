@@ -1,0 +1,17 @@
+bibentry(
+  bibtype = "Article",
+  key = "banerjee2025dynamic",
+  title = "Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models",
+  author = c(
+    person("Sudipto", "Banerjee"),
+    person("Xiang", "Chen"),
+    person("Ian", "Frankenburg"),
+    person("Daniel", "Zhou")
+  ),
+  journal = "Journal of Machine Learning Research",
+  volume = "26",
+  number = "146",
+  pages = "1--43",
+  year = "2025",
+  url = "https://jmlr.org/papers/v26/22-0896.html"
+)

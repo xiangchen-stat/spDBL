@@ -7,7 +7,8 @@ Authors@R: c(
   )
 Description: Provides tools for Bayesian learning of spatiotemporal dynamical mechanistic models.
     Includes methods for parameter estimation, simulation, and inference using hierarchical and
-    state-space modeling approaches.
+    state-space modeling approaches, following Banerjee, Chen, Frankenburg and Zhou (2025)
+    <https://jmlr.org/papers/v26/22-0896.html>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.0)
