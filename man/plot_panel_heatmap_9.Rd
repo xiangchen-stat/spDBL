@@ -13,7 +13,9 @@ plot_panel_heatmap_9(
   Ny,
   nT,
   filename = "plot_panel",
-  savei = T
+  savei = TRUE,
+  col_bgr = spdbl_default_col_bgr(),
+  path_fig = "."
 )
 }
 \arguments{
@@ -37,6 +39,11 @@ matrix of dimension \code{c(n_inputs, Nx * Ny)}.}
 
 \item{savei}{Logical. Whether to save the panel to disk. Defaults to
 \code{TRUE}.}
+
+\item{col_bgr}{Character vector of colours for the heatmap gradient.}
+
+\item{path_fig}{Character. Directory path where the file is saved when
+\code{savei = TRUE}. Defaults to the current working directory.}
 }
 \value{
 A list of nine \code{ggplot} objects (one per panel).

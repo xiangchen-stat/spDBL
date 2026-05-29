@@ -1,3 +1,9 @@
+spdbl_default_col_bgr <- function() {
+  c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
+    "#5bb349", "#f3e35a", "#eda742", "#e36726", "#d64729", "#c52429",
+    "#a62021", "#871b1c")
+}
+
 #' Quick raster heatmap
 #'
 #' Creates a \code{ggplot2} raster heatmap using the \code{col_bgr} colour
@@ -7,13 +13,14 @@
 #'   \code{y} (vertical position), and \code{fill} (value to display).
 #' @param max_y Numeric scalar. Upper limit of the colour scale. Values above
 #'   this are squished to the maximum colour.
+#' @param col_bgr Character vector of colours for the heatmap gradient.
 #'
 #' @return A \code{ggplot} object.
 #'
 #' @seealso \code{\link{quick_save}}
 #' @export
-quick_heat <- function(dt, max_y){
-  p <- ggplot(dt, aes(x = x, y = y, fill = fill)) +
+quick_heat <- function(dt, max_y, col_bgr = spdbl_default_col_bgr()){
+  p <- ggplot(dt, aes(x = .data$x, y = .data$y, fill = .data$fill)) +
     geom_raster() +
     scale_fill_gradientn(colours = col_bgr,
                          limits = c(0, max_y),
@@ -71,11 +78,15 @@ quick_save <- function(filename, path_fig, plot){
 #'   \code{savei = TRUE}). Defaults to \code{"plot_panel"}.
 #' @param savei Logical. Whether to save the panel to disk. Defaults to
 #'   \code{TRUE}.
+#' @param col_bgr Character vector of colours for the heatmap gradient.
+#' @param path_fig Character. Directory path where the file is saved when
+#'   \code{savei = TRUE}. Defaults to the current working directory.
 #'
 #' @return A list of nine \code{ggplot} objects (one per panel).
 #'
 #' @export
-plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, filename = "plot_panel", savei = T){
+plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, filename = "plot_panel", savei = TRUE,
+                                 col_bgr = spdbl_default_col_bgr(), path_fig = "."){
   plot_ls <- list()
   ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
   ind_plot <- 1
@@ -87,7 +98,7 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
     dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)%>%
       as.data.frame()
 
-    p <- ggplot(dt, aes(x = col, y = row, fill = sol)) +
+    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
       geom_raster() +
       scale_fill_gradientn(colours = col_bgr,
                            limits = c(0, max_y),
@@ -206,12 +217,16 @@ cal_errorbar_mean <- function(X){
 #'   \code{"plot_panel"}.
 #' @param savei Logical. Whether to save the panel to disk. Defaults to
 #'   \code{TRUE}.
+#' @param col_bgr Character vector of colours for the heatmap gradient.
+#' @param path_fig Character. Directory path where the file is saved when
+#'   \code{savei = TRUE}. Defaults to the current working directory.
 #'
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal_nolab}}
 #' @export
-plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = T){
+plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
+                                     col_bgr = spdbl_default_col_bgr(), path_fig = "."){
   plot_ls <- list()
   ind_plot <- 1 # start counting
 
@@ -222,7 +237,7 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
     dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)%>%
       as.data.frame()
 
-    p <- ggplot(dt, aes(x = col, y = row, fill = sol)) +
+    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
       geom_raster() +
       scale_fill_gradientn(colours = col_bgr,
                            limits = c(0, max_y),
@@ -287,12 +302,16 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
 #'   \code{"plot_panel"}.
 #' @param savei Logical. Whether to save the panel to disk. Defaults to
 #'   \code{TRUE}.
+#' @param col_bgr Character vector of colours for the heatmap gradient.
+#' @param path_fig Character. Directory path where the file is saved when
+#'   \code{savei = TRUE}. Defaults to the current working directory.
 #'
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal}}
 #' @export
-plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = T){
+plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
+                                           col_bgr = spdbl_default_col_bgr(), path_fig = "."){
   plot_ls <- list()
   ind_plot <- 1 # start counting
 
@@ -303,7 +322,7 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
     dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)%>%
       as.data.frame()
 
-    p <- ggplot(dt, aes(x = col, y = row, fill = sol)) +
+    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
       geom_raster() +
       scale_fill_gradientn(colours = col_bgr,
                            limits = c(min_y, max_y),

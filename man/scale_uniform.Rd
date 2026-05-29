@@ -18,8 +18,8 @@ Numeric vector or matrix with values in \eqn{[0, 1]}.
 }
 \description{
 Maps \code{x} to \eqn{(x - \text{low}) / (\text{high} - \text{low})}.
-Raises an error if the internal variable \code{eta} is outside
-\code{[eta_limit_low, eta_limit_high]}. Sets \code{NaN} results to 0.
+Raises an error if \code{x} is outside \code{[low, high]}. Sets
+\code{NaN} results to 0.
 }
 \seealso{
 \code{\link{scale_back_uniform}}

@@ -1,8 +1,8 @@
 #' Scale a vector to the unit interval via a uniform transformation
 #'
 #' Maps \code{x} to \eqn{(x - \text{low}) / (\text{high} - \text{low})}.
-#' Raises an error if the internal variable \code{eta} is outside
-#' \code{[eta_limit_low, eta_limit_high]}. Sets \code{NaN} results to 0.
+#' Raises an error if \code{x} is outside \code{[low, high]}. Sets
+#' \code{NaN} results to 0.
 #'
 #' @param x Numeric vector or matrix. Values to scale.
 #' @param low Numeric. Lower bound of the original range.
@@ -13,10 +13,10 @@
 #' @seealso \code{\link{scale_back_uniform}}
 #' @export
 scale_uniform <- function(x, low, high){
-  if (all(eta >= eta_limit_low) && all(eta <= eta_limit_high)) {
+  if (all(x >= low) && all(x <= high)) {
     res <- (x - low) / (high - low)
   } else{
-    stop("eta is out of range.")
+    stop("x is out of range.")
   }
   res[is.nan(res)] <- 0
   return(res)
@@ -676,7 +676,7 @@ update_muSigma_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, n
   nsam <- 1 # generate only one sample
   # 1. predict y_eta using PDE
   yt_eta_tt <- gen_pde(eta = eta, Nx = Nx, Ny = Ny, N = N_people,
-                       nT = nT_ori)
+                       nT_ori = nT_ori)
   yt_eta_tt_ls <- list()
   for (i in 1:dim(yt_eta_tt)[1]) {
     yt_eta_tt_ls[[i]] <- t(yt_eta_tt[i,])

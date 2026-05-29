@@ -4,7 +4,7 @@
 \alias{quick_heat}
 \title{Quick raster heatmap}
 \usage{
-quick_heat(dt, max_y)
+quick_heat(dt, max_y, col_bgr = spdbl_default_col_bgr())
 }
 \arguments{
 \item{dt}{Data frame with columns \code{x} (horizontal position),
@@ -12,6 +12,8 @@ quick_heat(dt, max_y)
 
 \item{max_y}{Numeric scalar. Upper limit of the colour scale. Values above
 this are squished to the maximum colour.}
+
+\item{col_bgr}{Character vector of colours for the heatmap gradient.}
 }
 \value{
 A \code{ggplot} object.

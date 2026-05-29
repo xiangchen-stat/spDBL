@@ -17,6 +17,7 @@
 #' @importFrom ggplot2 aes element_text geom_raster ggplot ggsave labs
 #'   scale_fill_gradientn theme unit
 #' @importFrom ggpubr ggarrange
+#' @importFrom magrittr %>%
 #' @importFrom matrixsampling rinvwishart
+#' @importFrom rlang .data
 NULL
-

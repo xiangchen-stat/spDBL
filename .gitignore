@@ -12,3 +12,6 @@ inst/doc
 /Meta/
 /temp/
 
+.positai
+..Rcheck/
+spDBL.Rcheck/
