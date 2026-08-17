@@ -4,7 +4,21 @@
 \alias{FFBS_sigma2R}
 \title{Forward Filter Backward Sampler (scalar sigma-squared-times-R model)}
 \usage{
-FFBS_sigma2R(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1)
+FFBS_sigma2R(
+  Y,
+  F_ls,
+  G_ls,
+  W_ls,
+  V_ls,
+  m0,
+  M0,
+  n0,
+  D0,
+  nT,
+  R,
+  delta = 1,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Data matrices.}
@@ -31,6 +45,9 @@ FFBS_sigma2R(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1)
 \item{R}{Numeric matrix. Fixed spatial correlation matrix.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list with \code{ff} (output of \code{\link{FF_sigma2R}}) and

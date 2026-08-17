@@ -4,7 +4,7 @@
 \alias{FFBS}
 \title{Forward Filter Backward Sampler (MNIW model)}
 \usage{
-FFBS(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1)
+FFBS(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Each element is the \eqn{N \times q}
@@ -31,6 +31,9 @@ data matrix at the corresponding time step.}
 
 \item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
 \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list with:

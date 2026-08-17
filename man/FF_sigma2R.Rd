@@ -4,7 +4,21 @@
 \alias{FF_sigma2R}
 \title{Forward Filter for the scalar-sigma-squared-times-R model}
 \usage{
-FF_sigma2R(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1)
+FF_sigma2R(
+  Y,
+  F_ls,
+  G_ls,
+  W_ls,
+  V_ls,
+  m0,
+  M0,
+  n0,
+  D0,
+  nT,
+  R,
+  delta = 1,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Each element is the \eqn{N \times S}
@@ -34,6 +48,9 @@ Its Cholesky inverse is used internally.}
 
 \item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
 \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT + 1} (same structure as

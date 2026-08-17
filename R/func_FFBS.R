@@ -20,6 +20,8 @@
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Right-variance discount factor. Defaults to
 #'   \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list with:
 #'   \describe{
@@ -31,16 +33,19 @@
 #'
 #' @seealso \code{\link{FF}}, \code{\link{BS}}, \code{\link{FFBS_sampling}}
 #' @export
-FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
+FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
+                 verbose = FALSE){
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF(Y = Y, F_ls = F_ls, G_ls = G_ls,
               W_ls = W_ls, V_ls = V_ls,
               m0 = m0, M0 = M0,
               n0 = n0, D0 = D0,
-              nT = nT, delta = delta)
-  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
-  print("Finish FFBS")
+              nT = nT, delta = delta, verbose = verbose)
+  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta, verbose = verbose)
+  if(verbose){
+    message("Finish FFBS")
+  }
   out$ff <- res_ff
   out$bs <- res_bs
   return(out)
@@ -61,6 +66,8 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
 #' @param G_ls State transition matrix or list (see \code{\link{FF}}).
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
 #'   \code{"T<nT>"} are arrays of dimension \code{c(p, q, nsam)} containing
@@ -70,7 +77,8 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
 #'
 #' @seealso \code{\link{FFBS}}, \code{\link{MNIW_sampler}}
 #' @export
-FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
+FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
+                          verbose = FALSE){
   out <- list()
   res_ff <- para_ffbs$ff
   res_bs <- para_ffbs$bs
@@ -100,9 +108,8 @@ FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.5*(nT-1)) == 0){
-      print(paste("Sampling:", i, "/", nT))
-      # print(Sys.time())
+    if(verbose && i %% round(0.5*(nT-1)) == 0){
+      message("Sampling: ", i, "/", nT)
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -309,6 +316,8 @@ FFBS_predict_exact <- function(Y, para_ffbs, F_ls, F_new_ls, input, input_new,
 #' @param nT Integer. Number of time steps.
 #' @param R Numeric matrix. Fixed spatial correlation matrix.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list with \code{ff} (output of \code{\link{FF_sigma2R}}) and
 #'   \code{bs} (output of \code{\link{BS}}).
@@ -316,16 +325,19 @@ FFBS_predict_exact <- function(Y, para_ffbs, F_ls, F_new_ls, input, input_new,
 #' @seealso \code{\link{FF_sigma2R}}, \code{\link{BS}},
 #'   \code{\link{FFBS_sampling_sigma2R}}
 #' @export
-FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1.0){
+FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
+                         delta = 1.0, verbose = FALSE){
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF_sigma2R(Y = Y, F_ls = F_ls, G_ls = G_ls,
                         W_ls = W_ls, V_ls = V_ls,
                         m0 = m0, M0 = M0,
                         n0 = n0, D0 = D0,
-                        nT = nT, R = R, delta = delta)
-  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
-  print("Finish FFBS")
+                        nT = nT, R = R, delta = delta, verbose = verbose)
+  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta, verbose = verbose)
+  if(verbose){
+    message("Finish FFBS")
+  }
   out$ff <- res_ff
   out$bs <- res_bs
   return(out)
@@ -345,6 +357,8 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta
 #' @param nT Integer. Number of time steps.
 #' @param R Numeric matrix. Fixed spatial correlation matrix.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
 #'   \code{"T<nT>"} are arrays of dimension \code{c(p, q, nsam)} with state
@@ -353,7 +367,8 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta
 #'
 #' @seealso \code{\link{FFBS_sigma2R}}, \code{\link{MNIG_sampler}}
 #' @export
-FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1){
+FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R,
+                                  delta = 1, verbose = FALSE){
   out <- list()
   res_ff <- para_ffbs$ff
   res_bs <- para_ffbs$bs
@@ -376,9 +391,8 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.5*(nT-1)) == 0){
-      print(paste("Sampling:", i, "/", nT))
-      # print(Sys.time())
+    if(verbose && i %% round(0.5*(nT-1)) == 0){
+      message("Sampling: ", i, "/", nT)
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -423,21 +437,26 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
 #' @param M0 Numeric matrix. Prior state left-covariance.
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list with \code{ff} (output of \code{\link{FF_I}}) and
 #'   \code{bs} (output of \code{\link{BS}}).
 #'
 #' @seealso \code{\link{FF_I}}, \code{\link{BS}}, \code{\link{FFBS_sampling_I}}
 #' @export
-FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
+FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
+                   verbose = FALSE){
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF_I(Y = Y, F_ls = F_ls, G_ls = G_ls,
                                 W_ls = W_ls, V_ls = V_ls,
                                 m0 = m0, M0 = M0,
-                                nT = nT, delta = delta)
-  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta)
-  print("Finish FFBS")
+                                nT = nT, delta = delta, verbose = verbose)
+  res_bs <- BS(res_ff, G_ls, nT = nT, delta = delta, verbose = verbose)
+  if(verbose){
+    message("Finish FFBS")
+  }
   out$ff <- res_ff
   out$bs <- res_bs
   return(out)
@@ -455,6 +474,8 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
 #' @param G_ls State transition matrix or list (see \code{\link{FF}}).
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT}. Each element \code{"T<t>"} is an
 #'   array of dimension \code{c(p, q, nsam)} with posterior samples of the
@@ -462,7 +483,8 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
 #'
 #' @seealso \code{\link{FFBS_I}}
 #' @export
-FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
+FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
+                            verbose = FALSE){
   out <- list()
   res_ff <- para_ffbs$ff
   res_bs <- para_ffbs$bs
@@ -481,9 +503,8 @@ FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1){
 
   # backward nT
   for (i in nT:1) {
-    if(i %% round(0.5*(nT-1)) == 0){
-      print(paste("Sampling:", i, "/", nT))
-      # print(Sys.time())
+    if(verbose && i %% round(0.5*(nT-1)) == 0){
+      message("Sampling: ", i, "/", nT)
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

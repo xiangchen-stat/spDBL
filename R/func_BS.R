@@ -15,6 +15,8 @@
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Right-variance discount factor. Defaults to
 #'   \code{1}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list with:
 #'   \describe{
@@ -26,7 +28,7 @@
 #'
 #' @seealso \code{\link{FF}}, \code{\link{FFBS}}
 #' @export
-BS <- function(res_ff, G_ls, nT, delta = 1){
+BS <- function(res_ff, G_ls, nT, delta = 1, verbose = FALSE){
   out <- list()
   out$st <- array(dim = c(dim(res_ff[[nT]]$mt), nT))
   out$St <- array(dim = c(dim(res_ff[[nT]]$Mt), nT))
@@ -42,9 +44,8 @@ BS <- function(res_ff, G_ls, nT, delta = 1){
 
   # then backward t
   for (i in (nT-1):1) {
-    if(i %% round(0.5*nT) == 0){
-      print(paste("BS:", i, "/", nT))
-      # print(Sys.time())
+    if(verbose && i %% round(0.5*nT) == 0){
+      message("BS: ", i, "/", nT)
     }
     # Check if G_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

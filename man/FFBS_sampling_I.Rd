@@ -4,7 +4,7 @@
 \alias{FFBS_sampling_I}
 \title{Draw posterior samples from FFBS output (identity right-covariance)}
 \usage{
-FFBS_sampling_I(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1)
+FFBS_sampling_I(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{nsam}{Integer. Number of posterior samples.}
@@ -18,6 +18,9 @@ FFBS_sampling_I(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1)
 \item{nT}{Integer. Number of time steps.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT}. Each element \code{"T<t>"} is an

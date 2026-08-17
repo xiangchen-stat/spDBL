@@ -4,7 +4,7 @@
 \alias{BS}
 \title{Backward sampler for the Forward Filter Backward Sampler (FFBS)}
 \usage{
-BS(res_ff, G_ls, nT, delta = 1)
+BS(res_ff, G_ls, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{res_ff}{List of length \code{nT} (plus a \code{prior} element) returned
@@ -18,6 +18,9 @@ constant over time) or a list of \code{nT} matrices (time-varying).}
 
 \item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
 \code{1}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list with:

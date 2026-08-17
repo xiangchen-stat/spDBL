@@ -65,8 +65,8 @@ submatrix indexed by the row range of each spatial block.}
 \item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
 \code{1.0}.}
 
-\item{verbose}{Logical. If \code{TRUE}, prints progress messages. Defaults to
-\code{FALSE}.}
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of character vectors with paths to the output CSV files:

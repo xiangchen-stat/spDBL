@@ -4,7 +4,7 @@
 \alias{FF}
 \title{Forward Filter for the MNIW dynamic linear model}
 \usage{
-FF(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1)
+FF(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Each element \code{Y[[t]]} is the
@@ -38,6 +38,9 @@ matrix or a list of \code{nT} such matrices.}
 
 \item{delta}{Numeric scalar. Discount factor for the right-variance matrix.
 Defaults to \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through

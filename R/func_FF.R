@@ -70,6 +70,8 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Discount factor for the right-variance matrix.
 #'   Defaults to \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
 #'   \code{"T<nT>"} each contain a list with filtered parameters
@@ -79,7 +81,8 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 #'
 #' @seealso \code{\link{BS}}, \code{\link{FFBS}}
 #' @export
-FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
+FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
+               verbose = FALSE){
   out <- list()
   out_name <- c()
   # initialize matirces
@@ -89,9 +92,8 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
   Vt <- V_ls
 
   for (i in 1:nT) {
-    if(i %% round(0.5*nT) == 0){
-      print(paste("FF:", i, "/", nT))
-      # print(Sys.time())
+    if(verbose && i %% round(0.5*nT) == 0){
+      message("FF: ", i, "/", nT)
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -171,8 +173,8 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0){
 #' @param path_out Character. Directory path where output CSV files are written.
 #' @param delta Numeric scalar. Right-variance discount factor. Defaults to
 #'   \code{1.0}.
-#' @param verbose Logical. If \code{TRUE}, prints progress messages. Defaults to
-#'   \code{FALSE}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of character vectors with paths to the output CSV files:
 #'   \describe{
@@ -323,8 +325,7 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
     write.csv(out$At, file = paste0(path_out, "/output_FF_AAt_", f, ".csv",
                                     sep = ""), row.names = F)
     if(verbose == TRUE){
-      print(paste0("Forward filter", f, "/", nT))
-      print(Sys.time())
+      message("Forward filter ", f, "/", nT, " at ", Sys.time())
     }
   }
 
@@ -431,13 +432,16 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
 #'   Its Cholesky inverse is used internally.
 #' @param delta Numeric scalar. Right-variance discount factor. Defaults to
 #'   \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT + 1} (same structure as
 #'   \code{\link{FF}}) with an additional scalar \code{Dt} in place of a matrix.
 #'
 #' @seealso \code{\link{FF_1step_R_sigma2R}}, \code{\link{FFBS_sigma2R}}
 #' @export
-FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta = 1.0){
+FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
+                       delta = 1.0, verbose = FALSE){
   if (!is.null(dim(D0)) || length(D0) != 1) {
     stop("D0 is not a number")
   }
@@ -455,9 +459,8 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R, delta =
   Rinv <- chol2inv(RR)
 
   for (i in 1:nT) {
-    if(i %% round(0.1*nT) == 0){
-      print(paste("FF:", i, "/", nT))
-      print(Sys.time())
+    if(verbose && i %% round(0.1*nT) == 0){
+      message("FF: ", i, "/", nT, " at ", Sys.time())
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged
@@ -569,6 +572,8 @@ FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
 #' @param M0 Numeric matrix. Prior state left-covariance.
 #' @param nT Integer. Number of time steps.
 #' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
+#'   to \code{FALSE}.
 #'
 #' @return A named list of length \code{nT + 1}. Elements \code{"T1"} through
 #'   \code{"T<nT>"} contain \code{at}, \code{At}, \code{mt}, \code{Mt}. The
@@ -576,7 +581,8 @@ FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
 #'
 #' @seealso \code{\link{FF_1step_R_I}}, \code{\link{FFBS_I}}
 #' @export
-FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
+FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
+                 verbose = FALSE){
   out <- list()
   out_name <- c()
   # initialize matirces
@@ -586,9 +592,8 @@ FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0){
   Vt <- V_ls
 
   for (i in 1:nT) {
-    if(i %% round(0.1*nT) == 0){
-      print(paste("FF:", i, "/", nT))
-      print(Sys.time())
+    if(verbose && i %% round(0.1*nT) == 0){
+      message("FF: ", i, "/", nT, " at ", Sys.time())
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
     # If they are list, change accordingly, otherwise keep unchanged

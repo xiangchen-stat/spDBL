@@ -4,7 +4,7 @@
 \alias{FF_I}
 \title{Forward Filter with identity right-covariance}
 \usage{
-FF_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1)
+FF_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Each element is the data matrix at time
@@ -26,6 +26,9 @@ FF_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1)
 \item{nT}{Integer. Number of time steps.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through

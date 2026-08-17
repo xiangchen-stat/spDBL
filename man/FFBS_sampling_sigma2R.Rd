@@ -4,7 +4,16 @@
 \alias{FFBS_sampling_sigma2R}
 \title{Draw posterior samples from FFBS output (scalar sigma-squared-times-R model)}
 \usage{
-FFBS_sampling_sigma2R(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
+FFBS_sampling_sigma2R(
+  nsam,
+  para_ffbs,
+  F_ls,
+  G_ls,
+  nT,
+  R,
+  delta = 1,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{nsam}{Integer. Number of posterior samples.}
@@ -20,6 +29,9 @@ FFBS_sampling_sigma2R(nsam, para_ffbs, F_ls, G_ls, nT, R, delta = 1)
 \item{R}{Numeric matrix. Fixed spatial correlation matrix.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through

@@ -4,7 +4,7 @@
 \alias{FFBS_sampling}
 \title{Draw posterior samples from FFBS output (MNIW model)}
 \usage{
-FFBS_sampling(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1)
+FFBS_sampling(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{nsam}{Integer. Number of posterior samples to draw.}
@@ -19,6 +19,9 @@ FFBS_sampling(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1)
 \item{nT}{Integer. Number of time steps.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through

@@ -4,7 +4,7 @@
 \alias{FFBS_I}
 \title{Forward Filter Backward Sampler (identity right-covariance)}
 \usage{
-FFBS_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1)
+FFBS_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1, verbose = FALSE)
 }
 \arguments{
 \item{Y}{List of length \code{nT}. Data matrices.}
@@ -25,6 +25,9 @@ FFBS_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1)
 \item{nT}{Integer. Number of time steps.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
+to \code{FALSE}.}
 }
 \value{
 A named list with \code{ff} (output of \code{\link{FF_I}}) and

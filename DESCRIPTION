@@ -1,6 +1,6 @@
 Package: spDBL
 Title: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: c(
     person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
     person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))

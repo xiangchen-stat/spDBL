@@ -26,8 +26,8 @@ check_pds <- function(C, eps = 10^(-5), per = 0.05) {
     }
     return(C)
   } else {
-    print(norm_f)
-    stop("Matrix symmetry is outside of tolerance: ",eps)
+    stop("Matrix symmetry is outside of tolerance: ", eps,
+         ". Frobenius norm of asymmetry: ", norm_f)
   }
 }
 
