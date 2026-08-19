@@ -1,7 +1,12 @@
 ---
 title: "PDE Emulation with FFBS"
-author: Xiang Chen and Sudipto Banerjee, UCLA
+# Read by standard R Markdown / R package builders
 output: rmarkdown::html_vignette
+# Read by Quarto
+format: 
+  html:
+    code-copy: hover
+# Read by standard R Markdown / R package builders
 vignette: >
   %\VignetteIndexEntry{PDE Emulation with FFBS}
   %\VignetteEngine{knitr::rmarkdown}
@@ -13,6 +18,11 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+
+# Only inject xaringanExtra copy button if NOT rendering via Quarto
+if (Sys.getenv("QUARTO_VERSION") == "") {
+  xaringanExtra::use_clipboard()
+}
 ```
 
 ## What this tutorial shows
@@ -406,7 +416,3 @@ This tutorial showed how to use `spDBL` to build an FFBS emulator for time-index
 4. Evaluate the emulator using heatmaps and uncertainty plots.
 
 The wrapper functions in this vignette are intended to be reusable starting points. For a new PDE simulator, the main changes are usually the data-loading step, the spatial grid dimensions, the AR order, and the GP covariance tuning parameters.
-
-## References
-
-Banerjee, S., Chen, X., Frankenburg, I., and Zhou, D. (2025). Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models. *Journal of Machine Learning Research*, 26(146), 1--43. <https://jmlr.org/papers/v26/22-0896.html>
