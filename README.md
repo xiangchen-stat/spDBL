@@ -1,6 +1,7 @@
 # spDBL <a href="https://github.com/xiangchen-stat/spDBL"><img src="man/figures/logo.png" align="right" height="138" alt="spDBL hex logo" /></a>
 
 <!-- badges: start -->
+[![CRAN](https://img.shields.io/badge/CRAN-spDBL-blue)](https://cran.r-project.org/web/packages/spDBL/index.html)
 [![GitHub](https://img.shields.io/badge/GitHub-xiangchen--stat%2FspDBL-black?logo=github)](https://github.com/xiangchen-stat/spDBL)
 [![Paper](https://img.shields.io/badge/JMLR-2025-blue)](https://jmlr.org/papers/v26/22-0896.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/xiangchen-stat/spDBL/blob/main/LICENSE.md)
