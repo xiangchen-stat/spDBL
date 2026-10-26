@@ -8,16 +8,16 @@
 
 ## Overview
 
-**spDBL** is an R package for **Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models**. It implements a scalable Bayesian framework for learning complex spatiotemporal dynamical systems by combining **mechanistic modeling**, **Gaussian process emulation**, and **hierarchical state-space models**.
+**spDBL** is an R package for **Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models**. It implements a scalable framework for **Gaussian process emulation** and **Bayesian inverse problems** in complex spatiotemporal dynamical systems, combining **mechanistic modeling** with **hierarchical state-space models**.
 
-Mechanistic models arising from ordinary differential equations, partial differential equations, and computer simulators are often computationally expensive, making direct Bayesian inference difficult. `spDBL` addresses this challenge by emulating the mechanistic system and then melding emulator output with noisy observations in a hierarchical Bayesian model.
+Mechanistic models arising from ordinary differential equations, partial differential equations, and computer simulators are often computationally expensive. Bayesian inverse problems seek to infer unknown mechanistic parameters from noisy observations and quantify their uncertainty through posterior distributions. `spDBL` makes this inference more tractable by emulating the mechanistic system and then melding emulator output with observations in a hierarchical Bayesian model.
 
 The framework supports:
 
 - **Gaussian process emulation** of mechanistic systems
 - **Hierarchical state-space modeling** for spatiotemporal dynamics
 - **Closed-form Bayesian updating** in matrix-variate Normal and Wishart models during emulator construction
-- **Post-emulation MCMC** for inference on mechanistic parameters
+- **Post-emulation MCMC** for Bayesian inverse problems and calibration of mechanistic parameters
 - **Dynamic Bayesian transfer learning** for large-scale emulation
 
 The methodological details are presented in [Banerjee, Chen, Frankenburg, and Zhou (2025)](https://jmlr.org/papers/v26/22-0896.html).
@@ -104,6 +104,81 @@ We develop an approach for Bayesian learning of spatiotemporal dynamical mechani
 This article details exact inference with analytically accessible posterior distributions in hierarchical matrix-variate Normal and Wishart models in designing the emulator. This step obviates expensive iterative algorithms such as Markov chain Monte Carlo or variational approximations. We also show how emulation is applicable to large-scale emulation by designing a dynamic Bayesian transfer learning framework. Inference on mechanistic model parameters proceeds using Markov chain Monte Carlo as a post-emulation step using the emulator as a regression component. We demonstrate this framework through solving inverse problems arising in the analysis of ordinary and partial nonlinear differential equations and, in addition, to a black-box computer model generating spatiotemporal dynamics across a graphical model.
 
 Paper link: <https://jmlr.org/papers/v26/22-0896.html>
+
+## Calibration from saved simulations
+
+The calibration interface supports the scalar covariance model and uses an
+offline GP to supply autoregressive design rows at new mechanistic inputs.
+Prediction and calibration need no new PDE solves. The GP design interpolation
+uncertainty remains excluded; emulator coefficient and predictive uncertainty
+are retained.
+
+    library(spDBL)
+    data("dt_calibration")
+    d <- dt_calibration
+    em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+      covariance = "sigma2R", episode_window = 2, nsam = 20, seed = 1234)
+    cal <- calibration_prepare(em, d$lower, d$upper)
+    validation <- calibration_validate(cal, d$validation$input,
+                                       d$validation$responses)
+    # Optional RStan backend; requires a compiler on first use.
+    # Defaults: marginal emulator sampling, one calibration iteration per draw.
+    fit <- calibration_fit(cal, d$field$z, d$field$U)
+    summary(fit)
+    fields <- calibration_predict(fit)
+
+The inverse-Wishart default of emulator_learn() is preserved. Calibration
+requires an explicit sigma2R fit and does not convert covariance posteriors.
+Both covariance models use sampling = "marginal" by default, drawing smoothed
+episode marginals conditional on a shared covariance draw. Choose
+sampling = "joint" for coefficient paths that preserve episode dependence.
+calibration_prepare() inherits the fitted method; an explicit sampling option
+changes methods using saved filtering results:
+
+    cal_joint <- calibration_prepare(em, d$lower, d$upper, sampling = "joint")
+    fit_long <- calibration_fit(cal_joint, d$field$z, d$field$U,
+      chains = 4, iter = 2000, warmup = 1000, draws_per_emulator = 200)
+
+The calibration defaults are chains = 1, iter = 1, warmup = 0, and one retained
+sample per emulator draw. Larger iter values default to half the iterations as
+warmup and retain up to 200 available samples per emulator draw. The default
+sampler controls disable adaptation for zero warmup and enable it when warmup
+is positive. One-transition results do not establish convergence.
+
+emulator_predict(cal, input_new) also works without new PDE trajectories;
+its mean samples are distinct from full conditional field draws.
+
+See vignette("calibration", package = "spDBL") for the end-to-end example and
+vignette("calibration-details", package = "spDBL") for the probability model.
+Package builds run preparation and validation, then display a compact recorded
+calibration result; they never compile Stan or launch MCMC. The calibration
+vignette uses 500 emulator draws with one NUTS transition per draw, and shows
+eta histograms and a variance/discrepancy/field comparison panel. Its recorded
+sample quantiles describe an execution experiment, not converged inference.
+Full reproduction is available through the installed
+system.file("examples", "run_calibration.R", package = "spDBL") script.
+Its default oneiter500 profile uses marginal emulator sampling. The small,
+full, and smoke profiles remain available; an optional third argument selects
+joint sampling, for example run_calibration.R full output_dir joint.
+One-iteration runs are execution experiments and do not establish convergence.
+
+Maintain .Rmd vignette sources; Rscript data-raw/sync-vignettes.R generates
+their Quarto counterparts. To render the calibration vignette from this source
+checkout, run this command from the package directory:
+
+```sh
+bash vignettes/renderEmulation.sh quarto calibration
+```
+
+The helper installs the current source into the ignored .r-library directory,
+then renders calibration.qmd. This avoids using an older system installation
+that lacks dt_calibration and the calibration functions. Subsequent direct
+Quarto renders use the same local library. Omit calibration to render all three
+vignettes, or select r instead of quarto for R Markdown.
+
+Set SPDBL_RUN_STAN_TESTS=true with the package's
+testthat suite to enable compiler-dependent integration checks. The ordinary
+unit suite does not require RStan.
 
 ## Repository structure
 
