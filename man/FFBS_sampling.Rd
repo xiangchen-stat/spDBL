@@ -4,7 +4,17 @@
 \alias{FFBS_sampling}
 \title{Draw posterior samples from FFBS output (MNIW model)}
 \usage{
-FFBS_sampling(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1, verbose = FALSE)
+FFBS_sampling(
+  nsam,
+  para_ffbs,
+  F_ls,
+  G_ls,
+  nT,
+  delta = 1,
+  verbose = FALSE,
+  sampling = c("marginal", "joint"),
+  seed = NULL
+)
 }
 \arguments{
 \item{nsam}{Integer. Number of posterior samples to draw.}
@@ -22,6 +32,12 @@ FFBS_sampling(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1, verbose = FALSE)
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
+
+\item{sampling}{"marginal" (default) samples the smoothed marginal at each
+episode conditional on the same covariance draw. "joint" samples backward
+conditionals to obtain coherent trajectories.}
+
+\item{seed}{Optional local RNG seed; NULL follows the session RNG.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through
@@ -29,10 +45,11 @@ A named list of length \code{nT + 1}. Elements \code{"T1"} through
 posterior samples of \eqn{\Theta_t}. The element \code{Sigma} is an array
 of dimension \code{c(q, q, nsam)} containing posterior samples of
 \eqn{\Sigma}.
+Attributes sampling_method and joint_trajectories identify the chosen law.
 }
 \description{
 Given the filtered and smoothed distributions from \code{\link{FFBS}},
-draws \code{nsam} joint posterior samples of the state matrices
+draws \code{nsam} posterior sample sets of the state matrices
 \eqn{\Theta_1, \ldots, \Theta_T} and the covariance \eqn{\Sigma} using the
 MNIW sampler.
 }

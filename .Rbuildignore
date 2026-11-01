@@ -5,3 +5,8 @@
 ^LICENSE\.md$
 ^\.positai$
 ^\.claude$
+^data-raw$
+^\.Rapp\.history$
+^vignettes/.*\.qmd$
+^\.r-library$
+^vignettes/reproduce$

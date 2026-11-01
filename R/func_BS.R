@@ -42,6 +42,8 @@ BS <- function(res_ff, G_ls, nT, delta = 1, verbose = FALSE){
   out$st[,,nT] <- st1
   out$St[,,nT] <- St1
 
+  if (nT == 1L) return(out)
+
   # then backward t
   for (i in (nT-1):1) {
     if(verbose && i %% round(0.5*nT) == 0){

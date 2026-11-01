@@ -1,2 +1,8 @@
 *.html
 *.R
+!reproduce/reproduction_helpers.R
+!reproduce/run_reproduction.R
+!reproduce/reproduction_plots.R
+reproduce/_results/
+reproduce/_archive/
+reproduce/logs/

@@ -6,7 +6,7 @@
 \usage{
 FFBS_predict_exact(
   Y,
-  para_ffbs,
+  para_ffbs = NULL,
   F_ls,
   F_new_ls,
   input,
@@ -15,7 +15,11 @@ FFBS_predict_exact(
   phi_para,
   gp_sigma2 = 1.1,
   gp_tau2 = 10^(-4),
-  delta = 1
+  delta = 1,
+  theta = NULL,
+  V_chol = NULL,
+  residual_weights = NULL,
+  return_covariance = FALSE
 )
 }
 \arguments{
@@ -43,6 +47,16 @@ Defaults to \code{1.1}.}
 \code{1e-4}.}
 
 \item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+
+\item{theta}{Optional list of fixed coefficient matrices, one per episode.}
+
+\item{V_chol}{Optional cached upper Cholesky factor of the input covariance.}
+
+\item{residual_weights}{Optional cached inverse-covariance-weighted residuals
+for the supplied coefficient trajectory.}
+
+\item{return_covariance}{If TRUE, return a list with mean and
+input_covariance before scaling by the emulator variance and spatial covariance.}
 }
 \value{
 A named list of length \code{nT}. Each element \code{"T<t>"} is a

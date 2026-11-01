@@ -1,0 +1,19 @@
+#' Saved SIR simulations and synthetic field observations for calibration
+#'
+#' A 6 by 6 grid with 26 observation times, including physical time zero.
+#' Training uses 40 simulator inputs; ten further inputs are held out.
+#' Responses and observations are on the log(I + 1) scale.
+#' This is a different simulation design from dt_emulation: eta1 bounds are
+#' 2 to 4 here, whereas dt_emulation uses inputs near 1 to 2.
+#'
+#' @format A list with training and validation lists (input matrices and
+#'   time-indexed response matrices); named lower and upper parameter bounds;
+#'   Nx, Ny, time, and grid metadata; a field list containing observations,
+#'   original-grid indices, discrepancy correlation, and prior settings;
+#'   a separate truth list used only for validation/plots; and provenance
+#'   containing input identifiers, response scale, seed, and source checksums.
+#' @source Saved SIR simulations following Equation (26) in Banerjee, Chen,
+#'   Frankenburg and Zhou (2025), JMLR 26(146).
+#'   The field-generation/import script is maintained in data-raw.
+#' @seealso [calibration_prepare()], [calibration_fit()]
+"dt_calibration"

@@ -4,7 +4,7 @@
 \alias{recover_from_EP_exact}
 \title{Recover episode-partitioned data to original time dimension (exact)}
 \usage{
-recover_from_EP_exact(dat_EP, nT_ori, nT)
+recover_from_EP_exact(dat_EP, nT_ori, nT, block_cols = NULL)
 }
 \arguments{
 \item{dat_EP}{List of length \code{nT}. Flattened episode-partitioned data.}
@@ -13,6 +13,8 @@ recover_from_EP_exact(dat_EP, nT_ori, nT)
 
 \item{nT}{Integer. Total number of episode time steps
 (\code{nT = nT_ori * n_block}).}
+
+\item{block_cols}{Optional block-by-column mapping to the original grid.}
 }
 \value{
 A named list of length \code{nT_ori} (\code{"T1"}, \ldots,

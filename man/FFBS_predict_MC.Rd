@@ -15,7 +15,7 @@ FFBS_predict_MC(
   nT,
   phi_para,
   gp_sigma2 = 1.1,
-  gp_tau2 = 10^(-4),
+  gp_tau2 = 1e-04,
   delta = 1
 )
 }

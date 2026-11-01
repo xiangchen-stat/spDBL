@@ -2,55 +2,40 @@
 % Please edit documentation in R/func_wrapper.R
 \name{emulator_predict}
 \alias{emulator_predict}
-\title{Predict PDE output from a fitted FFBS emulator}
+\title{Predict simulator output from a fitted emulator}
 \usage{
 emulator_predict(
   emulator,
   input_new,
-  dt_pde_test,
+  dt_pde_test = NULL,
   F_new_ls = "default",
   MC = FALSE
 )
 }
 \arguments{
-\item{emulator}{Named list. Fitted emulator object returned by
-\code{\link{emulator_learn}}.}
+\item{emulator}{An emulator or prepared calibration-input object.}
 
-\item{input_new}{Numeric matrix. New input parameter values at which to
-predict, with rows corresponding to new simulator settings.}
+\item{input_new}{Matrix or vector of new mechanistic parameter inputs.}
 
-\item{dt_pde_test}{List of length \code{nT_ori}. PDE output matrices for the
-new inputs, used to construct default autoregressive design matrices when
-\code{F_new_ls = "default"}.}
+\item{dt_pde_test}{Optional saved responses at new inputs, used only to
+construct default AR designs for an ordinary emulator.}
 
-\item{F_new_ls}{Either \code{"default"} or a list of autoregressive design
-matrices for the new inputs. Defaults to \code{"default"}.}
+\item{F_new_ls}{"default" or explicit episode design matrices.}
 
-\item{MC}{Logical. If \code{FALSE}, return exact posterior predictive means.
-If \code{TRUE}, return Monte Carlo posterior predictive draws. Defaults to
-\code{FALSE}.}
+\item{MC}{If TRUE, return coefficient-conditioned mean samples, not full
+draws of the emulator field. If FALSE, return smoothed means for an
+ordinary emulator, or draw-averaged means for a prepared emulator.}
 }
 \value{
-If \code{MC = FALSE}, a named list of length \code{nT_ori}, where
-each element is a matrix of exact posterior predictive means for one
-original time step. If \code{MC = TRUE}, a named list of length
-\code{nT_ori}, where each element is an array of Monte Carlo predictive
-draws for one original time step.
+A time-indexed list of matrices, or arrays with a final posterior
+draw dimension when MC = TRUE.
 }
 \description{
-Uses a fitted emulator returned by \code{\link{emulator_learn}} to predict
-PDE output at new input parameter values. Prediction can use either the exact
-posterior predictive mean from \code{\link{FFBS_predict_exact}} or Monte
-Carlo posterior predictive draws from \code{\link{FFBS_predict_MC}}.
-}
-\details{
-If \code{F_new_ls = "default"}, the function constructs the required
-autoregressive design matrices for the new inputs from \code{dt_pde_test}
-using the autoregressive order and episode blocking structure stored in
-\code{emulator}.
+With an ordinary \code{\link[=emulator_learn]{emulator_learn()}} result, supply either new design
+matrices or saved simulator outputs used to construct them. With a
+\code{\link[=calibration_prepare]{calibration_prepare()}} result, the offline GP supplies those rows and
+dt_pde_test is unnecessary.
 }
 \seealso{
-\code{\link{emulator_learn}}, \code{\link{FFBS_predict_exact}},
-\code{\link{FFBS_predict_MC}}, \code{\link{recover_from_EP_exact}},
-\code{\link{recover_from_EP_MC}}
+\code{\link[=FFBS_predict_exact]{FFBS_predict_exact()}}, \code{\link[=calibration_predict]{calibration_predict()}}
 }

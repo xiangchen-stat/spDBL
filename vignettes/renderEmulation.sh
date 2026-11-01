@@ -1,58 +1,51 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Exit immediately if a command exits with a non-zero status
-set -e
-
-# 1. Determine the rendering engine
-# Check if a command-line argument was passed (e.g., "r" or "quarto")
-ENGINE=$1
-
-# If no argument is provided, prompt the user interactively
+# Usage: bash vignettes/renderEmulation.sh quarto [calibration ...]
+# Without vignette names, render all three. Run from any working directory.
+ENGINE=${1:-}
 if [[ -z "$ENGINE" ]]; then
-  echo "No rendering engine specified."
-  read -p "Do you want to render with [r]markdown or [q]uarto? (r/q): " CHOICE
-  case "$CHOICE" in 
-    r|R ) ENGINE="r" ;;
-    q|Q ) ENGINE="quarto" ;;
-    * ) echo "Invalid choice. Exiting."; exit 1 ;;
-  esac
+  read -r -p "Render with [r]markdown or [q]uarto? (r/q): " ENGINE
+else
+  shift
 fi
+case "$ENGINE" in
+  r|R) ENGINE=r ;;
+  q|Q|quarto) ENGINE=quarto ;;
+  *) echo "Unknown engine: $ENGINE. Use 'r' or 'quarto'." >&2; exit 1 ;;
+esac
 
-# List your Rmd files here
-RMD_FILES=(
-  "emulation.Rmd"
-)
+VIGNETTES=(emulation calibration calibration-details)
+if [[ $# -gt 0 ]]; then
+  VIGNETTES=("$@")
+fi
+for NAME in "${VIGNETTES[@]}"; do
+  case "$NAME" in
+    emulation|calibration|calibration-details) ;;
+    *) echo "Unknown vignette: $NAME" >&2; exit 1 ;;
+  esac
+done
 
-for RMD_FILE in "${RMD_FILES[@]}"; do
-  # Extract base name without .Rmd extension
-  BASE_NAME="${RMD_FILE%.Rmd}"
-  R_OUTPUT="${BASE_NAME}.R"
-  HTML_OUTPUT="${BASE_NAME}.html"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+LOCAL_LIBRARY="$PACKAGE_DIR/.r-library"
+mkdir -p "$LOCAL_LIBRARY"
+export R_LIBS="$LOCAL_LIBRARY${R_LIBS:+:$R_LIBS}"
 
-  echo "=================================================="
-  echo "Processing: $RMD_FILE"
-  echo "=================================================="
+echo "Installing this spDBL checkout into $LOCAL_LIBRARY"
+R CMD INSTALL --library="$LOCAL_LIBRARY" "$PACKAGE_DIR"
+cd "$PACKAGE_DIR"
+Rscript data-raw/sync-vignettes.R
+cd "$SCRIPT_DIR"
 
-  # 1. Extract pure R code from the Rmd file[cite: 9]
-  echo "[1/2] Extracting pure R code via knitr::purl()..."
-  Rscript -e "knitr::purl(input = '$RMD_FILE', output = '$R_OUTPUT', documentation = 1)"
-
-  # 2. Render Rmd file into an HTML report based on user choice
-  if [[ "$ENGINE" == "r" || "$ENGINE" == "R" ]]; then
-    echo "[2/2] Rendering HTML document via rmarkdown::render()..."
-    Rscript -e "rmarkdown::render(input = '$RMD_FILE', output_format = 'html_document', output_file = '$HTML_OUTPUT')"
-  elif [[ "$ENGINE" == "quarto" || "$ENGINE" == "q" ]]; then
-    echo "[2/2] Rendering HTML document via quarto render..."
-    quarto render "$RMD_FILE" --to html --embed-resources
+for NAME in "${VIGNETTES[@]}"; do
+  echo "Rendering $NAME with $ENGINE"
+  Rscript -e 'args <- commandArgs(TRUE); knitr::purl(args[1], output = args[2], documentation = 1)' \
+    "$NAME.Rmd" "$NAME.R"
+  if [[ "$ENGINE" == r ]]; then
+    Rscript -e 'args <- commandArgs(TRUE); rmarkdown::render(args[1], output_format = "html_document", output_file = args[2])' \
+      "$NAME.Rmd" "$NAME.html"
   else
-    echo "Unknown engine: $ENGINE. Please pass 'r' or 'quarto'."
-    exit 1
+    quarto render "$NAME.qmd" --to html --embed-resources
   fi
-
-  echo "=================================================="
-  echo "Successfully generated:"
-  echo " - HTML Report: $HTML_OUTPUT"
-  echo " - Pure R Code: $R_OUTPUT"
-  echo "=================================================="
-  echo ""
 done

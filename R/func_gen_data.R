@@ -421,7 +421,7 @@ gen_F_ls_AR1_EP <- function(Y, nT, n_b, ind){
   for (i in 1:nT) {
     temp_F <- F_ls_full[[i]]
     for (j in 1:n_b) {
-      out[[(i-1)*n_b + j]] <- temp_F[ind[j,2]:ind[j,3], ind[j,4]:ind[j,5]]
+      out[[(i-1)*n_b + j]] <- temp_F[ind[j,2]:ind[j,3], ind[j,4]:ind[j,5], drop = FALSE]
     }
   }
   return(out)
@@ -453,7 +453,7 @@ gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
     temp_F <- F_ls_full[[i]]
     for (j in 1:n_b) {
       out[[(i-1)*n_b + j]] <- temp_F[ind[j,2]:ind[j,3],
-                                     c(ind[j,4]:ind[j,5], (S + (ind[j,4]:ind[j,5])))]
+                                     c(ind[j,4]:ind[j,5], (S + (ind[j,4]:ind[j,5]))), drop = FALSE]
     }
   }
   return(out)
@@ -476,23 +476,40 @@ gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
 #'   \code{"T<nT_ori>"}), each element a matrix covering one original time step.
 #'
 #' @seealso \code{\link{recover_from_EP_MC}}
+#' @param block_cols Optional block-by-column mapping to the original grid.
 #' @export
-recover_from_EP_exact <- function(dat_EP, nT_ori, nT){
-  if(length(dat_EP) != nT){
-    stop("dimension of dat_EP doesn't match nT")
+recover_from_EP_exact <- function(dat_EP, nT_ori, nT, block_cols = NULL){
+  if(length(nT_ori) != 1L || length(nT) != 1L ||
+     !is.finite(nT_ori) || !is.finite(nT) || nT_ori < 1 || nT < 1 ||
+     nT_ori != as.integer(nT_ori) || nT != as.integer(nT) ||
+     length(dat_EP) != nT || nT %% nT_ori != 0){
+    stop("Episode count must match nT and be divisible by nT_ori")
   }
 
   n_block <- nT / nT_ori
-  out <- list()
+  out <- vector("list", nT_ori)
+  if (!is.null(block_cols)) {
+    block_cols <- as.matrix(block_cols)
+    if (nrow(block_cols) != n_block ||
+        !identical(sort(as.numeric(block_cols)), as.numeric(seq_len(length(block_cols)))) ||
+        !all(vapply(dat_EP, function(x) ncol(as.matrix(x)) == ncol(block_cols), logical(1))))
+      stop("block_cols must map episode columns to a permutation of the full grid")
+  }
 
   # cbind n_block of EP blocks to recover season
-  for (i in 1:nT_ori) {
+  for (i in seq_len(nT_ori)) {
     out[[i]] <- as.matrix(as.data.frame(dat_EP[(1+(i-1)*n_block):(i*n_block)]))
+    if (!is.null(block_cols)) {
+      field <- matrix(NA_real_, nrow(out[[i]]), length(block_cols))
+      field[, as.vector(t(block_cols))] <- out[[i]]
+      out[[i]] <- field
+    }
   }
 
   names(out) <- paste0("T", seq(1:nT_ori))
   return(out)
 }
+
 
 #' Recover episode-partitioned posterior samples to original time dimension
 #'

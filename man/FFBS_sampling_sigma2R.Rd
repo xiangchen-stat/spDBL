@@ -12,7 +12,9 @@ FFBS_sampling_sigma2R(
   nT,
   R,
   delta = 1,
-  verbose = FALSE
+  verbose = FALSE,
+  seed = NULL,
+  sampling = c("marginal", "joint")
 )
 }
 \arguments{
@@ -32,12 +34,19 @@ FFBS_sampling_sigma2R(
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
+
+\item{seed}{Optional local seed. NULL uses the session RNG.}
+
+\item{sampling}{"marginal" (default) draws smoothed episode marginals
+conditional on a shared variance. "joint" preserves cross-episode
+dependence by sampling backward conditionals.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through
 \code{"T<nT>"} are arrays of dimension \code{c(p, q, nsam)} with state
 samples. The element \code{Sigma} is a vector of length \code{nsam} with
 samples of \eqn{\sigma^2}.
+Attributes sampling_method and joint_trajectories identify the chosen law.
 }
 \description{
 Draws \code{nsam} posterior samples of the state \eqn{\Theta_t} and the

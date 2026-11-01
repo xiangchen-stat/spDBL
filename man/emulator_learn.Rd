@@ -17,70 +17,62 @@ emulator_learn(
   episode_window = 1,
   gp_tune = 0.5,
   gp_sigma2 = 1.1,
-  gp_tau2 = 10^(-4)
+  gp_tau2 = 1e-04,
+  covariance = c("iw", "sigma2R"),
+  R_episode = NULL,
+  R_field = NULL,
+  seed = NULL,
+  verbose = FALSE,
+  sampling = c("marginal", "joint")
 )
 }
 \arguments{
-\item{pde_para_train}{Numeric matrix. Training input parameters, with rows
-corresponding to simulator runs and columns to parameters.}
+\item{pde_para_train}{Finite numeric matrix of training parameter inputs.}
 
-\item{dt_pde_train}{List of length \code{nT}. Each element is a numeric
-matrix of training PDE outputs at one time step, with rows corresponding to
-simulator runs and columns to spatial locations.}
+\item{dt_pde_train}{Time-indexed list of training response matrices, with
+simulator runs in rows and original-grid locations in columns.}
 
-\item{Nx}{Integer. Number of spatial grid cells in the x-direction.}
+\item{Nx, Ny}{Positive integer grid dimensions.}
 
-\item{Ny}{Integer. Number of spatial grid cells in the y-direction.}
+\item{F_ls_train}{"default" or a list of episode design matrices.}
 
-\item{F_ls_train}{Either \code{"default"} or a list of autoregressive design
-matrices for the training data. If \code{"default"}, the design matrices
-are generated from \code{dt_pde_train}.}
+\item{F_ls_test}{Unused compatibility argument.}
 
-\item{F_ls_test}{Deprecated/unused argument retained for compatibility.}
+\item{N_people}{Population scale recorded in the emulator metadata.}
 
-\item{N_people}{Numeric scalar. Population size associated with the PDE
-simulator. Stored in the returned setup list. Defaults to \code{10000}.}
+\item{nsam}{Positive integer number of posterior coefficient draws.}
 
-\item{nsam}{Integer. Number of posterior state samples drawn by
-\code{\link{FFBS_sampling}}. Defaults to \code{10}.}
+\item{AR_choice}{Autoregressive order, 1 or 2.}
 
-\item{AR_choice}{Integer. Autoregressive design order. Use \code{1} for
-\code{\link{gen_F_ls_AR1_EP}} or \code{2} for
-\code{\link{gen_F_ls_AR2_EP}}. Defaults to \code{2}.}
+\item{episode_window}{Number of spatial strips per block; must divide Nx.}
 
-\item{episode_window}{Integer. Number of y-direction columns per episode
-block. Defaults to \code{1}.}
+\item{gp_tune}{Positive range tuning factor.}
 
-\item{gp_tune}{Numeric scalar. Tuning factor used to set the exponential
-kernel range from the maximum pairwise input distance. Defaults to
-\code{0.5}.}
+\item{gp_sigma2, gp_tau2}{Positive input/spatial kernel amplitude and nugget.}
 
-\item{gp_sigma2}{Numeric scalar. Marginal variance parameter for the input
-Gaussian process kernel. Defaults to \code{1.1}.}
+\item{covariance}{"iw" (default) or "sigma2R".}
 
-\item{gp_tau2}{Numeric scalar. Nugget variance parameter for the input
-Gaussian process kernel. Defaults to \code{10^(-4)}.}
+\item{R_episode, R_field}{Optional spatial covariance matrices for the block
+and full grid, respectively. Defaults use the same exponential kernel.}
+
+\item{seed}{Optional local RNG seed. NULL follows the session RNG.}
+
+\item{verbose}{Whether to report progress.}
+
+\item{sampling}{"marginal" (default) uses smoothed episode marginals
+conditional on a shared covariance draw, following Eq. (9) and Algorithm 4.
+"joint" uses backward conditionals to preserve dependence across episodes.}
 }
 \value{
-A named list with:
-\describe{
-\item{para_ffbs}{Output of \code{\link{FFBS}}.}
-\item{res_ffbs}{Posterior state samples returned by
-\code{\link{FFBS_sampling}}.}
-\item{setup}{A list of training data, blocking information, kernel
-parameters, generated design matrices, and other quantities needed by
-\code{\link{emulator_predict}}.}
-}
+An object of class spDBL_emulator, retaining para_ffbs,
+res_ffbs, and a complete setup list for prediction and calibration.
 }
 \description{
-Fits a dynamic linear emulator to training PDE output using Forward Filtering
-Backward Sampling (FFBS). The wrapper constructs the input-parameter Gaussian
-process covariance, partitions spatial output into episode blocks, builds
-autoregressive design matrices, runs \code{\link{FFBS}}, and draws posterior
-state samples with \code{\link{FFBS_sampling}}.
+Fits an episode-based emulator to saved simulator runs. The default
+inverse-Wishart model is retained for compatibility. Use
+covariance = "sigma2R" for scalar-variance coefficient samples that can
+be passed to \code{\link[=calibration_prepare]{calibration_prepare()}}.
 }
 \seealso{
-\code{\link{emulator_predict}}, \code{\link{FFBS}},
-\code{\link{FFBS_sampling}}, \code{\link{gen_F_ls_AR1_EP}},
-\code{\link{gen_F_ls_AR2_EP}}
+\code{\link[=emulator_predict]{emulator_predict()}}, \code{\link[=calibration_prepare]{calibration_prepare()}}
 }

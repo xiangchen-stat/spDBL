@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+.r-library/
 src/*.o
 src/*.so
 src/*.dll
@@ -15,3 +16,5 @@ inst/doc
 .positai
 ..Rcheck/
 spDBL.Rcheck/
+/vignettes/reproduce/_archive/
+/vignettes/reproduce/_results/

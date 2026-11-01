@@ -1,6 +1,6 @@
 Package: spDBL
 Title: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models
-Version: 1.0.2
+Version: 1.1.1
 Authors@R: c(
     person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
     person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))
@@ -27,6 +27,9 @@ Imports:
     matrixcalc,
     mniw,
     utils,
+    tools,
+    methods,
+    graphics,
     stats,
     ggpubr,
     ggplot2,
@@ -38,7 +41,8 @@ Suggests:
     testthat (>= 3.0.0),
     here,
     knitr,
-    rmarkdown
+    rmarkdown,
+    rstan (>= 2.32.7)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 LazyData: true
