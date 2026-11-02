@@ -1,17 +1,28 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Generate a random matrix with entries scaled to \eqn{[-1, 1]}
 #'
 #' Draws a matrix of independent standard normal entries and divides by the
-#' absolute maximum, so all entries lie in \eqn{[-1, 1]}.
+#' largest absolute entry, so all entries lie in \eqn{[-1, 1]}. (Versions up
+#' to 1.1.1 divided by the absolute value of the largest entry, so entries
+#' could fall below -1.)
 #'
 #' @param nrow Integer. Number of rows.
 #' @param ncol Integer. Number of columns.
 #'
 #' @return A numeric matrix of dimension \code{c(nrow, ncol)}.
 #'
+#' @examples
+#' set.seed(1)
+#' M <- gen_ran_matrix(3, 4)
+#' dim(M)
+#' max(abs(M))  # the largest absolute entry is scaled to 1
+#'
 #' @export
 gen_ran_matrix <- function(nrow, ncol){
   S <- matrix(rnorm(nrow * ncol), nrow  = nrow, ncol  = ncol)
-  S <- S / abs(max(S))
+  S <- S / max(abs(S))
   return(S)
 }
 
@@ -25,6 +36,13 @@ gen_ran_matrix <- function(nrow, ncol){
 #'
 #' @return A symmetric positive definite numeric matrix of dimension
 #'   \code{c(dim, dim)}.
+#'
+#' @examples
+#' set.seed(1)
+#' S <- gen_pd_matrix(4)
+#' isSymmetric(S)
+#' max(S)
+#' all(eigen(S, symmetric = TRUE)$values > 0)
 #'
 #' @export
 gen_pd_matrix <- function(dim){
@@ -50,6 +68,14 @@ gen_pd_matrix <- function(dim){
 #' @return A numeric matrix of dimension \code{c(p, S)}.
 #'
 #' @seealso \code{\link{rmn_chol_more}}
+#' @examples
+#' set.seed(1)
+#' U <- matrix(c(1, 0.5, 0.5, 1), 2)
+#' Sigma <- diag(c(1, 2, 3))
+#' draw <- rmn_chol(m = matrix(0, 2, 3), RM = chol(U), RSigma = chol(Sigma))
+#' dim(draw)
+#' draw
+#'
 #' @export
 rmn_chol <- function(m, RM, RSigma){
   p <- nrow(m)
@@ -76,6 +102,15 @@ rmn_chol <- function(m, RM, RSigma){
 #' @return An array of dimension \code{c(p, S, nsam)}.
 #'
 #' @seealso \code{\link{rmn_chol}}
+#' @examples
+#' set.seed(1)
+#' U <- matrix(c(1, 0.5, 0.5, 1), 2)
+#' Sigma <- diag(c(1, 2, 3))
+#' draws <- rmn_chol_more(2000, m = matrix(0, 2, 3), RM = chol(U), RSigma = chol(Sigma))
+#' dim(draws)
+#' var(draws[1, 3, ])                # close to U[1, 1] * Sigma[3, 3] = 3
+#' cor(draws[1, 1, ], draws[2, 1, ]) # close to U[1, 2] = 0.5
+#'
 #' @export
 rmn_chol_more <- function(nsam, m, RM, RSigma){
   p <- nrow(m)
@@ -114,6 +149,13 @@ rmn_chol_more <- function(nsam, m, RM, RSigma){
 #'   }
 #'
 #' @seealso \code{\link{gen_ffbs_csv}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 10, S = 3, p = 2, nT = 4)
+#' names(dat$Y)
+#' dim(dat$Y$Y1)
+#' dim(dat$para$V0)
+#'
 #' @export
 gen_ffbs_data <- function(N, S, p, nT){
   out <- list()
@@ -208,6 +250,15 @@ gen_ffbs_data <- function(N, S, p, nT){
 #'   \code{Y1.csv} through \code{Y<nT>.csv}.
 #'
 #' @seealso \code{\link{gen_ffbs_data}}
+#' @examples
+#' set.seed(1)
+#' out_dir <- file.path(tempdir(), "ffbs_csv")
+#' dir.create(out_dir)
+#' gen_ffbs_csv(N = 10, S = 3, p = 2, nT = 3, path = paste0(out_dir, "/"))
+#' list.files(out_dir)
+#' dim(read.csv(file.path(out_dir, "Y1.csv")))
+#' unlink(out_dir, recursive = TRUE)
+#'
 #' @export
 gen_ffbs_csv <- function(N, S, p, nT, path){
   m0 <- gen_ran_matrix(p, S)
@@ -282,6 +333,12 @@ gen_ffbs_csv <- function(N, S, p, nT, path){
 #' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
 #'
 #' @seealso \code{\link{gen_exp_kernel}}, \code{\link{gen_expsq_kernel}}
+#' @examples
+#' loc <- matrix(c(0, 1, 3), ncol = 1)
+#' K <- gen_gp_kernel(loc, phi = 1, sigma2 = 2, tau2 = 0.1)
+#' K
+#' all.equal(K[1, 2], 2 * exp(-1))
+#'
 #' @export
 gen_gp_kernel <- function(loc, phi, sigma2, tau2){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
@@ -304,6 +361,12 @@ gen_gp_kernel <- function(loc, phi, sigma2, tau2){
 #' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
 #'
 #' @seealso \code{\link{gen_gp_kernel}}, \code{\link{gen_exp_kernel}}
+#' @examples
+#' loc <- cbind(c(0, 1, 0), c(0, 0, 2))
+#' K <- gen_expsq_kernel(loc, phi = 0.5, tau2 = 0.01)
+#' round(K, 3)
+#' all.equal(K[1, 3], exp(-0.5 * 2^2))
+#'
 #' @export
 gen_expsq_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
@@ -326,6 +389,12 @@ gen_expsq_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
 #' @return A symmetric positive definite matrix of dimension \code{c(n, n)}.
 #'
 #' @seealso \code{\link{gen_gp_kernel}}, \code{\link{gen_expsq_kernel}}
+#' @examples
+#' loc <- cbind(c(0, 1, 0), c(0, 0, 2))
+#' K <- gen_exp_kernel(loc, phi = 0.5)
+#' round(K, 3)
+#' all.equal(K[1, 3], exp(-0.5 * 2))
+#'
 #' @export
 gen_exp_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
   dist_k <- as.matrix(stats::dist(loc, method = "euclidean", diag = T, upper = T))
@@ -338,7 +407,11 @@ gen_exp_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
 #' Build AR(1) covariate list from a list of response matrices
 #'
 #' Constructs the time-varying covariate list \eqn{F_t} for a first-order
-#' autoregressive model: \eqn{F_t = Y_{t-1}} (with \eqn{F_1 = Y_1}).
+#' autoregressive model: \eqn{F_t = Y_{t-1}}. No earlier output exists at
+#' \eqn{t = 1}, so \eqn{F_1} is a matrix of ones (a per-site intercept).
+#' The design is causal and deterministic: \eqn{F_t} uses only outputs
+#' before time \eqn{t}. (Versions up to 1.1.1 used \eqn{F_1 = Y_1}, the
+#' response itself.)
 #'
 #' @param Y List of length \code{nT}. Each element is the \eqn{N \times S}
 #'   data matrix at time \eqn{t}.
@@ -348,26 +421,27 @@ gen_exp_kernel <- function(loc, phi, sigma2 = 1, tau2 = 0){
 #'   matrix \eqn{F_t}.
 #'
 #' @seealso \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}
+#' @examples
+#' Y <- lapply(1:4, function(t) matrix(t, 2, 3))
+#' F_ls <- gen_F_ls_AR1(Y, nT = 4)
+#' length(F_ls)
+#' sapply(F_ls, function(Ft) Ft[1, 1])  # ones at t = 1, then lags: 1 1 2 3
+#'
 #' @export
 gen_F_ls_AR1 <- function(Y, nT){
-  F_ls <- list()
-  for (i in 1:nT) {
-    if(i == 1){
-      Ft <- Y[[1]]
-      F_ls[[i]] <- Ft
-    } else{
-      Ft <- Y[[i - 1]]
-      F_ls[[i]] <- Ft
-    }
-  }
-  return(F_ls)
+  ones <- array(1, dim(as.matrix(Y[[1]])))
+  lapply(seq_len(nT), function(i) if (i == 1) ones else as.matrix(Y[[i - 1]]))
 }
 
 #' Build AR(2) covariate list from a list of response matrices
 #'
 #' Constructs the time-varying covariate list \eqn{F_t} for a second-order
 #' autoregressive model by column-binding the two most recent lags:
-#' \eqn{F_t = [Y_{t-2}, Y_{t-1}]} (with special handling for \eqn{t = 1, 2}).
+#' \eqn{F_t = [Y_{t-2}, Y_{t-1}]}. A lag that does not exist yet is replaced
+#' by a matrix of ones (a per-site intercept): \eqn{F_1 = [1, 1]} and
+#' \eqn{F_2 = [1, Y_1]}. The design is causal and deterministic. (Versions up
+#' to 1.1.1 used \eqn{Y_1} plus random noise at \eqn{t = 1}, and the future
+#' value \eqn{Y_3} at \eqn{t = 2}.)
 #'
 #' @param Y List of length \code{nT}. Each element is the \eqn{N \times S}
 #'   data matrix at time \eqn{t}.
@@ -377,24 +451,18 @@ gen_F_ls_AR1 <- function(Y, nT){
 #'   \eqn{N \times 2S} covariate matrix \eqn{F_t}.
 #'
 #' @seealso \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}
+#' @examples
+#' Y <- lapply(1:4, function(t) matrix(t, 2, 3))
+#' F_ls <- gen_F_ls_AR2(Y, nT = 4)
+#' dim(F_ls[[4]])
+#' F_ls[[2]][1, ]  # ones (no lag 2 yet), then lag 1
+#' F_ls[[4]][1, ]  # lags 2 and 3
+#'
 #' @export
 gen_F_ls_AR2 <- function(Y, nT){
-  F_ls <- list()
-  for (i in 1:nT) {
-    if(i == 1){
-      Ft <- cbind(Y[[1]],
-                  0.01 * gen_ran_matrix(nrow = nrow(Y[[1]]), ncol = ncol(Y[[1]])))
-      F_ls[[i]] <- Ft
-    } else if(i == 2){
-      Ft <- cbind(Y[[1]],
-                  1/2 * (Y[[1]] + Y[[3]]))
-      F_ls[[i]] <- Ft
-    } else{
-      Ft <- cbind(Y[[i - 2]], Y[[i - 1]])
-      F_ls[[i]] <- Ft
-    }
-  }
-  return(F_ls)
+  ones <- array(1, dim(as.matrix(Y[[1]])))
+  lag <- function(i, k) if (i - k >= 1) as.matrix(Y[[i - k]]) else ones
+  lapply(seq_len(nT), function(i) cbind(lag(i, 2), lag(i, 1)))
 }
 
 #' Build AR(1) covariate list for the episode-block model
@@ -414,6 +482,14 @@ gen_F_ls_AR2 <- function(Y, nT){
 #'   matrices.
 #'
 #' @seealso \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}
+#' @examples
+#' # Three time steps on six sites, split into three blocks of two sites
+#' Y <- lapply(1:3, function(t) matrix(10 * t + 1:6, nrow = 1))
+#' ind <- generate_grid(1, 6, 1, 2)
+#' F_ep <- gen_F_ls_AR1_EP(Y, nT = 3, n_b = 3, ind = ind)
+#' length(F_ep)  # nT * n_b
+#' F_ep[[5]]     # time 2, block 2: sites 3-4 at time 1
+#'
 #' @export
 gen_F_ls_AR1_EP <- function(Y, nT, n_b, ind){
   out <- list()
@@ -444,6 +520,14 @@ gen_F_ls_AR1_EP <- function(Y, nT, n_b, ind){
 #'   matrices (each of width \eqn{2 \times \text{bncol}}).
 #'
 #' @seealso \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}
+#' @examples
+#' set.seed(1)
+#' Y <- lapply(1:3, function(t) matrix(10 * t + 1:6, nrow = 1))
+#' ind <- generate_grid(1, 6, 1, 2)
+#' F_ep <- gen_F_ls_AR2_EP(Y, nT = 3, n_b = 3, ind = ind)
+#' length(F_ep)
+#' F_ep[[8]]  # time 3, block 2: sites 3-4 at times 1 and 2
+#'
 #' @export
 gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
   out <- list()
@@ -477,6 +561,16 @@ gen_F_ls_AR2_EP <- function(Y, nT, n_b, ind){
 #'
 #' @seealso \code{\link{recover_from_EP_MC}}
 #' @param block_cols Optional block-by-column mapping to the original grid.
+#' @examples
+#' # Two time steps on six sites, split into three episodes of two sites each
+#' Y <- lapply(1:2, function(t) matrix(10 * t + 1:6, nrow = 1))
+#' ind <- generate_grid(1, 6, 1, 2)
+#' Y_ep <- unlist(lapply(Y, function(y) lapply(1:3, function(j)
+#'   y[, ind$L[j]:ind$R[j], drop = FALSE])), recursive = FALSE)
+#' length(Y_ep)
+#' rec <- recover_from_EP_exact(Y_ep, nT_ori = 2, nT = 6)
+#' all.equal(unname(rec$T2), Y[[2]])
+#'
 #' @export
 recover_from_EP_exact <- function(dat_EP, nT_ori, nT, block_cols = NULL){
   if(length(nT_ori) != 1L || length(nT) != 1L ||
@@ -526,6 +620,15 @@ recover_from_EP_exact <- function(dat_EP, nT_ori, nT, block_cols = NULL){
 #'   dimension \code{c(p, bncol * n_block, nsam)}.
 #'
 #' @seealso \code{\link{recover_from_EP_exact}}
+#' @examples
+#' set.seed(1)
+#' # 2 original times x 3 episodes; each episode holds 4 draws of a 2 x 2 block
+#' ep <- lapply(1:6, function(e) array(rnorm(2 * 2 * 4), c(2, 2, 4)))
+#' rec <- recover_from_EP_MC(ep, nT_ori = 2, nT = 6, nsam = 4)
+#' names(rec)
+#' dim(rec$T1)
+#' all.equal(rec$T2[, 3:4, 1], ep[[5]][, , 1])
+#'
 #' @export
 recover_from_EP_MC <- function(dat_EP, nT_ori, nT, nsam){
   if(length(dat_EP) != nT){

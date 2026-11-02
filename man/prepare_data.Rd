@@ -39,6 +39,21 @@ whose rows correspond to time steps and whose columns correspond to spatial
 locations. The number of time steps is inferred from the first PDE output
 file.
 }
+\examples{
+data("dt_emulation")
+d <- dt_emulation
+dir <- tempfile("spdbl_")
+dir.create(dir)
+file_para <- file.path(dir, "para.csv")
+utils::write.csv(d$pde_para_train[1:5, ], file_para, row.names = FALSE)
+file_data <- file.path(dir, paste0("run_", 1:5, ".csv"))
+for (i in 1:5) utils::write.csv(t(sapply(d$dt_pde_train, function(y) y[i, ])),
+                                file_data[i], row.names = FALSE)
+dat <- prepare_data(file_para, file_data, prop_train = 0.6)
+c(n_train = dat$n_train, n_test = dat$n_test)
+dim(dat$dt_pde_train$T1)
+unlink(dir, recursive = TRUE)
+}
 \seealso{
 \code{\link{emulator_learn}}, \code{\link{emulator_predict}}
 }

@@ -24,6 +24,11 @@ Iteratively computes block indices using a snake (boustrophedon) traversal
 order. Handles cases where block dimensions do not evenly divide file
 dimensions by allowing the last block in each row or column to be smaller.
 }
+\examples{
+# Last block row and column are smaller; even block rows run right to left
+generate.grid.rowsnake(5, 7, 2, 3)
+
+}
 \seealso{
 \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
 \code{\link{generate.grid.lr}}

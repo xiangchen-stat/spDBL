@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 make_stan_calibration_data <- function(emulator, draw, z, U,
     locations = seq_len(emulator$S), n0 = 30, d0 = 2, discount = 1,
     m0 = rep(0, length(locations)), M0 = diag(length(locations))) {
@@ -17,6 +20,11 @@ make_stan_calibration_data <- function(emulator, draw, z, U,
     residual[e, , ] <- weights[[e]]
   }
   f <- emulator$predictor
+  # Design-row covariance at each time before scaling by the GP variance
+  # factor, which Stan computes at eta. Zero when design uncertainty is off.
+  factors <- .cal_design_factors(emulator, draw, locations)
+  design_covariance <- array(0, c(emulator$T, S, S))
+  for (t in seq_along(factors)) design_covariance[t, , ] <- crossprod(factors[[t]])
   # Explicit dimensions keep length-one vectors from becoming Stan scalars.
   vector_data <- function(x) array(as.numeric(x), length(x))
   index_data <- function(x) array(as.integer(x), length(x))
@@ -26,11 +34,12 @@ make_stan_calibration_data <- function(emulator, draw, z, U,
     eta_lower = vector_data(f$lower), eta_upper = vector_data(f$upper),
     input = emulator$input, predictor_x = f$x, lengthscale = vector_data(f$lengthscale),
     predictor_center = vector_data(f$center), predictor_alpha = f$alpha,
+    predictor_L = t(.cal_predictor_chol(f)), design_covariance = design_covariance,
     theta = theta, residual_weights = residual, block_cols = emulator$block_cols,
     locations = index_data(locations), phi_para = emulator$phi_para,
     gp_sigma2 = emulator$gp_sigma2, gp_tau2 = emulator$gp_tau2,
     sigma2 = emulator$posterior$sigma2[draw], L_V = t(emulator$V_chol),
-    R_field = emulator$R_field[locations, locations, drop = FALSE],
+    R_field = .cal_R_field(emulator, locations),
     L_U = t(.cal_spd(U[locations, locations, drop = FALSE], "U")),
     L_M0 = t(.cal_spd(M0, "M0")), m0 = vector_data(m0), z = z,
     n0 = n0, d0 = d0, discount = discount)
@@ -55,7 +64,7 @@ calibration_log_density <- function(eta_unit, precision, u_std, emulator,
                       rate = discount^(0:emulator$T) * d0, log = TRUE)) +
     sum(stats::dnorm(u_std, log = TRUE))
   for (t in seq_len(emulator$T)) {
-    covariance <- pred$Sigma + diag(tau2[t + 1], length(locations))
+    covariance <- .cal_time_covariance(pred, t) + diag(tau2[t + 1], length(locations))
     L <- chol(covariance)
     residual <- forwardsolve(t(L), z[t, ] - pred$mu[t, ] - u[t + 1, ])
     log_p <- log_p - length(locations) / 2 * log(2 * pi) -
@@ -76,7 +85,7 @@ calibration_log_density <- function(eta_unit, precision, u_std, emulator,
   log_likelihood <- 0
   for (t in seq_len(T)) {
     P <- covariances[[t]] + tau2_all[t + 1L] * U
-    observation_covariance <- P + pred$Sigma + diag(tau2_all[t + 1L], S)
+    observation_covariance <- P + .cal_time_covariance(pred, t) + diag(tau2_all[t + 1L], S)
     L <- t(.cal_spd(observation_covariance))
     residual <- z[t, ] - pred$mu[t, ] - means[t, ]
     whitened <- forwardsolve(L, residual)
@@ -158,10 +167,11 @@ recover_calibration_predictions <- function(eta, tau2, u, emulator_draw,
   for (i in seq_len(n)) {
     pred <- predict_calibration(eta[i, ], emulator_draw[i], emulator, locations)
     for (t in seq_len(T)) {
-      covariance <- pred$Sigma + diag(tau2[i, t], S)
-      K <- pred$Sigma %*% chol2inv(chol(covariance))
+      prior <- .cal_time_covariance(pred, t)
+      covariance <- prior + diag(tau2[i, t], S)
+      K <- prior %*% chol2inv(chol(covariance))
       mean <- pred$mu[t, ] + K %*% (z[t, ] - u[i, t, ] - pred$mu[t, ])
-      variance <- pred$Sigma - K %*% pred$Sigma
+      variance <- prior - K %*% prior
       y[i, t, ] <- as.numeric(mean + t(.cal_spd((variance + t(variance)) / 2)) %*% stats::rnorm(S))
       z_rep[i, t, ] <- y[i, t, ] + u[i, t, ] + stats::rnorm(S, sd = sqrt(tau2[i, t]))
     }
@@ -179,7 +189,7 @@ fit_calibration_rstan <- function(emulator, z, U,
     m0 = rep(0, length(locations)), M0 = diag(length(locations)),
     control = list(adapt_delta = 0.95, max_treedepth = 12), compiled_model = NULL,
     marginal_discrepancy = TRUE, refresh = 100, checkpoint_dir = NULL,
-    keep_discrepancy = TRUE) {
+    keep_discrepancy = TRUE, init = "midpoint") {
   if (!requireNamespace("rstan", quietly = TRUE)) stop("Install rstan first")
   if (warmup >= iter || chains < 1 || draws_per_emulator < 1 ||
       draws_per_emulator > chains * (iter - warmup) || !length(draws) ||
@@ -194,13 +204,28 @@ fit_calibration_rstan <- function(emulator, z, U,
     message("Calibration conditional on emulator draw ", m, " (", j, "/", length(draws), ")")
     data <- make_stan_calibration_data(emulator, m, z, U, locations, n0, d0,
                                        discount, m0, M0)
-    init <- function() {
-      values <- list(eta_unit = array(rep(0.5, data$D), data$D),
-                     precision = rep(n0 / d0, data$T + 1))
-      if (!marginal_discrepancy) values$u_std <- matrix(0, data$T + 1, data$S)
-      values
-    }
-    fit <- rstan::sampling(model, data = data, init = init, chains = chains,
+    # Starting eta on the unit scale, one row per chain. init is "midpoint",
+    # "random" (uniform in the box, seeded per conditional fit), or a unit
+    # vector from .cal_init_spec().
+    eta_start <- if (identical(init, "random")) {
+      set.seed(seed + j)
+      matrix(stats::runif(chains * data$D), chains, data$D)
+    } else matrix(if (identical(init, "midpoint")) 0.5 else init,
+                  chains, data$D, byrow = TRUE)
+    # local() keeps this fit's values; the loop reassigns eta_start and data.
+    start <- local({
+      eta <- eta_start
+      D <- data$D
+      T <- data$T
+      S <- data$S
+      function(chain_id = 1) {
+        values <- list(eta_unit = array(eta[chain_id, ], D),
+                       precision = rep(n0 / d0, T + 1))
+        if (!marginal_discrepancy) values$u_std <- matrix(0, T + 1, S)
+        values
+      }
+    })
+    fit <- rstan::sampling(model, data = data, init = start, chains = chains,
       iter = iter, warmup = warmup, seed = seed + j, cores = cores, refresh = refresh,
       pars = c("eta", "tau2", if (!marginal_discrepancy) "u"), control = control)
     raw <- rstan::extract(fit, permuted = FALSE, inc_warmup = FALSE)
@@ -247,7 +272,7 @@ fit_calibration_rstan <- function(emulator, z, U,
     }
     if (!is.null(checkpoint_dir)) saveRDS(list(samples = out[[j]],
       diagnostics = diagnostics[[j]], marginal_discrepancy = marginal_discrepancy,
-      chains = chains, iter = iter, warmup = warmup),
+      chains = chains, iter = iter, warmup = warmup, init = init),
       file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m)))
   }
   bind_arrays <- function(name, dims) {

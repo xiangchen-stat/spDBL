@@ -21,6 +21,20 @@ Maps \code{x} to \eqn{(x - \text{low}) / (\text{high} - \text{low})}.
 Raises an error if \code{x} is outside \code{[low, high]}. Sets
 \code{NaN} results to 0.
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+x <- c(2, 3.5, 5)
+u <- scale_uniform(x, low = 2, high = 5)
+u
+all.equal(scale_back_uniform(u, low = 2, high = 5), x)
+
+}
 \seealso{
 \code{\link{scale_back_uniform}}
 }

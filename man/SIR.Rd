@@ -37,6 +37,17 @@ partial differential equation suitable for use with \code{deSolve::ode.2D}.
 Diffusion is implemented via \code{ReacTran::tran.2D} with zero-flux
 boundary conditions.
 }
+\examples{
+set.seed(1)
+parms <- list(eta = c(0.3, 0.1, 0, 0, 0), Nx = 2, Ny = 2, N = 100,
+              Gridx = ReacTran::setup.grid.1D(x.up = 0, x.down = 2, N = 2),
+              Gridy = ReacTran::setup.grid.1D(x.up = 0, x.down = 2, N = 2))
+y <- c(runif(4, 50, 100), runif(4, 0, 10), rep(0, 4))
+d <- SIR(t = 0, y = y, parms = parms)[[1]]
+length(d)
+all.equal(sum(d), 0)  # without diffusion, S + I + R is conserved
+
+}
 \seealso{
 \code{\link{gen_pde}}
 }

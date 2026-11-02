@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Example emulation dataset
 #'
 #' A list of example training and testing objects used to illustrate the
@@ -13,4 +16,10 @@
 #'   \code{pde_para_test}.}
 #' }
 #' @source Simulated data / package example data
+#' @examples
+#' data("dt_emulation")
+#' d <- dt_emulation
+#' dim(d$pde_para_train)
+#' length(d$dt_pde_train)
+#' dim(d$dt_pde_train$T1)
 "dt_emulation"

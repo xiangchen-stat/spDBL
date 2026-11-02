@@ -37,6 +37,15 @@ Simulates a prior trajectory \eqn{u_1, \ldots, u_T} of the spatial
 discrepancy field and the associated inverse-gamma variance sequence
 \eqn{\tau^2_1, \ldots, \tau^2_T} from the dynamic calibration model.
 }
+\examples{
+set.seed(1)
+prior <- gen_prior_u_tau2(n0 = 20, d0 = 2, b = 0.95, m0 = rep(0, 4),
+                          M0 = diag(4), U = 0.5 * diag(4), nT_cal = 3)
+names(prior)
+dim(prior$u)
+prior$tau2
+
+}
 \seealso{
 \code{\link{gen_calibrate_data}}
 }

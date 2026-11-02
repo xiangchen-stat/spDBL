@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 ## lppd analytical functions
 
 #' Log density of the matrix-T distribution with inverse-gamma right covariance
@@ -19,6 +22,12 @@
 #'
 #' @return Numeric scalar. Log density (or density if \code{log = FALSE}).
 #'
+#' @examples
+#' set.seed(1)
+#' Y <- matrix(rnorm(6), 2, 3)
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' dMTig(Y, m = matrix(0, 2, 3), M = diag(2), nu = 3, d = 2, R = R)
+#' dMTig(Y, m = matrix(0, 2, 3), M = diag(2), nu = 3, d = 2, R = R, log = FALSE)
 #' @export
 dMTig <- function(Y, m, M, nu, d, R, log=TRUE) {
   p <- nrow(Y)
@@ -60,6 +69,14 @@ dMTig <- function(Y, m, M, nu, d, R, log=TRUE) {
 #' @return Numeric scalar. Log posterior predictive density.
 #'
 #' @seealso \code{\link{lppd_IG_1t}}, \code{\link{lppd_id_1t}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'             par$n0, par$D0, nT = 4)
+#' lppd_IW_1t(dat$Y[[2]], par$F0, par$V0, st = res$bs$st[, , 2],
+#'            St = res$bs$St[, , 2], nt = res$ff$T2$nt, Dt = res$ff$T2$Dt)
 #' @export
 lppd_IW_1t <- function(Yt, Ft, Vt, st, St, nt, Dt) {
   # note nu = nt - S + 1; hyper T is not matrix t
@@ -91,6 +108,16 @@ lppd_IW_1t <- function(Yt, Ft, Vt, st, St, nt, Dt) {
 #' @return Numeric scalar. Log posterior predictive density.
 #'
 #' @seealso \code{\link{dMTig}}, \code{\link{lppd_IW_1t}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' res <- FFBS_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'                     n0 = 3, D0 = 1, nT = 4, R = R)
+#' lppd_IG_1t(dat$Y[[2]], par$F0, par$V0, st = res$bs$st[, , 2],
+#'            St = res$bs$St[, , 2], nt = res$ff$T2$nt, Dt = res$ff$T2$Dt,
+#'            R = R)
 #' @export
 lppd_IG_1t <- function(Yt, Ft, Vt, st, St, nt, Dt, R) {
   # note nu = nt - S + 1; hyper T is not matrix t
@@ -117,6 +144,14 @@ lppd_IG_1t <- function(Yt, Ft, Vt, st, St, nt, Dt, R) {
 #' @return Numeric scalar. Log posterior predictive density.
 #'
 #' @seealso \code{\link{lppd_IW_1t}}, \code{\link{lppd_IG_1t}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'               nT = 4)
+#' lppd_id_1t(dat$Y[[2]], par$F0, par$V0, st = res$bs$st[, , 2],
+#'            St = res$bs$St[, , 2])
 #' @export
 lppd_id_1t <- function (Yt, Ft, Vt, st, St) {
   lppd <- mniw::dMNorm(X = Yt, Lambda = Ft %*% st,

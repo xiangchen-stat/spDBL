@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Check and repair a matrix to be positive definite and symmetric
 #'
 #' Verifies that a matrix is approximately symmetric (within a relative and
@@ -14,6 +17,14 @@
 #' @return The (possibly corrected) positive definite symmetric matrix.
 #'
 #' @seealso \code{\link{make_pds}}
+#' @examples
+#' # A covariance matrix with a tiny rounding asymmetry
+#' A <- matrix(c(2, 1, 1 + 1e-8, 2), 2)
+#' isSymmetric(A)
+#' A_fixed <- check_pds(A)
+#' isSymmetric(A_fixed)
+#' A_fixed
+#'
 #' @export
 check_pds <- function(C, eps = 10^(-5), per = 0.05) {
   norm_f <- norm(C - t(C), type="F")
@@ -44,6 +55,11 @@ check_pds <- function(C, eps = 10^(-5), per = 0.05) {
 #' @return The corrected positive definite symmetric matrix.
 #'
 #' @seealso \code{\link{check_pds}}
+#' @examples
+#' A <- matrix(c(2, 0.9, 1.1, 2), 2)
+#' make_pds(A)  # averaged with its transpose
+#' isSymmetric(make_pds(A))
+#'
 #' @export
 make_pds <- function(C, eps = 10^(-4)) {
   C <- (C + t(C))/2
@@ -80,6 +96,16 @@ make_pds <- function(C, eps = 10^(-4)) {
 #'   }
 #'
 #' @seealso \code{\link{MNIG_sampler}}, \code{\link{FFBS_sampling}}
+#' @examples
+#' set.seed(1)
+#' C <- matrix(c(1, -1), nrow = 1)
+#' draws <- MNIW_sampler(nsam = 2000, X = matrix(1, 5, 1), v = 10, S = diag(2),
+#'                       C = C, Vb = matrix(1))
+#' dim(draws$B)
+#' # E[Sigma] = S / (v - q - 1) = diag(2) / 7
+#' round(apply(draws$sigma, 1:2, mean), 2)
+#' round(rowMeans(draws$B[1, , ]), 2)  # close to C
+#'
 #' @export
 MNIW_sampler <- function(nsam, X, v, S, C, Vb){
   n <- nrow(X)
@@ -125,6 +151,14 @@ MNIW_sampler <- function(nsam, X, v, S, C, Vb){
 #'   }
 #'
 #' @seealso \code{\link{MNIW_sampler}}, \code{\link{FFBS_sampling_sigma2R}}
+#' @examples
+#' set.seed(1)
+#' draws <- MNIG_sampler(nsam = 2000, X = matrix(1, 5, 1), v = 5, S = 2,
+#'                       C = matrix(c(1, -1), nrow = 1), Vb = matrix(1), R = diag(2))
+#' dim(draws$B)
+#' mean(draws$sigma2)  # close to S / (v - 1) = 0.5
+#' round(rowMeans(draws$B[1, , ]), 2)  # close to C
+#'
 #' @export
 MNIG_sampler <- function(nsam, X, v, S, C, Vb, R){
   n <- nrow(X)

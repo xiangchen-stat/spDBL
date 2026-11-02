@@ -24,6 +24,16 @@ dimension \code{c(p, bncol * n_block, nsam)}.
 Reassembles a flattened episode-partitioned list of posterior sample arrays
 back into a list indexed by the original \code{nT_ori} time steps.
 }
+\examples{
+set.seed(1)
+# 2 original times x 3 episodes; each episode holds 4 draws of a 2 x 2 block
+ep <- lapply(1:6, function(e) array(rnorm(2 * 2 * 4), c(2, 2, 4)))
+rec <- recover_from_EP_MC(ep, nT_ori = 2, nT = 6, nsam = 4)
+names(rec)
+dim(rec$T1)
+all.equal(rec$T2[, 3:4, 1], ep[[5]][, , 1])
+
+}
 \seealso{
 \code{\link{recover_from_EP_exact}}
 }

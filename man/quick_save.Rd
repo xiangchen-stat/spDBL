@@ -14,12 +14,24 @@ quick_save(filename, path_fig, plot)
 \item{plot}{A \code{ggplot} object to save.}
 }
 \value{
-Invisibly returns \code{NULL} (called for its side effect).
+The path of the saved file, invisibly (the value of
+\code{ggplot2::ggsave()}). Called for its side effect.
 }
 \description{
 Saves \code{plot} to a PNG file in \code{path_fig} whose name is
 \code{filename} followed by the current Unix timestamp, ensuring unique
 file names across repeated calls.
+}
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+p <- quick_heat(dt, max_y = max(d$field$z))
+path_fig <- tempfile("spdbl_fig_")
+dir.create(path_fig)
+quick_save("heat", path_fig, p)
+list.files(path_fig)
+unlink(path_fig, recursive = TRUE)
 }
 \seealso{
 \code{\link{quick_heat}}

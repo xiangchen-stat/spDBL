@@ -1,3 +1,20 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
+# Legacy research helpers are deprecated in 1.2.0. Each warns once per session;
+# options(spDBL.warn_deprecated = FALSE) silences the warnings.
+.spdbl_deprecated <- new.env(parent = emptyenv())
+.legacy_deprecated <- function(name) {
+  if (isFALSE(getOption("spDBL.warn_deprecated", TRUE)) ||
+      exists(name, envir = .spdbl_deprecated, inherits = FALSE)) return(invisible())
+  assign(name, TRUE, envir = .spdbl_deprecated)
+  warning(structure(class = c("deprecatedWarning", "warning", "condition"),
+    list(message = paste0(name, "() is deprecated since spDBL 1.2.0 and will ",
+      "be removed in a future release. It comes from the original research ",
+      "code; new work should use calibration_prepare() and calibration_fit()."),
+      call = NULL)))
+}
+
 #' Scale a vector to the unit interval via a uniform transformation
 #'
 #' Maps \code{x} to \eqn{(x - \text{low}) / (\text{high} - \text{low})}.
@@ -11,8 +28,19 @@
 #' @return Numeric vector or matrix with values in \eqn{[0, 1]}.
 #'
 #' @seealso \code{\link{scale_back_uniform}}
+#' @examples
+#' x <- c(2, 3.5, 5)
+#' u <- scale_uniform(x, low = 2, high = 5)
+#' u
+#' all.equal(scale_back_uniform(u, low = 2, high = 5), x)
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 scale_uniform <- function(x, low, high){
+  .legacy_deprecated("scale_uniform")
   if (all(x >= low) && all(x <= high)) {
     res <- (x - low) / (high - low)
   } else{
@@ -34,8 +62,19 @@ scale_uniform <- function(x, low, high){
 #' @return Numeric vector or matrix rescaled to \eqn{[\text{low}, \text{high}]}.
 #'
 #' @seealso \code{\link{scale_uniform}}
+#' @examples
+#' u <- c(0, 0.25, 1)
+#' x <- scale_back_uniform(u, low = -1, high = 3)
+#' x
+#' all.equal(scale_uniform(x, low = -1, high = 3), u)
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 scale_back_uniform <- function(x, low, high){
+  .legacy_deprecated("scale_back_uniform")
   res <- x * (high - low) + low
   return(res)
 }
@@ -48,8 +87,17 @@ scale_back_uniform <- function(x, low, high){
 #'
 #' @return Numeric vector or matrix with values in \eqn{(0, 1)}.
 #'
+#' @examples
+#' expit(c(-2, 0, 2))
+#' all.equal(expit(1.5), stats::plogis(1.5))
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 expit <- function(x){
+  .legacy_deprecated("expit")
   return((1 + exp(1)^(-x))^(-1))
 }
 
@@ -61,6 +109,11 @@ expit <- function(x){
 #' @param X Numeric symmetric positive definite matrix.
 #'
 #' @return The inverse of \code{X}.
+#'
+#' @examples
+#' A <- matrix(c(4, 1, 1, 3), 2)
+#' inv_chol(A)
+#' all.equal(inv_chol(A), solve(A))
 #'
 #' @export
 inv_chol <- function(X){
@@ -74,7 +127,9 @@ inv_chol <- function(X){
 #' Computes the log (or raw) absolute Jacobian of the transformation from the
 #' constrained parameter \code{eta} (bounded in
 #' \code{[eta_limit_low, eta_limit_high]}) to the unconstrained logit scale.
-#' Zero entries of \code{eta} are excluded from the product.
+#' Fixed coordinates (equal lower and upper bounds) are excluded from the
+#' product. Versions up to 1.1.1 excluded zero entries of \code{eta}
+#' instead, which wrongly dropped a free coordinate equal to zero.
 #'
 #' @param eta Numeric vector. Constrained parameter values.
 #' @param eta_limit_low Numeric vector. Lower bounds for each element of
@@ -86,10 +141,24 @@ inv_chol <- function(X){
 #'
 #' @return Numeric scalar (log absolute Jacobian or absolute Jacobian).
 #'
+#' @examples
+#' eta <- c(0.3, 2.5)
+#' low <- c(0, 1)
+#' high <- c(1, 4)
+#' cal_jacobian_logit_uniform(eta, low, high)
+#' cal_jacobian_logit_uniform(eta, low, high, log = TRUE)
+#' # A fixed coordinate (low == high) does not contribute
+#' all.equal(cal_jacobian_logit_uniform(c(0.3, 2), c(0, 2), c(1, 2)), 1 / (0.3 * 0.7))
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 cal_jacobian_logit_uniform <- function(eta, eta_limit_low, eta_limit_high, log = FALSE){
-  ind_nonzero = eta != 0
-  res <- abs(prod(1/(eta[ind_nonzero] - eta_limit_low[ind_nonzero]) + 1/(eta_limit_high[ind_nonzero] - eta[ind_nonzero])))
+  .legacy_deprecated("cal_jacobian_logit_uniform")
+  free <- eta_limit_high > eta_limit_low
+  res <- abs(prod(1/(eta[free] - eta_limit_low[free]) + 1/(eta_limit_high[free] - eta[free])))
   if (log == TRUE) {
     res <- log(res)
   }
@@ -126,6 +195,15 @@ cal_jacobian_logit_uniform <- function(eta, eta_limit_low, eta_limit_high, log =
 #'   }
 #'
 #' @seealso \code{\link{gen_prior_u_tau2}}
+#' @examples
+#' set.seed(1)
+#' ycal <- matrix(rnorm(3 * 4), nrow = 3, ncol = 4)
+#' para <- list(b = 0.9, n0 = 20, d0 = 2, u0 = rep(0, 4))
+#' sim <- gen_calibrate_data(ycal, para, U_gen = 0.5 * diag(4))
+#' names(sim)
+#' dim(sim$z)
+#' sim$tau2
+#'
 #' @export
 gen_calibrate_data <- function(ycal_mat, para_gen_cal, U_gen){
   res <- list()
@@ -177,6 +255,15 @@ gen_calibrate_data <- function(ycal_mat, para_gen_cal, U_gen){
 #'   }
 #'
 #' @seealso \code{\link{gen_calibrate_data}}
+#' @examples
+#' set.seed(1)
+#' ycal <- matrix(rnorm(3 * 4), nrow = 3, ncol = 4)
+#' para <- list(b = 0.9, n0 = 20, d0 = 2, u0 = rep(0, 4))
+#' sim <- gen_calibrate_data_uncorr(ycal, para, U_gen = 0.5 * diag(4))
+#' names(sim)
+#' dim(sim$z)
+#' sim$tau2
+#'
 #' @export
 gen_calibrate_data_uncorr <- function(ycal_mat, para_gen_cal, U_gen){
   res <- list()
@@ -229,6 +316,14 @@ gen_calibrate_data_uncorr <- function(ycal_mat, para_gen_cal, U_gen){
 #'   }
 #'
 #' @seealso \code{\link{gen_calibrate_data}}
+#' @examples
+#' set.seed(1)
+#' prior <- gen_prior_u_tau2(n0 = 20, d0 = 2, b = 0.95, m0 = rep(0, 4),
+#'                           M0 = diag(4), U = 0.5 * diag(4), nT_cal = 3)
+#' names(prior)
+#' dim(prior$u)
+#' prior$tau2
+#'
 #' @export
 gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
   res <- list()
@@ -290,6 +385,16 @@ gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
 #'   length as \code{y}, as required by \code{deSolve}.
 #'
 #' @seealso \code{\link{gen_pde}}
+#' @examples
+#' set.seed(1)
+#' parms <- list(eta = c(0.3, 0.1, 0, 0, 0), Nx = 2, Ny = 2, N = 100,
+#'               Gridx = ReacTran::setup.grid.1D(x.up = 0, x.down = 2, N = 2),
+#'               Gridy = ReacTran::setup.grid.1D(x.up = 0, x.down = 2, N = 2))
+#' y <- c(runif(4, 50, 100), runif(4, 0, 10), rep(0, 4))
+#' d <- SIR(t = 0, y = y, parms = parms)[[1]]
+#' length(d)
+#' all.equal(sum(d), 0)  # without diffusion, S + I + R is conserved
+#'
 #' @export
 SIR <- function(t, y, parms) {
   Nx <- parms$Nx
@@ -350,6 +455,12 @@ SIR <- function(t, y, parms) {
 #'   \eqn{\log(1 + I_t)} for each time step and grid cell.
 #'
 #' @seealso \code{\link{SIR}}, \code{\link{update_y_eta}}
+#' @examples
+#' y <- gen_pde(eta = c(0.5, 0.1, 0.05, 0.05, 0.05), Nx = 4, Ny = 4, N = 100,
+#'              nT_ori = 3)
+#' dim(y)  # nT_ori x (Nx * Ny)
+#' round(rowSums(y), 3)  # total log(1 + I) grows over time
+#'
 #' @export
 gen_pde <- function(eta, Nx, Ny, N, nT_ori){
   # NOTE: Nx is length of x-dimension, or rows, Ny is the length of the y-dimension, or columns.
@@ -370,7 +481,7 @@ gen_pde <- function(eta, Nx, Ny, N, nT_ori){
   # set up initial values for SIR
   S0 <- matrix(nrow = Nx, ncol = Ny, data = N)
   I0 <- matrix(nrow = Nx, ncol = Ny, data = 0)
-  I0[Nx/2,Ny/2] <- 1 # set midpoint to have 50 infected people
+  I0[Nx/2,Ny/2] <- 1 # one infected person at the midpoint
   I0[round(Nx/10), round(Ny/10)] <- N * 0.05
   R0 <- matrix(nrow = Nx, ncol = Ny, data = 0)
   yini <- c(S0, I0, R0)
@@ -379,10 +490,13 @@ gen_pde <- function(eta, Nx, Ny, N, nT_ori){
   parms <- list(eta = eta, Gridx = Gridx, Gridy = Gridy, Nx = Nx, Ny = Ny, N = N,
                 y = yini, t = times)
 
-  # Generate SIR data from the SIR ODE.
+  # Generate SIR data from the SIR ODE. lsodes needs about 50-110 doubles of
+  # work space per state on 4 x 4 to 40 x 40 grids (slowly rising with size);
+  # 500 per state leaves a wide margin without a fixed 1.6 GB allocation.
+  n_state <- 3 * Nx * Ny
   out <- deSolve::ode.2D(y = yini, times = times, func = SIR, parms = parms,
                          nspec = 3, dimens = c(Nx, Ny),
-                         lrw = 200000000, names=c("X1", "X2", "X3"))[,-1]
+                         lrw = max(1e5, 500 * n_state), names=c("X1", "X2", "X3"))[,-1]
   lgout <- log(out + 1)
   res <- lgout[,(1 + Nx * Ny):(2 * Nx * Ny)]
   return(res)
@@ -390,9 +504,10 @@ gen_pde <- function(eta, Nx, Ny, N, nT_ori){
 
 #' Compute the cross-covariance matrix between observed and new locations
 #'
-#' Builds the full covariance matrix over observed and new locations using an
-#' exponential GP kernel, then extracts the \eqn{N \times N_{\text{new}}}
-#' cross-covariance block \eqn{J_t}.
+#' Evaluates the exponential GP kernel between observed and new locations,
+#' giving the \eqn{N \times N_{\text{new}}} cross-covariance block \eqn{J_t}.
+#' The nugget does not enter a cross-covariance, even when a new location
+#' coincides with an observed one; this matches \code{\link{FFBS_predict_exact}}.
 #'
 #' @param input Numeric matrix. Coordinates of observed locations
 #'   (\eqn{N \times d}).
@@ -401,11 +516,20 @@ gen_pde <- function(eta, Nx, Ny, N, nT_ori){
 #' @param phi_para Numeric scalar. Range parameter of the exponential kernel.
 #' @param gp_sigma2 Numeric scalar. Marginal variance of the kernel. Defaults
 #'   to \code{1.1}.
-#' @param gp_tau2 Numeric scalar. Nugget variance. Defaults to \code{1e-4}.
+#' @param gp_tau2 Numeric scalar. Nugget variance. Not used; kept for
+#'   compatibility. Defaults to \code{1e-4}.
 #'
 #' @return Numeric matrix of dimension \code{c(N, N_new)}.
 #'
 #' @seealso \code{\link{gen_exp_kernel}}
+#' @examples
+#' set.seed(1)
+#' input <- matrix(runif(10), nrow = 5, ncol = 2)
+#' J <- gen_Jt(input, input_new = c(0.5, 0.5), phi_para = 2)
+#' length(J)
+#' # At an observed input the cross-covariance equals gp_sigma2
+#' gen_Jt(input, input[1, ], phi_para = 2)[1]
+#'
 #' @export
 gen_Jt <- function(input, input_new, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4)){
   # deal with one input prediction
@@ -413,12 +537,8 @@ gen_Jt <- function(input, input_new, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4
     input_new <- t(input_new)
   }
   N <- dim(input)[1]
-
-  # get spatial kernel
-  input_full <- rbind(input, input_new)
-  dist_input_full <- as.matrix(stats::dist(input_full, method = "euclidean", diag = T, upper = T))
-  V_full <- gen_exp_kernel(loc = input_full, phi = phi_para, sigma2 = gp_sigma2, tau2 = gp_tau2) # exponential kernel
-  Jt <- V_full[1:N, (N+1):dim(V_full)[2]]
+  distances <- as.matrix(stats::dist(rbind(input, input_new)))
+  Jt <- gp_sigma2 * exp(-phi_para * distances[1:N, (N+1):ncol(distances)])
   return(Jt)
 }
 
@@ -464,11 +584,33 @@ gen_Jt <- function(input, input_new, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4
 #'   }
 #'
 #' @seealso \code{\link{update_y_eta_one}}, \code{\link{gen_pde}}
+#' @examples
+#' set.seed(1)
+#' input <- matrix(runif(10), nrow = 5, ncol = 2)
+#' res_ffbs <- lapply(1:12, function(e) array(rnorm(8), c(2, 2, 2)))
+#' res_ffbs$Sigma <- c(0.2, 0.3)
+#' args <- list(eta = c(0.3, 0.1, 0.01, 0.01, 0.01), Nx = 2, Ny = 3, N_people = 100,
+#'   nT_ori = 4, nT = 12, nT_cal = 3, N_sp = 6, N_sp_train = 4, AR_choice = 1,
+#'   bncol = 2, res_ffbs = res_ffbs, n_b_cal = 3,
+#'   ind_block_cal = generate_grid(1, 6, 1, 2),
+#'   t_VinvY_FTheta_ls = lapply(1:3, function(t) array(rnorm(60), c(6, 5, 2))),
+#'   Vinv = solve(gen_exp_kernel(input, phi = 2, sigma2 = 1.1, tau2 = 1e-4)),
+#'   R_cal_train = diag(4), input = input, input_cal = c(0.4, 0.6), phi_para = 2,
+#'   gp_sigma2 = 1.1, gp_tau2 = 1e-4, ind_train_cal = c(1, 3, 4, 6))
+#' out <- do.call(update_y_eta, c(args, nsam = 2))
+#' dim(out$y)  # nT_cal x N_sp_train x nsam
+#' out$sigma2_cal
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 update_y_eta <- function(eta, nsam, Nx, Ny, N_people, nT_ori, nT, nT_cal, N_sp, N_sp_train, AR_choice, bncol,
                      res_ffbs, n_b_cal, ind_block_cal, t_VinvY_FTheta_ls, Vinv, R_cal_train, input, input_cal, phi_para,
                      gp_sigma2, gp_tau2,
                      ind_train_cal){
+  .legacy_deprecated("update_y_eta")
   res <- list()
   # 1. predict y_eta using PDE
   yt_eta_tt <- gen_pde(eta = eta, Nx = Nx, Ny = Ny, N = N_people,
@@ -513,8 +655,8 @@ update_y_eta <- function(eta, nsam, Nx, Ny, N_people, nT_ori, nT, nT_cal, N_sp, 
     mu_arry_train[t,,] <- mu_arry[t,ind_train_cal,]
   }
   # 2.4 calculate Sigma constant
-  Sigma_eta_c <- 1 - crossprod(J_eta, Vinv) %*% J_eta
-  # TODO
+  # Conditional variance of the new run, as in FFBS_predict_exact().
+  Sigma_eta_c <- gp_sigma2 + gp_tau2 - crossprod(J_eta, Vinv) %*% J_eta
   sigma2_cal <- as.numeric(mean(res_ffbs$Sigma) * Sigma_eta_c)
   Sigma_eta_train <- sigma2_cal * R_cal_train
   # 3. sampling
@@ -567,10 +709,32 @@ update_y_eta <- function(eta, nsam, Nx, Ny, N_people, nT_ori, nT, nT_cal, N_sp, 
 #' @return A named list with \code{y}, \code{mu}, and \code{Sigma}.
 #'
 #' @seealso \code{\link{update_y_eta}}
+#' @examples
+#' set.seed(1)
+#' input <- matrix(runif(10), nrow = 5, ncol = 2)
+#' res_ffbs <- lapply(1:12, function(e) array(rnorm(8), c(2, 2, 2)))
+#' res_ffbs$Sigma <- c(0.2, 0.3)
+#' args <- list(eta = c(0.3, 0.1, 0.01, 0.01, 0.01), Nx = 2, Ny = 3, N_people = 100,
+#'   nT_ori = 4, nT = 12, nT_cal = 3, N_sp = 6, N_sp_train = 4, AR_choice = 1,
+#'   bncol = 2, res_ffbs = res_ffbs, n_b_cal = 3,
+#'   ind_block_cal = generate_grid(1, 6, 1, 2),
+#'   t_VinvY_FTheta_ls = lapply(1:3, function(t) array(rnorm(60), c(6, 5, 2))),
+#'   Vinv = solve(gen_exp_kernel(input, phi = 2, sigma2 = 1.1, tau2 = 1e-4)),
+#'   R_cal_train = diag(4), input = input, input_cal = c(0.4, 0.6), phi_para = 2,
+#'   gp_sigma2 = 1.1, gp_tau2 = 1e-4, ind_train_cal = c(1, 3, 4, 6))
+#' out <- do.call(update_y_eta_one, c(args, ind_sam = 2))
+#' dim(out$y)  # nT_cal x N_sp_train
+#' dim(out$Sigma)
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 update_y_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, nT_cal, N_sp, N_sp_train, AR_choice, bncol,
                       res_ffbs, n_b_cal, ind_block_cal, t_VinvY_FTheta_ls, Vinv, R_cal_train, input, input_cal, phi_para,
                       gp_sigma2, gp_tau2, ind_train_cal){
+  .legacy_deprecated("update_y_eta_one")
   res <- list()
   nsam <- 1 # generate only one sample
   # 1. predict y_eta using PDE
@@ -615,8 +779,8 @@ update_y_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, nT_cal,
     mu_arry_train[t,] <- mu_arry[t,ind_train_cal]
   }
   # 2.4 calculate Sigma constant
-  Sigma_eta_c <- 1 - crossprod(J_eta, Vinv) %*% J_eta
-  # TODO
+  # Conditional variance of the new run, as in FFBS_predict_exact().
+  Sigma_eta_c <- gp_sigma2 + gp_tau2 - crossprod(J_eta, Vinv) %*% J_eta
   sigma2_cal <- as.numeric(res_ffbs$Sigma[ind_sam] * Sigma_eta_c)
   Sigma_eta_train <- sigma2_cal * R_cal_train
   # 3. sampling
@@ -668,10 +832,33 @@ update_y_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, nT_cal,
 #' @return A named list with \code{mu} and \code{Sigma}.
 #'
 #' @seealso \code{\link{update_y_eta_one}}, \code{\link{sample_y_eta_one}}
+#' @examples
+#' set.seed(1)
+#' input <- matrix(runif(10), nrow = 5, ncol = 2)
+#' res_ffbs <- lapply(1:12, function(e) array(rnorm(8), c(2, 2, 2)))
+#' res_ffbs$Sigma <- c(0.2, 0.3)
+#' args <- list(eta = c(0.3, 0.1, 0.01, 0.01, 0.01), Nx = 2, Ny = 3, N_people = 100,
+#'   nT_ori = 4, nT = 12, nT_cal = 3, N_sp = 6, N_sp_train = 4, AR_choice = 1,
+#'   bncol = 2, res_ffbs = res_ffbs, n_b_cal = 3,
+#'   ind_block_cal = generate_grid(1, 6, 1, 2),
+#'   t_VinvY_FTheta_ls = lapply(1:3, function(t) array(rnorm(60), c(6, 5, 2))),
+#'   Vinv = solve(gen_exp_kernel(input, phi = 2, sigma2 = 1.1, tau2 = 1e-4)),
+#'   R_cal_train = diag(4), input = input, input_cal = c(0.4, 0.6), phi_para = 2,
+#'   gp_sigma2 = 1.1, gp_tau2 = 1e-4, ind_train_cal = c(1, 3, 4, 6))
+#' out <- do.call(update_muSigma_eta_one, c(args, ind_sam = 1))
+#' dim(out$mu)  # nT_cal x N_sp_train
+#' y <- sample_y_eta_one(1, nT_cal = 3, N_sp_train = 4, out$mu, out$Sigma)
+#' dim(y)
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 update_muSigma_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, nT_cal, N_sp, N_sp_train, AR_choice, bncol,
                          res_ffbs, n_b_cal, ind_block_cal, t_VinvY_FTheta_ls, Vinv, R_cal_train, input, input_cal, phi_para,
                          gp_sigma2, gp_tau2, ind_train_cal){
+  .legacy_deprecated("update_muSigma_eta_one")
   res <- list()
   nsam <- 1 # generate only one sample
   # 1. predict y_eta using PDE
@@ -716,9 +903,9 @@ update_muSigma_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, n
     mu_arry_train[t,] <- mu_arry[t,ind_train_cal]
   }
   # 2.4 calculate Sigma constant
-  Sigma_eta_c <- 1 - crossprod(J_eta, Vinv) %*% J_eta
-  # TODO
-  sigma2_cal <- as.numeric(mean(res_ffbs$Sigma) * Sigma_eta_c)
+  # Conditional variance of the new run, as in FFBS_predict_exact().
+  Sigma_eta_c <- gp_sigma2 + gp_tau2 - crossprod(J_eta, Vinv) %*% J_eta
+  sigma2_cal <- as.numeric(res_ffbs$Sigma[ind_sam] * Sigma_eta_c)
   Sigma_eta_train <- sigma2_cal * R_cal_train
 
   res$mu <- mu_arry_train
@@ -746,8 +933,21 @@ update_muSigma_eta_one <- function(eta, ind_sam, Nx, Ny, N_people, nT_ori, nT, n
 #'   draw per time step.
 #'
 #' @seealso \code{\link{update_muSigma_eta_one}}
+#' @examples
+#' set.seed(1)
+#' mu <- matrix(1:6, nrow = 2, ncol = 3)
+#' y <- sample_y_eta_one(ind_sam = 1, nT_cal = 2, N_sp_train = 3,
+#'                       mu_arry_train = mu, Sigma_eta_train = 0.01 * diag(3))
+#' dim(y)
+#' round(y - mu, 2)
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 sample_y_eta_one <- function(ind_sam, nT_cal, N_sp_train, mu_arry_train, Sigma_eta_train){
+  .legacy_deprecated("sample_y_eta_one")
   res <- list()
   # 3. sampling
   y_arry <- array(dim = c(nT_cal, N_sp_train))
@@ -781,8 +981,23 @@ sample_y_eta_one <- function(ind_sam, nT_cal, N_sp_train, mu_arry_train, Sigma_e
 #'     \item{Btbt}{Numeric vector. Posterior mean of the discrepancy.}
 #'   }
 #'
+#' @examples
+#' set.seed(1)
+#' Sigma <- matrix(c(1, 0.3, 0.1, 0.3, 1, 0.3, 0.1, 0.3, 1), 3)
+#' mu <- rnorm(3)
+#' zu <- rnorm(3)
+#' post <- cal_Bt_bt(mu, invSigma = solve(Sigma), tau2t = 0.4, zt_ut = zu, I_Stilde = diag(3))
+#' K <- Sigma %*% solve(Sigma + 0.4 * diag(3))  # Kalman gain
+#' all.equal(post$Bt, Sigma - K %*% Sigma)
+#' all.equal(as.vector(post$Btbt), as.vector(mu + K %*% (zu - mu)))
+#'
+#' @section Lifecycle:
+#' Deprecated since spDBL 1.2.0 and will be removed in a future release.
+#' The first call in a session warns; set
+#' \code{options(spDBL.warn_deprecated = FALSE)} to silence it.
 #' @export
 cal_Bt_bt <- function(mut, invSigma, tau2t, zt_ut, I_Stilde){
+  .legacy_deprecated("cal_Bt_bt")
   res <- list()
   invBt <- invSigma + 1/tau2t * I_Stilde
   Bt <- inv_chol(invBt)

@@ -1,6 +1,10 @@
+// Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+// SPDX-License-Identifier: MIT
+
 // Equations (27)-(29), conditional on one fixed emulator posterior draw.
 // y and u are integrated out exactly with a Kalman filter.
-// F(eta) is the mean of a GP fitted offline to AR2 designs.
+// F(eta) is the mean of a GP fitted offline to AR2 designs. Its predictive
+// variance enters as design_variance * design_covariance[t] (zero if disabled).
 // Prediction matches FFBS_predict_exact(theta = one posterior trajectory) and
 // recover_from_EP_exact(block_cols = ...), retaining sigma2 and R_field.
 data {
@@ -22,6 +26,8 @@ data {
   vector<lower=0>[D] lengthscale;
   vector[E * P] predictor_center;
   matrix[N, E * P] predictor_alpha;
+  matrix[N, N] predictor_L;
+  array[T] matrix[S, S] design_covariance;
   array[E] matrix[P, C] theta;
   array[E] matrix[N, C] residual_weights;
   array[B, C] int<lower=1, upper=S_full> block_cols;
@@ -53,6 +59,7 @@ transformed parameters {
   vector[T + 1] tau2 = inv(precision);
   array[T] vector[S] mu;
   matrix[S, S] Sigma;
+  real design_variance;
   {
     vector[N] J;
     vector[N] k;
@@ -72,6 +79,7 @@ transformed parameters {
       k[i] = exp(-0.5 * predictor_distance2);
     }
     design = predictor_center + predictor_alpha' * k;
+    design_variance = fmax(0, 1 - dot_self(mdivide_left_tri_low(predictor_L, k)));
     conditional_variance = gp_sigma2 + gp_tau2 -
       dot_self(mdivide_left_tri_low(L_V, J));
     Sigma = sigma2 * conditional_variance * R_field;
@@ -93,7 +101,8 @@ model {
   for (t in 1:T) precision[t + 1] ~ gamma(pow(discount, t) * n0, pow(discount, t) * d0);
   for (t in 1:T) {
     matrix[S, S] prior_covariance = filtered_covariance + tau2[t + 1] * U;
-    matrix[S, S] observation_covariance = prior_covariance + Sigma;
+    matrix[S, S] observation_covariance = prior_covariance + Sigma
+      + design_variance * design_covariance[t];
     matrix[S, S] L;
     matrix[S, S] whitened_prior;
     vector[S] residual = z[t] - mu[t] - filtered_mean;

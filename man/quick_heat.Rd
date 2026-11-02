@@ -22,6 +22,14 @@ A \code{ggplot} object.
 Creates a \code{ggplot2} raster heatmap using the \code{col_bgr} colour
 palette with a squished colour scale capped at \code{max_y}.
 }
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+p <- quick_heat(dt, max_y = max(d$field$z))
+class(p)
+p
+}
 \seealso{
 \code{\link{quick_save}}
 }

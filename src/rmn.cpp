@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+// SPDX-License-Identifier: MIT
+
 #include <RcppEigen.h>
 
 // [[Rcpp::depends(RcppEigen)]]

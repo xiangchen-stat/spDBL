@@ -46,7 +46,8 @@ Defaults to \code{1.1}.}
 \item{gp_tau2}{Numeric scalar. Nugget variance of the GP kernel. Defaults to
 \code{1e-4}.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{theta}{Optional list of fixed coefficient matrices, one per episode.}
 
@@ -67,6 +68,18 @@ at the new locations.
 Computes the analytical posterior predictive mean at new spatial locations
 using the smoothed state means \eqn{s_t} from \code{\link{FFBS}} and an
 exponential GP kernel for the cross-covariance.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+x_new <- matrix(c(-0.5, 0.5))  # two new inputs
+pred <- FFBS_predict_exact(dat$Y, res, F_ls = par$F0,
+                           F_new_ls = cbind(1, x_new), input = par$F0[, 2],
+                           input_new = x_new, nT = 4, phi_para = 1)
+pred$T4  # predictive mean at the new inputs (2 x S)
 }
 \seealso{
 \code{\link{FFBS_predict_MC}}, \code{\link{gen_exp_kernel}}

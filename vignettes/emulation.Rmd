@@ -95,7 +95,7 @@ This section introduces two helper functions showing how the FFBS emulator is as
 
 1. computes a Gaussian Process covariance matrix over the training parameter values,
 2. partitions each PDE output matrix into smaller episode-partition blocks,
-3. constructs autoregressive covariates from lagged PDE outputs,
+3. constructs autoregressive covariates from lagged PDE outputs (a column of ones stands in for lags before the first time step, so no design row uses the current or a future output),
 4. runs `FFBS()` to estimate the dynamic emulator, and
 5. draws smoothed-marginal state samples with `FFBS_sampling()` by default.
 

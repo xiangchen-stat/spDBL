@@ -30,10 +30,11 @@ It trains an emulator from saved SIR simulations and calibrates its mechanistic
 parameters to noisy field observations. No PDE solver is called.
 
 Here we use **500 emulator draws and one calibration iteration per draw**.
-The package defaults to smoothed-marginal emulator sampling and one calibration
-iteration per draw. This example sets the number of emulator draws to 500.
-The plots follow the eta histograms and the variance/discrepancy/field panel in
-the development script calibrate_EP_sigma2R.R. One transition per conditional
+The package defaults to smoothed-marginal emulator sampling; the number of
+calibration iterations has no default. This example sets the number of
+emulator draws to 500 and the iterations per draw to one.
+The plots show eta histograms and a variance/discrepancy/field panel.
+One transition per conditional
 is an execution experiment; its sample quantiles do not establish converged
 posterior uncertainty.
 
@@ -112,9 +113,10 @@ validation$field
 The validation report compares field means using known held-out AR rows with
 means using GP-predicted rows. Held-out responses are used for this check only.
 Calibration itself receives neither held-out trajectories nor synthetic truth.
-The design predictor uses a fitted mean; its interpolation uncertainty is not
-integrated. The emulator's coefficient and conditional predictive uncertainty
-are retained.
+The validation report compares means only. For calibration, the design GP's
+predictive covariance is propagated into the field covariance, together with
+the emulator's coefficient and conditional predictive uncertainty
+(`vignette("calibration-details")` gives the formulas).
 
 ## Prepare field observations
 
@@ -142,14 +144,14 @@ states are integrated out by a Kalman filter and recovered afterward.
 ```{r fit-command, eval=FALSE, purl=FALSE}
 fit <- calibration_fit(
   cal, z, U = d$field$U, locations = sites,
-  seed = 1237, refresh = 0
+  iter = 1, seed = 1237, refresh = 0
 )
 summary(fit)
 ```
 
-The omitted sampling arguments use the package defaults: chains = 1,
-iter = 1, warmup = 0, and draws_per_emulator = 1. With zero warmup, adaptation
-is disabled and the default step size is 0.001. The default marginal Stan
+`iter` must always be given. With `iter = 1`, the other sampling arguments
+default to chains = 1, warmup = 0, and draws_per_emulator = 1. With zero
+warmup, adaptation is disabled and the default step size is 0.001. The default marginal Stan
 program integrates out discrepancy states; this is separate from the marginal
 sampling of emulator coefficients.
 
@@ -168,7 +170,9 @@ fit_long <- calibration_fit(
 Each conditional fit starts separately at the midpoint of the parameter bounds
 and at precision n0/d0. It does not continue a chain from the preceding emulator
 draw. In this synthetic example the midpoint also equals the true eta, so close
-agreement after one iteration is strongly affected by initialization. Rhat and
+agreement after one iteration is strongly affected by initialization. Use
+`init = "random"` to start each chain at a random point within the bounds, or
+pass a vector of parameter values. Rhat and
 effective sample size are unavailable for these one-transition conditionals.
 
 Sampling requires the optional RStan package and a working C++ toolchain at
@@ -186,7 +190,8 @@ samples <- recorded$samples
 stopifnot(recorded$provenance$profile == "oneiter500",
           identical(recorded$locations, sites),
           identical(recorded$provenance$emulator_sampling_method, "marginal"),
-          isFALSE(recorded$provenance$joint_trajectories))
+          isFALSE(recorded$provenance$joint_trajectories),
+          isTRUE(recorded$provenance$design_uncertainty))
 data.frame(
   emulator_draws = length(unique(samples$emulator_draw)),
   chains_per_draw = recorded$settings$chains,

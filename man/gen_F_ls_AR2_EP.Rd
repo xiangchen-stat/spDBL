@@ -26,6 +26,15 @@ Generates a flattened covariate list for the episode-partition (EP) model
 with AR(2) lags. Both lag-1 and lag-2 column blocks are extracted and
 column-bound for each spatial block.
 }
+\examples{
+set.seed(1)
+Y <- lapply(1:3, function(t) matrix(10 * t + 1:6, nrow = 1))
+ind <- generate_grid(1, 6, 1, 2)
+F_ep <- gen_F_ls_AR2_EP(Y, nT = 3, n_b = 3, ind = ind)
+length(F_ep)
+F_ep[[8]]  # time 3, block 2: sites 3-4 at times 1 and 2
+
+}
 \seealso{
 \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}
 }

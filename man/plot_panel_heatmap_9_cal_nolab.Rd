@@ -52,6 +52,17 @@ A list of nine \code{ggplot} objects.
 Like \code{\link{plot_panel_heatmap_9_cal}} but suppresses x- and y-axis
 labels and supports a custom lower colour-scale limit (\code{min_y}).
 }
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+u <- d$truth$u
+p <- plot_panel_heatmap_9_cal_nolab(u, tstamp = seq(2, 26, by = 3),
+                                    min_y = min(u), max_y = max(u),
+                                    loc_cal = d$grid, Nx = d$Nx, Ny = d$Ny,
+                                    savei = FALSE)
+length(p)
+p[[1]]
+}
 \seealso{
 \code{\link{plot_panel_heatmap_9_cal}}
 }

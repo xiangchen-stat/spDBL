@@ -1,6 +1,6 @@
 Package: spDBL
 Title: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models
-Version: 1.1.1
+Version: 1.2.0
 Authors@R: c(
     person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
     person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))
@@ -10,6 +10,8 @@ Description: Provides tools for Bayesian learning of spatiotemporal dynamical me
     state-space modeling approaches, following Banerjee, Chen, Frankenburg and Zhou (2025)
     <https://jmlr.org/papers/v26/22-0896.html>.
 License: MIT + file LICENSE
+URL: https://xiangchen-stat.github.io/spDBL/, https://github.com/xiangchen-stat/spDBL
+BugReports: https://github.com/xiangchen-stat/spDBL/issues
 Encoding: UTF-8
 Depends: R (>= 4.0)
 Roxygen: list(markdown = TRUE)
@@ -38,7 +40,7 @@ Imports:
     rlang,
     scales
 Suggests:
-    testthat (>= 3.0.0),
+    testthat (>= 3.3.2),
     here,
     knitr,
     rmarkdown,

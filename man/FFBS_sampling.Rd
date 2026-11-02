@@ -28,7 +28,8 @@ FFBS_sampling(
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+\item{delta}{Discount factor. Must be 1: discounting is not implemented.
+Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -52,6 +53,18 @@ Given the filtered and smoothed distributions from \code{\link{FFBS}},
 draws \code{nsam} posterior sample sets of the state matrices
 \eqn{\Theta_1, \ldots, \Theta_T} and the covariance \eqn{\Sigma} using the
 MNIW sampler.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+sam <- FFBS_sampling(500, res, par$F0, par$G0, nT = 4, seed = 1)
+dim(sam$T2)
+dim(sam$Sigma)
+# Sample mean versus smoothed mean at time 2
+round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 }
 \seealso{
 \code{\link{FFBS}}, \code{\link{MNIW_sampler}}

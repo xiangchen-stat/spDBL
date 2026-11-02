@@ -23,6 +23,13 @@ Evaluates the exponential kernel
 \eqn{k(s, s') = \sigma^2 \exp(-\phi \|s - s'\|) + \tau^2 \mathbf{1}_{s=s'}}
 for all pairs of rows in \code{loc}.
 }
+\examples{
+loc <- cbind(c(0, 1, 0), c(0, 0, 2))
+K <- gen_exp_kernel(loc, phi = 0.5)
+round(K, 3)
+all.equal(K[1, 3], exp(-0.5 * 2))
+
+}
 \seealso{
 \code{\link{gen_gp_kernel}}, \code{\link{gen_expsq_kernel}}
 }

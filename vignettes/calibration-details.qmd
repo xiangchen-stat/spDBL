@@ -83,7 +83,20 @@ K_F^{-1}(H-\mathbf 1c^\top).
 $$
 
 Split this row into $\widehat F_e(\eta)$. At runtime these rows require no
-PDE solution. Their GP interpolation variance is not currently propagated.
+PDE solution. The same GP describes their error. All design columns share one
+kernel, so the errors are jointly Gaussian,
+
+$$
+h(\eta)-\widehat h(\eta)\sim N\left(0,\;v(\eta)\widehat\Sigma_F\right),
+\qquad
+v(\eta)=1-k_F(\eta)^\top K_F^{-1}k_F(\eta),
+$$
+
+with the maximum-likelihood covariance between design columns
+$\widehat\Sigma_F=W^\top W/N$, where $W=L_F^{-1}(H-\mathbf 1c^\top)$ and
+$K_F=L_FL_F^\top$. Column $j$ alone has variance $v(\eta)(\widehat\Sigma_F)_{jj}$.
+`calibration_prepare(design_uncertainty = FALSE)` keeps only the mean, as
+spDBL 1.1.1 did.
 
 The second GP is the emulator's original residual interpolation. Its
 exponential kernel uses the original mechanistic input coordinates:
@@ -119,9 +132,17 @@ does not estimate correlations. The full-field emulator covariance is supplied
 separately:
 
 $$
-\widetilde\Sigma^{(m)}(\eta)
-=\sigma^{2(m)}q(\eta)R_{\rm field}.
+\widetilde\Sigma^{(m)}_t(\eta)
+=\sigma^{2(m)}q(\eta)R_{\rm field}+v(\eta)\,Z_t^{(m)\top}Z_t^{(m)}.
 $$
+
+The second term propagates the design-row error. $Z_t^{(m)}$ is $N\times S$:
+for each episode $e$ observed at time $t$, its block's columns hold
+$W_e\Theta_e^{(m)}/\sqrt N$, where $W_e$ are the columns of $W$ for episode
+$e$. Block $(e,e')$ of this term is therefore
+$\Theta_e^{(m)\top}C_F^{ee'}(\eta)\Theta_{e'}^{(m)}$, with $C_F^{ee'}$ the
+matching block of $v(\eta)\widehat\Sigma_F$, so sites in different spatial
+blocks at the same time are correlated. Its rank is at most $N$.
 
 Observed locations select matching entries of the mean and covariance.
 The recorded kernel scale is preserved: R_field need not have unit diagonal.
@@ -162,7 +183,7 @@ Integrating out the Gaussian emulator field gives
 $$
 z_t\mid\eta,u_t,\tau_t^2,\Psi^{(m)}
 \sim N\left(\mu_t^{(m)}(\eta)+u_t,\,
-\widetilde\Sigma^{(m)}(\eta)+\tau_t^2 I\right).
+\widetilde\Sigma^{(m)}_t(\eta)+\tau_t^2 I\right).
 $$
 
 The observed input is z. It is not replaced by the GP prediction.
@@ -179,7 +200,7 @@ $a_0=m_0$, $C_0=\tau_0^2M_0$, the Kalman recursion is
 
 $$
 P_t=C_{t-1}+\tau_t^2U,\quad
-Q_t=P_t+\widetilde\Sigma^{(m)}(\eta)+\tau_t^2 I,\quad
+Q_t=P_t+\widetilde\Sigma^{(m)}_t(\eta)+\tau_t^2 I,\quad
 e_t=z_t-\mu_t^{(m)}(\eta)-a_{t-1},
 $$
 
@@ -220,10 +241,9 @@ law in both cases.
 
 There are two sampling dimensions: the number of emulator trajectories and
 the number of calibration transitions conditional on each trajectory.
-The package defaults to one calibration chain with iter = 1, warmup = 0, and
-one retained sample per emulator draw. Larger iteration counts are options;
-warmup defaults to floor(iter / 2) and the retained count defaults to at most
-200 available samples per emulator draw. The controls disable adaptation for
+The number of iterations has no default and must be chosen. Chains default
+to one, warmup to floor(iter / 2), and the retained count to at most 200
+available samples per emulator draw. The controls disable adaptation for
 zero warmup and enable it for positive warmup.
 
 Convergence must be assessed within each conditional fit. One transition from

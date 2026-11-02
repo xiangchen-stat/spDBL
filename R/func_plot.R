@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 spdbl_default_col_bgr <- function() {
   c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
     "#5bb349", "#f3e35a", "#eda742", "#e36726", "#d64729", "#c52429",
@@ -18,6 +21,13 @@ spdbl_default_col_bgr <- function() {
 #' @return A \code{ggplot} object.
 #'
 #' @seealso \code{\link{quick_save}}
+#' @examples
+#' data("dt_calibration")
+#' d <- dt_calibration
+#' dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+#' p <- quick_heat(dt, max_y = max(d$field$z))
+#' class(p)
+#' p
 #' @export
 quick_heat <- function(dt, max_y, col_bgr = spdbl_default_col_bgr()){
   p <- ggplot(dt, aes(x = .data$x, y = .data$y, fill = .data$fill)) +
@@ -42,9 +52,20 @@ quick_heat <- function(dt, max_y, col_bgr = spdbl_default_col_bgr()){
 #' @param path_fig Character. Directory path where the file is saved.
 #' @param plot A \code{ggplot} object to save.
 #'
-#' @return Invisibly returns \code{NULL} (called for its side effect).
+#' @return The path of the saved file, invisibly (the value of
+#'   \code{ggplot2::ggsave()}). Called for its side effect.
 #'
 #' @seealso \code{\link{quick_heat}}
+#' @examples
+#' data("dt_calibration")
+#' d <- dt_calibration
+#' dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+#' p <- quick_heat(dt, max_y = max(d$field$z))
+#' path_fig <- tempfile("spdbl_fig_")
+#' dir.create(path_fig)
+#' quick_save("heat", path_fig, p)
+#' list.files(path_fig)
+#' unlink(path_fig, recursive = TRUE)
 #' @export
 quick_save <- function(filename, path_fig, plot){
   ggsave(filename = paste(filename, "_", as.numeric(Sys.time()), ".png", sep = ""),
@@ -84,6 +105,14 @@ quick_save <- function(filename, path_fig, plot){
 #'
 #' @return A list of nine \code{ggplot} objects (one per panel).
 #'
+#' @examples
+#' data("dt_emulation")
+#' d <- dt_emulation
+#' p <- plot_panel_heatmap_9(d$dt_pde_test, input_num = 1,
+#'                           tstamp = seq(2, 26, by = 3), max_y = 10,
+#'                           Nx = 10, Ny = 10, nT = 26, savei = FALSE)
+#' length(p)
+#' p[[9]]
 #' @export
 plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, filename = "plot_panel", savei = TRUE,
                                  col_bgr = spdbl_default_col_bgr(), path_fig = "."){
@@ -161,6 +190,10 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
 #'   }
 #'
 #' @seealso \code{\link{cal_errorbar_mean}}
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(3 * 200, mean = 1:3), nrow = 3)
+#' cal_errorbar(X)
 #' @export
 cal_errorbar <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = median),
@@ -186,6 +219,10 @@ cal_errorbar <- function(X){
 #'   }
 #'
 #' @seealso \code{\link{cal_errorbar}}
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rexp(3 * 200, rate = 1:3), nrow = 3)
+#' cal_errorbar_mean(X)
 #' @export
 cal_errorbar_mean <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = mean),
@@ -224,6 +261,14 @@ cal_errorbar_mean <- function(X){
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal_nolab}}
+#' @examples
+#' data("dt_calibration")
+#' d <- dt_calibration
+#' p <- plot_panel_heatmap_9_cal(d$field$z, tstamp = seq(2, 26, by = 3),
+#'                               max_y = max(d$field$z), loc_cal = d$grid,
+#'                               Nx = d$Nx, Ny = d$Ny, savei = FALSE)
+#' length(p)
+#' p[[1]]
 #' @export
 plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
                                      col_bgr = spdbl_default_col_bgr(), path_fig = "."){
@@ -309,6 +354,16 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal}}
+#' @examples
+#' data("dt_calibration")
+#' d <- dt_calibration
+#' u <- d$truth$u
+#' p <- plot_panel_heatmap_9_cal_nolab(u, tstamp = seq(2, 26, by = 3),
+#'                                     min_y = min(u), max_y = max(u),
+#'                                     loc_cal = d$grid, Nx = d$Nx, Ny = d$Ny,
+#'                                     savei = FALSE)
+#' length(p)
+#' p[[1]]
 #' @export
 plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
                                            col_bgr = spdbl_default_col_bgr(), path_fig = "."){

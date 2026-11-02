@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # MNIW----
 
 #' Forward Filter Backward Sampler (MNIW model)
@@ -18,8 +21,8 @@
 #' @param n0 Numeric scalar. Prior degrees of freedom of the inverse-Wishart.
 #' @param D0 Numeric matrix. Prior scale matrix of the inverse-Wishart.
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
-#'   \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -32,9 +35,20 @@
 #'   }
 #'
 #' @seealso \code{\link{FF}}, \code{\link{BS}}, \code{\link{FFBS_sampling}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'             par$n0, par$D0, nT = 4)
+#' res$bs$st[, , 1]  # smoothed state mean at time 1
+#' # The forward part equals a separate call of FF
+#' all.equal(res$ff, FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0,
+#'                      par$M0, par$n0, par$D0, nT = 4))
 #' @export
 FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
                  verbose = FALSE){
+  delta <- .check_delta(delta)
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF(Y = Y, F_ls = F_ls, G_ls = G_ls,
@@ -65,7 +79,8 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #' @param F_ls Covariate matrix or list of matrices (see \code{\link{FF}}).
 #' @param G_ls State transition matrix or list (see \code{\link{FF}}).
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#' @param delta Discount factor. Must be 1: discounting is not implemented.
+#'   Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #' @param sampling "marginal" (default) samples the smoothed marginal at each
@@ -81,6 +96,17 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #'   Attributes sampling_method and joint_trajectories identify the chosen law.
 #'
 #' @seealso \code{\link{FFBS}}, \code{\link{MNIW_sampler}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'             par$n0, par$D0, nT = 4)
+#' sam <- FFBS_sampling(500, res, par$F0, par$G0, nT = 4, seed = 1)
+#' dim(sam$T2)
+#' dim(sam$Sigma)
+#' # Sample mean versus smoothed mean at time 2
+#' round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 #' @export
 FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
     verbose = FALSE, sampling = c("marginal", "joint"), seed = NULL) {
@@ -154,16 +180,31 @@ FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
 #'   Defaults to \code{1.1}.
 #' @param gp_tau2 Numeric scalar. Nugget variance of the GP kernel. Defaults to
 #'   \code{1e-4}.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #'
 #' @return A named list of length \code{nT}. Each element \code{"T<t>"} is an
 #'   array of dimension \code{c(N_new, q, nsam)} with posterior predictive mean
 #'   samples at the new locations.
 #'
 #' @seealso \code{\link{FFBS_predict_exact}}, \code{\link{gen_exp_kernel}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'             par$n0, par$D0, nT = 4)
+#' sam <- FFBS_sampling(50, res, par$F0, par$G0, nT = 4, seed = 1)
+#' x_new <- matrix(c(-0.5, 0.5))  # two new inputs
+#' pred <- FFBS_predict_MC(50, dat$Y, sam, F_ls = par$F0,
+#'                         F_new_ls = cbind(1, x_new), input = par$F0[, 2],
+#'                         input_new = x_new, nT = 4, phi_para = 1)
+#' dim(pred$T4)
+#' apply(pred$T4, 1:2, mean)  # Monte Carlo predictive mean at time 4
 #' @export
 FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
     nT, phi_para, gp_sigma2 = 1.1, gp_tau2 = 1e-4, delta = 1.0) {
+  delta <- .check_delta(delta)
   if (is.null(dim(input_new))) input_new <- matrix(input_new, nrow = 1)
   input <- as.matrix(input)
   V <- gp_sigma2 * exp(-phi_para * as.matrix(stats::dist(input))) +
@@ -204,7 +245,8 @@ FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
 #'   Defaults to \code{1.1}.
 #' @param gp_tau2 Numeric scalar. Nugget variance of the GP kernel. Defaults to
 #'   \code{1e-4}.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #'
 #' @return A named list of length \code{nT}. Each element \code{"T<t>"} is a
 #'   matrix of dimension \code{c(N_new, q)} with the posterior predictive mean
@@ -217,11 +259,23 @@ FFBS_predict_MC <- function(nsam, Y, res_ffbs, F_ls, F_new_ls, input, input_new,
 #'   for the supplied coefficient trajectory.
 #' @param return_covariance If TRUE, return a list with mean and
 #'   input_covariance before scaling by the emulator variance and spatial covariance.
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'             par$n0, par$D0, nT = 4)
+#' x_new <- matrix(c(-0.5, 0.5))  # two new inputs
+#' pred <- FFBS_predict_exact(dat$Y, res, F_ls = par$F0,
+#'                            F_new_ls = cbind(1, x_new), input = par$F0[, 2],
+#'                            input_new = x_new, nT = 4, phi_para = 1)
+#' pred$T4  # predictive mean at the new inputs (2 x S)
 #' @export
 FFBS_predict_exact <- function(Y, para_ffbs = NULL, F_ls, F_new_ls, input, input_new,
                                nT, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4),
                                delta = 1.0, theta = NULL, V_chol = NULL,
                                residual_weights = NULL, return_covariance = FALSE){
+  delta <- .check_delta(delta)
   input <- as.matrix(input)
   if (is.null(dim(input_new))) input_new <- matrix(input_new, nrow = 1)
   input_new <- as.matrix(input_new)
@@ -305,7 +359,8 @@ FFBS_predict_exact <- function(Y, para_ffbs = NULL, F_ls, F_new_ls, input, input
 #' @param D0 Numeric scalar. Prior rate of \eqn{\sigma^2}.
 #' @param nT Integer. Number of time steps.
 #' @param R Numeric matrix. Fixed spatial correlation matrix.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -314,9 +369,20 @@ FFBS_predict_exact <- function(Y, para_ffbs = NULL, F_ls, F_new_ls, input, input
 #'
 #' @seealso \code{\link{FF_sigma2R}}, \code{\link{BS}},
 #'   \code{\link{FFBS_sampling_sigma2R}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' res <- FFBS_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'                     n0 = 3, D0 = 1, nT = 4, R = R)
+#' res$bs$st[, , 1]
+#' all.equal(res$ff, FF_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0,
+#'                              par$m0, par$M0, 3, 1, nT = 4, R = R))
 #' @export
 FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
                          delta = 1.0, verbose = FALSE){
+  delta <- .check_delta(delta)
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF_sigma2R(Y = Y, F_ls = F_ls, G_ls = G_ls,
@@ -346,7 +412,8 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #' @param G_ls State transition matrix or list (see \code{\link{FF}}).
 #' @param nT Integer. Number of time steps.
 #' @param R Numeric matrix. Fixed spatial correlation matrix.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
+#' @param delta Discount factor. Must be 1: discounting is not implemented.
+#'   Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -361,6 +428,18 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #' @param sampling "marginal" (default) draws smoothed episode marginals
 #'   conditional on a shared variance. "joint" preserves cross-episode
 #'   dependence by sampling backward conditionals.
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' res <- FFBS_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'                     n0 = 3, D0 = 1, nT = 4, R = R)
+#' sam <- FFBS_sampling_sigma2R(500, res, par$F0, par$G0, nT = 4, R = R,
+#'                              seed = 1)
+#' dim(sam$T2)
+#' summary(sam$Sigma)  # draws of sigma^2
+#' round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 #' @export
 FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R,
     delta = 1, verbose = FALSE, seed = NULL, sampling = c("marginal", "joint")) {
@@ -395,7 +474,8 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R,
 #' @param m0 Numeric matrix. Prior state mean.
 #' @param M0 Numeric matrix. Prior state left-covariance.
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -403,9 +483,19 @@ FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R,
 #'   \code{bs} (output of \code{\link{BS}}).
 #'
 #' @seealso \code{\link{FF_I}}, \code{\link{BS}}, \code{\link{FFBS_sampling_I}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'               nT = 4)
+#' res$bs$st[, , 1]
+#' all.equal(res$ff, FF_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0,
+#'                        par$M0, nT = 4))
 #' @export
 FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
                    verbose = FALSE){
+  delta <- .check_delta(delta)
   # TODO FF_cpp, BS_cpp
   out <- list()
   res_ff <- FF_I(Y = Y, F_ls = F_ls, G_ls = G_ls,
@@ -429,10 +519,9 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
 #'
 #' @param nsam Integer. Number of posterior samples.
 #' @param para_ffbs List. Output of \code{\link{FFBS_I}}.
-#' @param F_ls Covariate matrix or list (see \code{\link{FF}}).
-#' @param G_ls State transition matrix or list (see \code{\link{FF}}).
+#' @param F_ls,G_ls,delta Not used: each draw comes from the smoothed marginal
+#'   at its own time. Kept for compatibility with the other samplers.
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -441,40 +530,34 @@ FFBS_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
 #'   state at time \eqn{t}.
 #'
 #' @seealso \code{\link{FFBS_I}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res <- FFBS_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'               nT = 4)
+#' sam <- FFBS_sampling_I(500, res, par$F0, par$G0, nT = 4)
+#' dim(sam$T2)
+#' round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 #' @export
 FFBS_sampling_I <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
                             verbose = FALSE){
   out <- list()
-  res_ff <- para_ffbs$ff
   res_bs <- para_ffbs$bs
+  p <- dim(res_bs$st)[1]
+  q <- dim(res_bs$st)[2]
+  dim_array <- c(p, q, nsam)
+  IS <- diag(q)
 
-  # Firstly, draw sigma and B at t = nT
-  # initialize matirces at t = nT
-  Gt1 <- G_ls
-  if(is.list(F_ls)){
-    Ft <- as.matrix(F_ls[[nT]])
-  } else{
-    Ft <- F_ls
-  }
-
-  dim_array <- c(dim(res_bs$st[,,nT]), nsam)
-  IS <- diag(dim_array[2])
-
-  # backward nT
+  # Draws are independent across times. The loop runs backward, as before, so
+  # seeded results are unchanged.
   for (i in nT:1) {
-    if(verbose && i %% round(0.5*(nT-1)) == 0){
+    if(verbose && i %% max(1, round(0.5*(nT-1))) == 0){
       message("Sampling: ", i, "/", nT)
     }
-    # Check if G_ls are changing over time
-    # If they are list, change accordingly, otherwise keep unchanged
-    if(is.list(G_ls)){
-      Gt1 <- as.matrix(G_ls[[i+1]])
-    }
-
     out[[i]] <- array(dim = dim_array)
-    para_nt <- res_ff[[i]]
-    st <- res_bs$st[,,i]
-    St <- check_pds(res_bs$St[,,i])
+    st <- matrix(res_bs$st[,,i], p, q)
+    St <- check_pds(matrix(res_bs$St[,,i], p, p))
 
     # get nsam samples for different Sigma
     for (j in 1:nsam) {

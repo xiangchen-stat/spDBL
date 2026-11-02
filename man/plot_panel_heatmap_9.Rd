@@ -53,3 +53,12 @@ Produces nine raster heatmaps arranged in a 3-by-3 grid, one for each time
 stamp in \code{tstamp}. Each panel shows the spatial field for a given input
 (row) index and time step.
 }
+\examples{
+data("dt_emulation")
+d <- dt_emulation
+p <- plot_panel_heatmap_9(d$dt_pde_test, input_num = 1,
+                          tstamp = seq(2, 26, by = 3), max_y = 10,
+                          Nx = 10, Ny = 10, nT = 26, savei = FALSE)
+length(p)
+p[[9]]
+}

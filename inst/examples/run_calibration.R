@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Run from any directory after installing spDBL:
 # Rscript /installed/path/spDBL/examples/run_calibration.R oneiter500 output_dir
 # Optional third argument: marginal (default) or joint emulator sampling.
