@@ -1,0 +1,18 @@
+# Checks that every hand-written source file states the MIT license
+# (JMLR MLOSS: license "mentioned in each source file").
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+name: license-headers.yaml
+
+permissions: read-all
+
+jobs:
+  license-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check SPDX headers
+        run: bash .github/scripts/check-license-headers.sh

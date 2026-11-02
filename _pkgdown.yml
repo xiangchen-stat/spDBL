@@ -1,0 +1,153 @@
+url: https://xiangchen-stat.github.io/spDBL/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+articles:
+- title: Using spDBL
+  navbar: ~
+  contents:
+  - emulation
+  - calibration
+  - calibration-details
+- title: For developers
+  navbar: For developers
+  contents:
+  - articles/architecture
+
+reference:
+- title: Emulation
+  desc: >
+    Fit a dynamic Bayesian emulator to simulator runs and predict the
+    spatiotemporal output at new inputs. Exact (MCMC-free) posterior updates.
+  contents:
+  - prepare_data
+  - emulator_learn
+  - emulator_predict
+  - spDBL_emulator-methods
+- title: Calibration
+  desc: >
+    Infer mechanistic parameters from field data without new PDE solves.
+    Requires an emulator fitted with `covariance = "sigma2R"`; the sampler
+    uses RStan (suggested package).
+  contents:
+  - calibration_prepare
+  - spDBL_calibration_input-methods
+  - calibration_validate
+  - calibration_fit
+  - calibration_predict
+  - summary.spDBL_calibration
+  - plot.spDBL_calibration
+- title: Example data
+  contents:
+  - dt_emulation
+  - dt_calibration
+- title: Forward filtering and backward sampling
+  desc: >
+    Advanced. The matrix-variate dynamic linear model kernels behind
+    `emulator_learn()`. Three covariance models: inverse-Wishart (no suffix),
+    scalar variance times a fixed correlation (`_sigma2R`), and identity (`_I`).
+  contents:
+  - FF
+  - FF_sigma2R
+  - FF_I
+  - FF_1step_R_sigma2R
+  - FF_1step_R_I
+  - BS
+  - FFBS
+  - FFBS_sigma2R
+  - FFBS_I
+  - FFBS_sampling
+  - FFBS_sampling_sigma2R
+  - FFBS_sampling_I
+  - FFBS_predict_exact
+  - FFBS_predict_MC
+- title: Large data and episode partitioning
+  desc: >
+    Out-of-core filtering, smoothing and prediction from CSV blocks, grid
+    traversal, autoregressive design construction, and mapping episode blocks
+    back to time.
+  contents:
+  - FF_bigdata_R
+  - BS_bigdata_R
+  - FFBS_predict_bigdata_R
+  - read_big_csv_quick
+  - generate_grid
+  - generate.grid.exact
+  - generate.grid.rowsnake
+  - generate.grid.lr
+  - gen_F_ls_AR1
+  - gen_F_ls_AR2
+  - gen_F_ls_AR1_EP
+  - gen_F_ls_AR2_EP
+  - recover_from_EP_exact
+  - recover_from_EP_MC
+- title: Distributions and conjugate updates
+  desc: Advanced. Matrix-normal, MNIW and MNIG sampling and updates.
+  contents:
+  - MNIW_R
+  - MNIW_R_naiive
+  - MNIW_sampler
+  - MNIG_sampler
+  - rmn_chol
+  - rmn_chol_more
+  - dMTig
+  - check_pds
+  - make_pds
+  - inv_chol
+  - gen_pd_matrix
+  - gen_ran_matrix
+- title: Model assessment
+  desc: One-step log posterior predictive densities for each covariance model.
+  contents:
+  - lppd_IW_1t
+  - lppd_IG_1t
+  - lppd_id_1t
+- title: Gaussian process kernels
+  contents:
+  - gen_gp_kernel
+  - gen_exp_kernel
+  - gen_expsq_kernel
+  - gen_Jt
+- title: Simulators and synthetic data
+  contents:
+  - SIR
+  - gen_pde
+  - gen_ffbs_data
+  - gen_ffbs_csv
+  - gen_calibrate_data
+  - gen_calibrate_data_uncorr
+  - gen_prior_u_tau2
+- title: Plotting
+  contents:
+  - quick_heat
+  - quick_save
+  - plot_panel_heatmap_9
+  - plot_panel_heatmap_9_cal
+  - plot_panel_heatmap_9_cal_nolab
+  - cal_errorbar
+  - cal_errorbar_mean
+- title: Legacy calibration helpers
+  desc: >
+    Building blocks from the research code of Banerjee et al. (2025), where
+    calibration solved the PDE at every MCMC iteration. No other package
+    function calls them. New work should use `calibration_prepare()` and
+    `calibration_fit()`.
+  contents:
+  - update_y_eta
+  - update_y_eta_one
+  - update_muSigma_eta_one
+  - sample_y_eta_one
+  - cal_Bt_bt
+  - scale_uniform
+  - scale_back_uniform
+  - expit
+  - cal_jacobian_logit_uniform
+- title: Package
+  contents:
+  - spDBL-package
