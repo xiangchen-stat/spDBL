@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 test_that("scalar-variance samplers have correct marginals and dependence", {
   ff <- list(
     list(mt = matrix(0), Mt = matrix(2/3), at = matrix(0), At = matrix(2),

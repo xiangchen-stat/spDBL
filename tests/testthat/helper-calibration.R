@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 calibration_fixture <- function(n_draws = 2L) {
   set.seed(81)
   input <- cbind(a = seq(0.05, 0.95, length.out = 8),
@@ -19,6 +22,9 @@ calibration_fixture <- function(n_draws = 2L) {
     z = matrix(c(0.2, 0.3, 0.1, 0.4, 0.7, 0.5, 0.6, 0.2), 2),
     U = R, eta = c(0.4, 0.6))
 }
+
+# Design-row covariance of a calibration prediction at time t (dense).
+design_cov <- function(pred, t) spDBL:::.cal_time_covariance(pred, t) - pred$Sigma
 
 tiny_emulator <- function(covariance = "sigma2R", sampling = "marginal") {
   input <- cbind(a = seq(0.05, 0.95, length.out = 8),

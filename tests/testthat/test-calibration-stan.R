@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 test_that("installed Stan programs match R and pool conditionals equally", {
   skip_if(Sys.getenv("SPDBL_RUN_STAN_TESTS") != "true",
           "Set SPDBL_RUN_STAN_TESTS=true for compiler-dependent integration checks")
@@ -17,6 +20,10 @@ test_that("installed Stan programs match R and pool conditionals equally", {
     prediction <- spDBL:::predict_calibration(f$eta, 1L, e)
     expect_equal(matrix(values$mu, e$T, e$S), prediction$mu, tolerance = 1e-9)
     expect_equal(matrix(values$Sigma, e$S, e$S), unname(prediction$Sigma), tolerance = 1e-9)
+    expect_equal(as.numeric(values$design_variance),
+      spDBL:::predict_offline_ar2(e$predictor, f$eta)$variance_factor, tolerance = 1e-9)
+    expect_equal(as.numeric(values$design_variance) * data$design_covariance[2, , ],
+      design_cov(prediction, 2L), tolerance = 1e-9, ignore_attr = TRUE)
     alternative <- initial
     alternative$eta_unit <- c(0.7, 0.35)
     alternative$precision <- c(4, 8, 6)
@@ -46,9 +53,16 @@ test_that("installed Stan programs match R and pool conditionals equally", {
     expect_identical(fit$settings$control$adapt_delta, 0.95)
     if (marginal) {
       # This zero-warmup transition checks bookkeeping, not convergence.
-      one <- suppressWarnings(calibration_fit(e, f$z, f$U, compiled_model = model,
+      one <- suppressWarnings(calibration_fit(e, f$z, f$U, iter = 1L, compiled_model = model,
         keep_discrepancy = FALSE, refresh = 0L))
       expect_true(one$execution_only)
+      # rstan calls the start function once per chain with its chain_id.
+      random <- suppressWarnings(calibration_fit(e, f$z, f$U, compiled_model = model,
+        draws = 1L, chains = 2L, iter = 2L, warmup = 0L, draws_per_emulator = 2L,
+        init = "random", keep_discrepancy = FALSE, refresh = 0L))
+      expect_identical(random$settings$init, "random")
+      expect_true(all(is.finite(random$mcmc_eta)))
+      expect_false(isTRUE(all.equal(random$mcmc_eta[1, ], random$mcmc_eta[2, ])))
       expect_equal(one$settings$iter, 1L)
       expect_equal(one$settings$chains, 1L)
       expect_equal(one$settings$warmup, 0L)

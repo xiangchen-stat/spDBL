@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 test_that("the installed emulator API prepares PDE-free predictions", {
   local_mocked_bindings(gen_pde = function(...) stop("PDE solver must not run"),
                         .package = "spDBL")
@@ -70,4 +73,39 @@ test_that("the bundled calibration design has independent provenance", {
   expect_false(d$truth$input_id %in% d$provenance$train_ids)
   expect_true(all(d$training$input[, 1] >= 2))
   expect_false(any(c("eta", "truth", "y") %in% names(d$field)))
+})
+
+test_that("calibration builds the field covariance only where it is needed", {
+  input <- cbind(a = seq(0.05, 0.95, length.out = 8),
+                 b = c(0.1, 0.7, 0.3, 0.9, 0.2, 0.6, 0.4, 0.8))
+  responses <- lapply(1:3, function(t)
+    outer(input[, 1] + t * input[, 2], 1:4, function(x, y) sin(x) + y / 10))
+  learn <- function(...) emulator_learn(input, responses, Nx = 2L, Ny = 2L,
+    AR_choice = 1L, covariance = "sigma2R", nsam = 3L, seed = 91L, ...)
+  lazy <- learn()
+  expect_null(lazy$setup$R_field)  # no S x S matrix in the fitted emulator
+  s <- lazy$setup
+  # The kernel emulator_learn() built and stored in spDBL 1.1.1.
+  R_full <- s$gp_sigma2 * exp(-s$phi_sp * as.matrix(dist(s$ind_sp))) +
+    diag(s$gp_tau2, s$N_sp)
+  explicit <- learn(R_field = R_full)
+  expect_identical(explicit$setup$R_field, R_full)
+  cal_lazy <- calibration_prepare(lazy, c(0, 0), c(1, 1))
+  cal_explicit <- calibration_prepare(explicit, c(0, 0), c(1, 1))
+  expect_null(cal_lazy$R_field)
+  expect_null(cal_explicit$field_kernel)
+  for (loc in list(1:4, c(3L, 1L))) {
+    expect_equal(spDBL:::.cal_R_field(cal_lazy, loc), R_full[loc, loc],
+                 ignore_attr = TRUE)
+    for (mode in c("full", "marginal"))
+      expect_equal(spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_lazy, loc, mode),
+                   spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_explicit, loc, mode),
+                   ignore_attr = TRUE)
+  }
+  z <- matrix(0.5, 3, 2)
+  expect_equal(spDBL:::make_stan_calibration_data(cal_lazy, 1L, z, diag(4), c(2L, 4L))$R_field,
+               R_full[c(2, 4), c(2, 4)], ignore_attr = TRUE)
+  expect_error(spDBL:::make_offline_calibration_input(cal_lazy$input, cal_lazy$Y,
+    cal_lazy$F_ls, cal_lazy$posterior, cal_lazy$block_cols, NULL, 2, c(0, 0), c(1, 1)),
+    "Supply R_field or a valid field_kernel")
 })
