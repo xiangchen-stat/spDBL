@@ -1,0 +1,5 @@
+cache/
+# Validation runs are preliminary and record machine details (user, host,
+# local paths). Commit only paper-profile results after reviewing meta.txt.
+results/*/validation*/
+results/checks/
