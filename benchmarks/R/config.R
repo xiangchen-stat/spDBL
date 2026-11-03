@@ -5,6 +5,7 @@
 # the harness on a laptop; "paper" is the configuration intended for the
 # manuscript on dedicated hardware. Any field can be overridden on the
 # command line, e.g. --grids=10,20 --jobs=2. Unknown keys are rejected.
+# Every grid size must be divisible by every episode window (1, 2 and 5).
 
 # Parameter box shared by all SIR experiments (taken from dt_calibration):
 # eta1 (transmission) in [2, 4], eta2 (recovery) in [0.2, 0.4],
@@ -23,7 +24,7 @@ bench_profiles <- list(
       predict_mc = FALSE, measure_rfield = TRUE, seed = 20261101,
       timeout_sec = 1800, jobs = 1, threads = 1),
     paper = list(
-      label = "paper", grids = c(10, 25, 50, 100), windows = c(1, 2, 5),
+      label = "paper", grids = c(10, 20, 50, 100), windows = c(1, 2, 5),
       covariance = "iw", n_train = 40, n_test = 10, n_time = 26, nsam = 10,
       ar_choice = 2, eval_from = 3, predict_mc = TRUE, measure_rfield = TRUE,
       seed = 20261101, timeout_sec = 6 * 3600, jobs = 1, threads = 1)),
@@ -37,7 +38,7 @@ bench_profiles <- list(
       eval_from = 3, mlegp_pc_percent = 99.9, seed = 20261101,
       timeout_sec = 1800, jobs = 2, threads = 1),
     paper = list(
-      label = "paper", grids = c(10, 25, 50, 100), episode_window = 2,
+      label = "paper", grids = c(10, 20, 50, 100), episode_window = 2,
       methods = c("spdbl_iw_known", "spdbl_s2r_known", "spdbl_s2r_designgp",
                   "spdbl_s2r_designgp_unit", "ppgasp_default", "ppgasp_tuned",
                   "mlegp_pca"),

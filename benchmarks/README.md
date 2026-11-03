@@ -46,7 +46,7 @@ Rscript benchmarks/check_predictive.R
 ```
 
 Use `--profile=paper` for the manuscript settings. Any profile field can be
-overridden, for example `--grids=10,25,50,100`, `--windows=1,2,5`,
+overridden, for example `--grids=10,20,50,100`, `--windows=1,2,5`,
 `--methods=spdbl,rc_gasp`, `--n_rep=20`, `--jobs=4`, `--out=/some/dir`,
 `--lib=/path/to/lib`. Unknown options are rejected. Grid sizes of 100 and
 above are not in the validation profile; request them explicitly or use
@@ -76,10 +76,10 @@ Defined in `R/config.R`.
 
 | | validation | paper |
 |---|---|---|
-| E1 grids | 10², 20², 30², 40², 50² | 10², 25², 50², 100² |
+| E1 grids | 10², 20², 30², 40², 50² | 10², 20², 50², 100² |
 | E1 `episode_window` | 1, 2, 5 | 1, 2, 5 |
 | E1/E2 design | 40 training + 10 held-out runs, T = 26 | same |
-| E2 grids | 10², 20² | 10², 25², 50², 100² |
+| E2 grids | 10², 20² | 10², 20², 50², 100² |
 | E2 spDBL draws (`nsam`) | 20 | 20 |
 | E3 replicates | 3 | 50 |
 | E3 spDBL | 4 emulator draws x 2 chains x 500 iter (250 warmup) | 20 draws x 4 chains x 2000 iter (1000 warmup), `cores = 4` |
