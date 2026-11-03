@@ -31,7 +31,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr, any::xml2, any::rstan
+          # BH supplies the Boost headers rstan needs to compile the Stan models.
+          extra-packages: any::covr, any::xml2, any::rstan, any::BH
           needs: coverage
 
       - name: Test coverage
