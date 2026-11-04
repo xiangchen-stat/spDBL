@@ -17,3 +17,4 @@
 ^vignettes/articles$
 ^benchmarks$
 ^codecov\.yml$
+^material$

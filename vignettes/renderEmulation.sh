@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Usage: bash vignettes/renderEmulation.sh quarto [calibration ...]
-# Without vignette names, render all three. Run from any working directory.
+# Without vignette names, render all vignettes. Run from any working directory.
 ENGINE=${1:-}
 if [[ -z "$ENGINE" ]]; then
   read -r -p "Render with [r]markdown or [q]uarto? (r/q): " ENGINE
@@ -18,13 +18,13 @@ case "$ENGINE" in
   *) echo "Unknown engine: $ENGINE. Use 'r' or 'quarto'." >&2; exit 1 ;;
 esac
 
-VIGNETTES=(emulation calibration calibration-details)
+VIGNETTES=(emulation calibration calibration-details model-comparison)
 if [[ $# -gt 0 ]]; then
   VIGNETTES=("$@")
 fi
 for NAME in "${VIGNETTES[@]}"; do
   case "$NAME" in
-    emulation|calibration|calibration-details) ;;
+    emulation|calibration|calibration-details|model-comparison) ;;
     *) echo "Unknown vignette: $NAME" >&2; exit 1 ;;
   esac
 done

@@ -15,6 +15,7 @@ articles:
   - emulation
   - calibration
   - calibration-details
+  - model-comparison
 - title: For developers
   navbar: For developers
   contents:
@@ -103,11 +104,15 @@ reference:
   - gen_pd_matrix
   - gen_ran_matrix
 - title: Model assessment
-  desc: One-step log posterior predictive densities for each covariance model.
+  desc: >
+    One-step log posterior predictive densities for each covariance model, and
+    WAIC for MNIW multivariate regression.
   contents:
   - lppd_IW_1t
   - lppd_IG_1t
   - lppd_id_1t
+  - compute_analytical_waic
+  - compute_sample_waic
 - title: Gaussian process kernels
   contents:
   - gen_gp_kernel
