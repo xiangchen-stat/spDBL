@@ -1,11 +1,10 @@
 # Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
 # SPDX-License-Identifier: MIT
 
-# Environment for the spDBL benchmarks on UCLA Hoffman2 (Grid Engine).
-# Sourced from the repository root by setup.sh, smoke.sh and the job
-# scripts. Any variable can be set beforehand, e.g.
-#   export SPDBL_R_MODULE=R/4.4.0      # see: module avail R
-#   qsub -v SPDBL_R_MODULE=R/4.4.0 benchmarks/hoffman2/e1.sh
+# Environment for the spDBL benchmarks on UCLA Hoffman2 (Slurm). Sourced
+# from the repository root by setup.sh, smoke.sh and the job scripts. Any
+# variable can be set beforehand, e.g.
+#   export SPDBL_R_MODULE=R/4.6.1      # see: module avail R
 
 if [ ! -f DESCRIPTION ] || ! grep -q "^Package: spDBL" DESCRIPTION; then
   echo "Run from the root of the spDBL repository (found no spDBL DESCRIPTION in $PWD)" >&2
@@ -16,9 +15,10 @@ export SPDBL_ROOT=$PWD
 if ! command -v module >/dev/null 2>&1 && [ -f /u/local/Modules/default/init/modules.sh ]; then
   . /u/local/Modules/default/init/modules.sh
 fi
-SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.4.0}
+# R 4.4.1 matches the workstation runs; the module also sets the BLAS
+# (Intel MKL) thread count to 1.
+SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.4.1}
 if command -v module >/dev/null 2>&1; then
-  # SPDBL_EXTRA_MODULES, e.g. "gcc/11.3.0", if R needs a newer compiler.
   # Not in a pipeline: module changes the environment of this shell.
   module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" || true
 fi
@@ -30,7 +30,7 @@ if ! command -v Rscript >/dev/null 2>&1; then
 fi
 
 # Everything the benchmarks write outside the repository. $HOME is kept
-# ($SCRATCH is purged after 14 days); the total is a few GB.
+# ($SCRATCH is purged); the total is a few GB.
 export SPDBL_WORK=${SPDBL_WORK:-$HOME/spdbl-bench}
 export SPDBL_BENCH_LIB=${SPDBL_BENCH_LIB:-$SPDBL_WORK/rlib}
 export SPDBL_BENCH_CACHE=${SPDBL_BENCH_CACHE:-$SPDBL_WORK/sim-cache}
@@ -45,9 +45,13 @@ if [ -z "$SPDBL_TIME" ]; then
 fi
 export SPDBL_TIME
 mkdir -p "$SPDBL_BENCH_LIB" "$SPDBL_BENCH_CACHE" "$SPDBL_STAN_CACHE_DIR" \
-  "$R_USER_CACHE_DIR" "$HOME/spdbl-bench/logs"
+  "$R_USER_CACHE_DIR" "$SPDBL_WORK/logs"
 
-echo "spDBL benchmarks: host $(hostname), job ${JOB_ID:-interactive}, slots ${NSLOTS:-?}"
+# CPUs this job may use: the Slurm allocation, else the machine.
+SPDBL_CPUS=${SLURM_CPUS_ON_NODE:-${SLURM_CPUS_PER_TASK:-$(nproc 2>/dev/null || echo 1)}}
+export SPDBL_CPUS
+
+echo "spDBL benchmarks: host $(hostname), job ${SLURM_JOB_ID:-interactive}, CPUs $SPDBL_CPUS"
 echo "  $(Rscript --version 2>&1 | head -1)"
 echo "  CPU: $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | sed 's/.*: //')"
 echo "  library: $SPDBL_BENCH_LIB"

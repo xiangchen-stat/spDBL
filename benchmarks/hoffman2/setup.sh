@@ -4,16 +4,17 @@
 
 # One-time setup on Hoffman2: R packages into $SPDBL_BENCH_LIB, spDBL from
 # this clone, GNU time if the node lacks it, and the compiled Stan model.
-# Takes 30-60 min (rstan and StanHeaders compile from source). Run from the
-# repository root in an interactive compute session, not on a login node:
+# Takes 30-60 min (rstan and StanHeaders compile from source). Runs inside
+# the prepare job (bash benchmarks/hoffman2/submit.sh prepare), or by hand
+# from the repository root in an interactive session, not on a login node:
 #
-#   qrsh -l h_rt=4:00:00,h_data=4G -pe shared 4
+#   srun -p campus -t 4:00:00 -c 8 --mem=32G --pty bash -l
 #   cd ~/spDBL && bash benchmarks/hoffman2/setup.sh
 #
 # Safe to rerun: installed packages are kept and spDBL is reinstalled.
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-export NCPU=${NSLOTS:-4}
+export NCPU=$SPDBL_CPUS
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-setup.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 

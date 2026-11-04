@@ -38,7 +38,7 @@ used only for in-process RSS snapshots. Peak memory per task comes from
 `/usr/bin/time`, or from the binary named in `SPDBL_TIME`.
 
 `hoffman2/` has setup, smoke-test and job scripts for running the paper
-profiles on a Grid Engine cluster (UCLA Hoffman2); see `hoffman2/README.md`.
+profiles on a Slurm cluster (UCLA Hoffman2); see `hoffman2/README.md`.
 
 One command per experiment (run from the package root):
 

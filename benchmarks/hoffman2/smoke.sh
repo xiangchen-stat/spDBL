@@ -4,8 +4,8 @@
 
 # End-to-end check of the harness on Hoffman2 before the paper jobs: tiny
 # versions of E1, E2 and E3 (about 10-15 min with 4 cores), written to
-# $SPDBL_WORK/smoke, never to benchmarks/results. Run after setup.sh, from
-# the repository root, in the same kind of interactive session.
+# $SPDBL_WORK/smoke, never to benchmarks/results. Runs after setup.sh in the
+# prepare job, or by hand from the repository root.
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
 OUT=$SPDBL_WORK/smoke
@@ -17,7 +17,7 @@ Rscript benchmarks/e2_accuracy.R --profile=validation --grids=10 --jobs=1 \
   --out="$OUT/e2"
 Rscript benchmarks/e3_calibration.R --profile=validation --n_rep=1 --n_draws=2 \
   --chains=2 --iter=40 --warmup=20 --rc_S=60 --rc_S0=20 --rc_chains=2 \
-  --init=random --jobs="${NSLOTS:-3}" --out="$OUT/e3"
+  --init=random --jobs="$SPDBL_CPUS" --out="$OUT/e3"
 
 OUT=$OUT Rscript - <<'EOF'
 out <- Sys.getenv("OUT")
