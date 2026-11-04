@@ -174,12 +174,37 @@ bash vignettes/renderEmulation.sh quarto calibration
 The helper installs the current source into the ignored .r-library directory,
 then renders calibration.qmd. This avoids using an older system installation
 that lacks dt_calibration and the calibration functions. Subsequent direct
-Quarto renders use the same local library. Omit calibration to render all three
+Quarto renders use the same local library. Omit calibration to render all
 vignettes, or select r instead of quarto for R Markdown.
 
 Set SPDBL_RUN_STAN_TESTS=true with the package's
 testthat suite to enable compiler-dependent integration checks. The ordinary
 unit suite does not require RStan.
+
+## MNIW model comparison
+
+For multivariate regression with independent observation rows,
+`compute_analytical_waic()` evaluates WAIC directly from an MNIW posterior.
+`compute_sample_waic()` evaluates the same row likelihood from paired posterior
+coefficient and covariance draws. Both return `WAIC`, `lppd`, `p_waic`,
+`elpd_waic`, and pointwise scores. The sampled function can also return a log
+likelihood matrix for the optional `loo` package.
+
+```r
+X <- cbind(1, c(-1, 0, 1, 2))
+Y <- cbind(c(0.1, 0.4, 1.2, 1.7), c(1.2, 0.8, 0.5, 0.1))
+post <- spDBL::MNIW_R(X, Y, H = diag(nrow(Y)), v = 4, S = diag(2),
+                     C = matrix(0, 2, 2), Vb = diag(2))
+spDBL::compute_analytical_waic(Y, X, post$Vbnew, post$Cnew,
+                              post$Snew, post$vnew)
+```
+
+`mn` is the posterior coefficient mean itself. Each multivariate response row
+is scored jointly; these functions do not directly evaluate the correlated-row
+GP likelihood used by the spatiotemporal emulator. See
+`vignette("model-comparison", package = "spDBL")` for posterior sampling,
+comparison with `loo`, and sequential covariate comparisons. To render it from
+this checkout, use `bash vignettes/renderEmulation.sh quarto model-comparison`.
 
 ## Repository structure
 

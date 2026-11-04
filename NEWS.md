@@ -1,3 +1,9 @@
+# spDBL 1.1.2
+
+* Add analytical and draw-based WAIC for independent-row multivariate
+  regression, with pointwise scores, optional log likelihoods for loo, input
+  validation, and a self-contained model-comparison vignette.
+
 # spDBL 1.1.1
 
 * Calibration accepts a positive-definite discrepancy covariance scale `U`

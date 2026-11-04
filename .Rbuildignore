@@ -10,3 +10,4 @@
 ^vignettes/.*\.qmd$
 ^\.r-library$
 ^vignettes/reproduce$
+^material$
