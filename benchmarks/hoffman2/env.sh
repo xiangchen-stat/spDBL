@@ -15,15 +15,19 @@ export SPDBL_ROOT=$PWD
 if ! command -v module >/dev/null 2>&1 && [ -f /u/local/Modules/default/init/modules.sh ]; then
   . /u/local/Modules/default/init/modules.sh
 fi
-# R 4.4.1 matches the workstation runs; the module also sets the BLAS
-# (Intel MKL) thread count to 1.
-SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.4.1}
+# The current R: CRAN's current packages (e.g. Deriv, needed through
+# ggpubr) require R >= 4.5, so R/4.4.1 cannot install them. R/4.6.1 uses
+# Intel oneMKL; the harness runs it single-threaded.
+SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.6.1}
 if command -v module >/dev/null 2>&1; then
-  # The login defaults include a newer intel module that conflicts with the
-  # one R/4.4.1 was built with, so start from a clean module set. Not in a
-  # pipeline: module changes the environment of this shell.
-  module purge >/dev/null 2>&1 || true
-  module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" || true
+  # R/4.6.1 needs the login default intel module; an older R module
+  # conflicts with it, so retry from a clean module set if the first load
+  # leaves no Rscript. Not in a pipeline: module changes this shell.
+  module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" >/dev/null 2>&1 || true
+  if ! command -v Rscript >/dev/null 2>&1; then
+    module purge >/dev/null 2>&1 || true
+    module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" || true
+  fi
 fi
 if ! command -v Rscript >/dev/null 2>&1; then
   echo "Rscript not found after 'module load $SPDBL_R_MODULE'. Available R modules:" >&2
@@ -35,7 +39,9 @@ fi
 # Everything the benchmarks write outside the repository. $HOME is kept
 # ($SCRATCH is purged); the total is a few GB.
 export SPDBL_WORK=${SPDBL_WORK:-$HOME/spdbl-bench}
-export SPDBL_BENCH_LIB=${SPDBL_BENCH_LIB:-$SPDBL_WORK/rlib}
+# One library per R minor version: compiled packages are not shared.
+R_MINOR=$(Rscript -e 'cat(R.version$major, strsplit(R.version$minor, ".", fixed = TRUE)[[1]][1], sep = ".")')
+export SPDBL_BENCH_LIB=${SPDBL_BENCH_LIB:-$SPDBL_WORK/rlib-$R_MINOR}
 export SPDBL_BENCH_CACHE=${SPDBL_BENCH_CACHE:-$SPDBL_WORK/sim-cache}
 export SPDBL_STAN_CACHE_DIR=${SPDBL_STAN_CACHE_DIR:-$SPDBL_WORK/stan-cache}
 export R_USER_CACHE_DIR=${R_USER_CACHE_DIR:-$SPDBL_WORK/r-cache}

@@ -9,8 +9,8 @@ usual.
 
 | File | Purpose |
 |---|---|
-| `env.sh` | Loads R (`SPDBL_R_MODULE`, default `R/4.4.1`, the version used on the workstation) and sets the library, cache and GNU time paths. Sourced by the others. |
-| `setup.sh` | One-time install: dependencies, rstan and the competitors into `~/spdbl-bench/rlib`, spDBL from the clone, GNU time if missing, and the compiled Stan model. |
+| `env.sh` | Loads R (`SPDBL_R_MODULE`, default `R/4.6.1`: current CRAN packages need R >= 4.5) and sets the library, cache and GNU time paths. Sourced by the others. |
+| `setup.sh` | One-time install: dependencies, rstan and the competitors into `~/spdbl-bench/rlib-<R version>`, spDBL from the clone, GNU time if missing, and the compiled Stan model. |
 | `smoke.sh` | Tiny E1/E2/E3 runs (a few minutes) that check the whole pipeline, including peak-memory measurement, before the long jobs. |
 | `prepare.sh` | Batch job running `setup.sh` then `smoke.sh` (8 CPUs, 32 GB, 4 h). |
 | `e1.sh`, `e2.sh`, `e3.sh` | Batch jobs for the paper profiles. |
@@ -80,8 +80,8 @@ The E3 task count follows the node's CPU count.
 
 ## Notes
 
-* Threads: the R module and the harness set `OMP_NUM_THREADS`,
-  `MKL_NUM_THREADS` and related variables to 1, so the module's Intel MKL
+* Threads: the harness sets `OMP_NUM_THREADS`,
+  `MKL_NUM_THREADS` and related variables to 1, so the module's Intel oneMKL
   BLAS runs single-threaded. `meta.txt` records the BLAS, the CPU model, the
   node's memory and the Slurm job ID and CPU count.
 * Peak memory per task needs GNU time (`time -v`), which the nodes have in
