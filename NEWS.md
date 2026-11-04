@@ -9,6 +9,15 @@
   `emulator_learn()` and `emulator_predict()` results change, and
   predictions no longer draw from the session's random numbers. AR(2)
   emulators no longer need three time steps.
+* The design GP that predicts autoregressive design rows at untried inputs
+  (`calibration_prepare()`) now uses a Matern 5/2 kernel with separate
+  hyperparameters for each time step, instead of one squared-exponential
+  kernel for all times. On freshly simulated SIR fields (40 training and 50
+  held-out runs), the RMSE of PDE-free predictions fell by 27%, 13% and 9%
+  on 10 x 10, 20 x 20 and 50 x 50 grids. New arguments `design_kernel` and
+  `design_groups` select the design GP; `design_kernel = "sqexp",
+  design_groups = "shared"` restores the previous one. Both Stan programs
+  evaluate the chosen kernel, with one design variance factor per time step.
 * `calibration_fit()` requires `iter`. For inference use several chains and
   enough iterations (for example `chains = 4, iter = 2000`); `iter = 1` is a
   quick execution check.

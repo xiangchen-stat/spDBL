@@ -20,21 +20,31 @@ make_stan_calibration_data <- function(emulator, draw, z, U,
     residual[e, , ] <- weights[[e]]
   }
   f <- emulator$predictor
+  spec <- .cal_predictor_spec(f)
+  N <- nrow(emulator$input)
   # Design-row covariance at each time before scaling by the GP variance
   # factor, which Stan computes at eta. Zero when design uncertainty is off.
   factors <- .cal_design_factors(emulator, draw, locations)
   design_covariance <- array(0, c(emulator$T, S, S))
   for (t in seq_along(factors)) design_covariance[t, , ] <- crossprod(factors[[t]])
+  # One kernel (lengthscales and lower Cholesky factor) per group; the
+  # episodes of one time step share a group.
+  predictor_L <- array(0, c(spec$G, N, N))
+  for (g in seq_len(spec$G)) predictor_L[g, , ] <- t(.cal_predictor_chol(f, g))
+  time_group <- spec$groups[(seq_len(emulator$T) - 1L) * emulator$B + 1L]
   # Explicit dimensions keep length-one vectors from becoming Stan scalars.
   vector_data <- function(x) array(as.numeric(x), length(x))
   index_data <- function(x) array(as.integer(x), length(x))
-  list(N = nrow(emulator$input), D_full = ncol(emulator$input), D = length(f$active),
+  list(N = N, D_full = ncol(emulator$input), D = length(f$active),
     T = emulator$T, S_full = emulator$S, S = S, B = emulator$B, C = emulator$C,
     P = emulator$p, E = emulator$E, active = index_data(f$active),
     eta_lower = vector_data(f$lower), eta_upper = vector_data(f$upper),
-    input = emulator$input, predictor_x = f$x, lengthscale = vector_data(f$lengthscale),
+    input = emulator$input, predictor_x = f$x,
+    G = spec$G, time_group = index_data(time_group),
+    design_kernel = if (spec$kernel == "matern52") 2L else 1L,
+    lengthscale = spec$lengthscale,
     predictor_center = vector_data(f$center), predictor_alpha = f$alpha,
-    predictor_L = t(.cal_predictor_chol(f)), design_covariance = design_covariance,
+    predictor_L = predictor_L, design_covariance = design_covariance,
     theta = theta, residual_weights = residual, block_cols = emulator$block_cols,
     locations = index_data(locations), phi_para = emulator$phi_para,
     gp_sigma2 = emulator$gp_sigma2, gp_tau2 = emulator$gp_tau2,

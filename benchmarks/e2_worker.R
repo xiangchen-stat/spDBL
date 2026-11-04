@@ -60,8 +60,12 @@ fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE) {
   if (design == "designgp") {
     cal <- fit$value$cal
     extra$design_gp_loo_rmse <- cal$predictor$loo_rmse
-    extra$design_gp_lengthscale <- paste(signif(cal$predictor$lengthscale, 3),
+    # One row of lengthscales per kernel group (time step); medians recorded.
+    ell <- matrix(cal$predictor$lengthscale, ncol = length(cal$predictor$active))
+    extra$design_gp_lengthscale <- paste(signif(apply(ell, 2, stats::median), 3),
                                          collapse = ";")
+    extra$design_gp_kernel <- if (is.null(cal$design_kernel)) "sqexp" else cal$design_kernel
+    extra$design_gp_groups <- if (is.null(cal$design_groups)) "shared" else cal$design_groups
     extra$design_uncertainty <- isTRUE(cal$design_uncertainty)
   }
   extra$fit_object_mb <- as.numeric(utils::object.size(fit$value)) / 2^20

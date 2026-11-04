@@ -65,38 +65,47 @@ $F_e$ its $N\times P$ autoregressive design. For a fixed emulator posterior
 coefficient sample set $m$, the coefficients are $\Theta_e^{(m)}$ and the variance is
 $\sigma^{2(m)}$.
 
-The first GP predicts the design rows. Stack $H=[F_1|\cdots|F_E]$, center its
-columns by $c$, and scale active parameter coordinates to $[0,1]$. A shared
-squared-exponential kernel with fitted length scales and nugget gives
+The first GP predicts the design rows. For time $t$, stack the designs of
+its episodes, $H_t=[F_e]_{e\text{ at }t}$, center the columns by $c_t$, and
+scale active parameter coordinates to $[0,1]$. Each time has its own
+anisotropic Matern 5/2 kernel with fitted length scales and nugget,
 
 $$
-(K_F)_{ij}=\exp\left[-\frac12\sum_d
-\frac{(x_{id}-x_{jd})^2}{\ell_d^2}\right]
-+\lambda_F\mathbf 1\{i=j\}.
+(K_t)_{ij}=\left(1+\sqrt5\,r_{ij}+\tfrac53 r_{ij}^2\right)e^{-\sqrt5\,r_{ij}}
++\lambda_t\mathbf 1\{i=j\},
+\qquad
+r_{ij}^2=\sum_d\frac{(x_{id}-x_{jd})^2}{\ell_{td}^2}.
 $$
 
-With $k_F(\eta)$ the vector of covariances to a new input,
+The hyperparameters $(\ell_t,\lambda_t)$ maximize the GP likelihood of the
+time's standardized design columns. With
+`calibration_prepare(design_kernel = "sqexp", design_groups = "shared")`
+one squared-exponential kernel, $\exp(-r_{ij}^2/2)$, serves all times, as in
+earlier versions; the formulas below then hold with a single kernel.
+
+With $k_t(\eta)$ the vector of covariances to a new input,
 
 $$
-\widehat h(\eta)=c^\top+k_F(\eta)^\top
-K_F^{-1}(H-\mathbf 1c^\top).
+\widehat h_t(\eta)=c_t^\top+k_t(\eta)^\top
+K_t^{-1}(H_t-\mathbf 1c_t^\top).
 $$
 
 Split this row into $\widehat F_e(\eta)$. At runtime these rows require no
-PDE solution. The same GP describes their error. All design columns share one
-kernel, so the errors are jointly Gaussian,
+PDE solution. The same GP describes their error. At each time all design
+columns share one kernel, so the errors are jointly Gaussian,
 
 $$
-h(\eta)-\widehat h(\eta)\sim N\left(0,\;v(\eta)\widehat\Sigma_F\right),
+h_t(\eta)-\widehat h_t(\eta)\sim N\left(0,\;v_t(\eta)\widehat\Sigma_{F,t}\right),
 \qquad
-v(\eta)=1-k_F(\eta)^\top K_F^{-1}k_F(\eta),
+v_t(\eta)=1-k_t(\eta)^\top K_t^{-1}k_t(\eta),
 $$
 
-with the maximum-likelihood covariance between design columns
-$\widehat\Sigma_F=W^\top W/N$, where $W=L_F^{-1}(H-\mathbf 1c^\top)$ and
-$K_F=L_FL_F^\top$. Column $j$ alone has variance $v(\eta)(\widehat\Sigma_F)_{jj}$.
-`calibration_prepare(design_uncertainty = FALSE)` keeps only the mean, as
-spDBL 1.1.1 did.
+with the maximum-likelihood covariance between the time's design columns
+$\widehat\Sigma_{F,t}=W_t^\top W_t/N$, where
+$W_t=L_t^{-1}(H_t-\mathbf 1c_t^\top)$ and $K_t=L_tL_t^\top$. Column $j$ alone
+has variance $v_t(\eta)(\widehat\Sigma_{F,t})_{jj}$. Different times are
+separate GPs. `calibration_prepare(design_uncertainty = FALSE)` keeps only
+the mean, as spDBL 1.1.1 did.
 
 The second GP is the emulator's original residual interpolation. Its
 exponential kernel uses the original mechanistic input coordinates:
@@ -133,16 +142,16 @@ separately:
 
 $$
 \widetilde\Sigma^{(m)}_t(\eta)
-=\sigma^{2(m)}q(\eta)R_{\rm field}+v(\eta)\,Z_t^{(m)\top}Z_t^{(m)}.
+=\sigma^{2(m)}q(\eta)R_{\rm field}+v_t(\eta)\,Z_t^{(m)\top}Z_t^{(m)}.
 $$
 
 The second term propagates the design-row error. $Z_t^{(m)}$ is $N\times S$:
 for each episode $e$ observed at time $t$, its block's columns hold
-$W_e\Theta_e^{(m)}/\sqrt N$, where $W_e$ are the columns of $W$ for episode
+$W_e\Theta_e^{(m)}/\sqrt N$, where $W_e$ are the columns of $W_t$ for episode
 $e$. Block $(e,e')$ of this term is therefore
 $\Theta_e^{(m)\top}C_F^{ee'}(\eta)\Theta_{e'}^{(m)}$, with $C_F^{ee'}$ the
-matching block of $v(\eta)\widehat\Sigma_F$, so sites in different spatial
-blocks at the same time are correlated. Its rank is at most $N$.
+matching block of $v_t(\eta)\widehat\Sigma_{F,t}$, so sites in different
+spatial blocks at the same time are correlated. Its rank is at most $N$.
 
 Observed locations select matching entries of the mean and covariance.
 The recorded kernel scale is preserved: R_field need not have unit diagonal.
@@ -262,10 +271,13 @@ $$
 +\operatorname{Var}_\Psi[\mu_{t,\Psi}].
 $$
 
-Uncertainty in the fitted design GP mean is excluded. Under an additional
-independence assumption, a design error covariance $C_F(\eta)$ would contribute
-$\Theta_e^\top C_F(\eta)\Theta_e$ to output covariance; a full extension would
-also need to specify dependence between design components and residual errors.
+The design GP's predictive covariance enters $\widetilde\Sigma$ by default
+(`design_uncertainty = TRUE`), but its hyperparameters are plug-in
+maximum-likelihood estimates, so their uncertainty is not represented. Design
+errors are also treated as independent across times and independent of the
+emulator's residual error, although the same lagged fields enter the designs
+of consecutive times. Both simplifications make calibration intervals
+somewhat too narrow.
 
 The initial public calibration interface supports the sigma2R emulator,
 fixed discrepancy covariance scale, finite complete observation matrices, and

@@ -40,6 +40,8 @@ recorded <- list(
     emulator_sampling_method = fit$settings$emulator_sampling,
     joint_trajectories = fit$emulator$posterior$joint_trajectories,
     design_uncertainty = isTRUE(fit$emulator$design_uncertainty),
+    design_kernel = fit$emulator$design_kernel,
+    design_groups = fit$emulator$design_groups,
     generated = as.character(Sys.Date()),
     package_version = as.character(utils::packageVersion("spDBL")),
     seed = fit$settings$seed, prediction_seed = 1234L,

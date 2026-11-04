@@ -30,6 +30,34 @@ test_that("the installed emulator API prepares PDE-free predictions", {
   expect_error(calibration_prepare(tiny_emulator("iw"), c(0, 0), c(1, 1)), "sigma2R")
 })
 
+test_that("the design GP defaults to a Matern 5/2 kernel per time step", {
+  em <- tiny_emulator()
+  cal <- calibration_prepare(em, c(0, 0), c(1, 1))
+  expect_identical(cal$design_kernel, "matern52")
+  expect_identical(cal$design_groups, "time")
+  expect_identical(cal$predictor$kernel, "matern52")
+  expect_identical(cal$predictor$groups, (seq_len(cal$E) - 1L) %/% cal$B + 1L)
+  expect_identical(dim(cal$predictor$lengthscale), c(cal$T, 2L))
+  expect_length(cal$predictor$K_chol, cal$T)
+  # The earlier design GP: one squared-exponential kernel for all times.
+  old <- calibration_prepare(em, c(0, 0), c(1, 1), design_kernel = "sqexp",
+                             design_groups = "shared")
+  expect_identical(old$predictor$groups, rep(1L, old$E))
+  expect_identical(dim(old$predictor$lengthscale), c(1L, 2L))
+  expect_identical(old$posterior, cal$posterior)
+  shared <- calibration_prepare(em, c(0, 0), c(1, 1), design_groups = "shared")
+  expect_identical(shared$predictor$kernel, "matern52")
+  for (object in list(cal, old, shared)) {
+    p <- spDBL:::predict_calibration(c(0.3, 0.6), 2L, object)
+    expect_length(p$design_variance, object$T)
+    expect_true(all(is.finite(p$mu)))
+  }
+  expect_error(calibration_prepare(em, c(0, 0), c(1, 1), design_kernel = "exp"),
+               "should be one of")
+  expect_error(calibration_prepare(em, c(0, 0), c(1, 1), design_groups = "site"),
+               "should be one of")
+})
+
 test_that("calibration preparation inherits or overrides coefficient sampling", {
   em <- tiny_emulator()
   before <- .Random.seed

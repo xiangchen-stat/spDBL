@@ -55,6 +55,11 @@ test_that("predict methods match emulator_predict", {
   out <- capture_output(expect_identical(print(cal), cal))
   expect_match(out, "3 emulator draws \\(marginal sampling\\), 4 sites, 3 times")
   expect_match(out, "Design-row GP variance is propagated")
+  expect_match(out, "Matern 5/2 kernel, hyperparameters per time step \\(3\\)")
+  shared <- calibration_prepare(em, c(0, 0), c(1, 1), design_kernel = "sqexp",
+                                design_groups = "shared")
+  expect_match(capture_output(print(shared)),
+               "squared-exponential kernel, one set of hyperparameters")
   # A parameter held fixed in every training run is reported as fixed.
   d$input[, "b"] <- 0.5
   fixed_em <- emulator_learn(d$input, d$responses, Nx = 2L, Ny = 2L,

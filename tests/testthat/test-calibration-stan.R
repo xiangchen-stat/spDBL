@@ -8,33 +8,46 @@ test_that("installed Stan programs match R and pool conditionals equally", {
   f <- calibration_fixture()
   f$U <- 1.1001 * f$U
   e <- f$emulator
+  # The default design GP of calibration_prepare(): Matern 5/2, one kernel
+  # per time step (here two groups).
+  per_time <- calibration_fixture(design_kernel = "matern52", design_groups = "time")
+  per_time$U <- 1.1001 * per_time$U
   for (marginal in c(TRUE, FALSE)) {
     model <- spDBL:::.cal_stan_model(marginal, cache = TRUE,
       cache_dir = Sys.getenv("SPDBL_STAN_CACHE_DIR", tempdir()))
-    initial <- list(eta_unit = f$eta, precision = c(5, 6, 7))
-    if (!marginal) initial$u_std <- matrix(seq(-0.2, 0.2, length.out = 12), 3)
-    data <- spDBL:::make_stan_calibration_data(e, 1L, f$z, f$U)
-    fixed <- rstan::sampling(model, data = data, chains = 1L, iter = 1L,
-      warmup = 0L, algorithm = "Fixed_param", init = list(initial), refresh = 0L)
-    values <- rstan::extract(fixed)
-    prediction <- spDBL:::predict_calibration(f$eta, 1L, e)
-    expect_equal(matrix(values$mu, e$T, e$S), prediction$mu, tolerance = 1e-9)
-    expect_equal(matrix(values$Sigma, e$S, e$S), unname(prediction$Sigma), tolerance = 1e-9)
-    expect_equal(as.numeric(values$design_variance),
-      spDBL:::predict_offline_ar2(e$predictor, f$eta)$variance_factor, tolerance = 1e-9)
-    expect_equal(as.numeric(values$design_variance) * data$design_covariance[2, , ],
-      design_cov(prediction, 2L), tolerance = 1e-9, ignore_attr = TRUE)
-    alternative <- initial
-    alternative$eta_unit <- c(0.7, 0.35)
-    alternative$precision <- c(4, 8, 6)
-    stan_density <- function(v) rstan::log_prob(fixed,
-      rstan::unconstrain_pars(fixed, v), adjust_transform = FALSE)
-    r_density <- if (marginal) function(v)
-      spDBL:::calibration_marginal_log_density(v$eta_unit, v$precision, e, 1L, f$z, f$U) else
-      function(v) spDBL:::calibration_log_density(v$eta_unit, v$precision,
-        v$u_std, e, 1L, f$z, f$U)
-    expect_equal(stan_density(alternative) - stan_density(initial),
-                 r_density(alternative) - r_density(initial), tolerance = 1e-8)
+    for (fx in list(f, per_time)) {
+      em <- fx$emulator
+      initial <- list(eta_unit = fx$eta, precision = c(5, 6, 7))
+      if (!marginal) initial$u_std <- matrix(seq(-0.2, 0.2, length.out = 12), 3)
+      data <- spDBL:::make_stan_calibration_data(em, 1L, fx$z, fx$U)
+      fixed <- rstan::sampling(model, data = data, chains = 1L, iter = 1L,
+        warmup = 0L, algorithm = "Fixed_param", init = list(initial), refresh = 0L)
+      values <- rstan::extract(fixed)
+      prediction <- spDBL:::predict_calibration(fx$eta, 1L, em)
+      expect_equal(matrix(values$mu, em$T, em$S), prediction$mu, tolerance = 1e-9)
+      expect_equal(matrix(values$Sigma, em$S, em$S), unname(prediction$Sigma),
+                   tolerance = 1e-9)
+      expect_equal(as.numeric(values$design_variance), prediction$design_variance,
+                   tolerance = 1e-9)
+      for (t in seq_len(em$T))
+        expect_equal(as.numeric(values$design_variance)[t] * data$design_covariance[t, , ],
+          design_cov(prediction, t), tolerance = 1e-9, ignore_attr = TRUE)
+      alternative <- initial
+      alternative$eta_unit <- c(0.7, 0.35)
+      alternative$precision <- c(4, 8, 6)
+      stan_density <- function(v) rstan::log_prob(fixed,
+        rstan::unconstrain_pars(fixed, v), adjust_transform = FALSE)
+      r_density <- if (marginal) function(v)
+        spDBL:::calibration_marginal_log_density(v$eta_unit, v$precision, em, 1L,
+          fx$z, fx$U) else
+        function(v) spDBL:::calibration_log_density(v$eta_unit, v$precision,
+          v$u_std, em, 1L, fx$z, fx$U)
+      expect_equal(stan_density(alternative) - stan_density(initial),
+                   r_density(alternative) - r_density(initial), tolerance = 1e-8)
+    }
+    # The two time steps have their own design-GP variance factors.
+    expect_false(isTRUE(all.equal(prediction$design_variance[1],
+                                  prediction$design_variance[2])))
     fit <- suppressWarnings(calibration_fit(e, f$z, f$U,
       chains = 1L, iter = 40L, draws_per_emulator = 4L,
       compiled_model = model, marginal_discrepancy = marginal,

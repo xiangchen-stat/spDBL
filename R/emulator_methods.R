@@ -156,12 +156,19 @@ print.spDBL_calibration_input <- function(x, ...) {
   sampling <- if (is.null(x$sampling_method)) "unknown" else x$sampling_method
   cat(sprintf("spDBL calibration input: %d emulator draws (%s sampling), %d sites, %d times\n",
               x$M, sampling, x$S, x$T))
+  spec <- .cal_predictor_spec(f)
   bounds <- data.frame(parameter = names, lower = f$lower, upper = f$upper,
     status = ifelse(free, "free", "fixed"), lengthscale = NA_real_)
-  bounds$lengthscale[free] <- signif(f$lengthscale, 3)
+  # One row of hyperparameters per kernel group (time step); medians shown.
+  bounds$lengthscale[free] <- signif(apply(spec$lengthscale, 2, stats::median), 3)
   print(bounds, row.names = FALSE)
-  cat(sprintf("Design GP: leave-one-out RMSE %.3g, nugget %.3g (lengthscales on the unit scale)\n",
-              f$loo_rmse, f$nugget))
+  kernel <- if (spec$kernel == "matern52") "Matern 5/2" else "squared-exponential"
+  cat(sprintf("Design GP: %s kernel, %s (lengthscales on the unit scale%s)\n", kernel,
+              if (spec$G > 1) sprintf("hyperparameters per time step (%d)", spec$G) else
+                "one set of hyperparameters",
+              if (spec$G > 1) "; medians over time steps" else ""))
+  cat(sprintf("Design GP: leave-one-out RMSE %.3g, nugget %.3g\n",
+              f$loo_rmse, stats::median(spec$nugget)))
   cat(f$uncertainty, "\n")
   invisible(x)
 }

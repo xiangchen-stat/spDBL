@@ -109,6 +109,127 @@ test_that("design-GP covariance enters through each coefficient draw", {
                ignore_attr = TRUE)
 })
 
+test_that("the Matern 5/2 kernel matches its closed form", {
+  k <- function(r) spDBL:::.cal_kernel(matrix(0, 1, 2), matrix(c(r, 0), 1),
+                                       c(1, 1), "matern52")
+  expect_equal(drop(k(0)), 1)
+  for (r in c(0.1, 1 / sqrt(5), 1, 2.5)) {
+    a <- sqrt(5) * r
+    expect_equal(drop(k(r)), (1 + a + a^2 / 3) * exp(-a))
+  }
+  # Anisotropic: each coordinate is scaled by its own lengthscale.
+  x <- matrix(c(0.2, 0.9, 0.5, 0.1), 2)
+  y <- matrix(c(0.6, 0.3), 1)
+  ell <- c(0.5, 2)
+  r <- sqrt(rowSums(sweep(sweep(x, 2, y), 2, ell, "/")^2))
+  expect_equal(drop(spDBL:::.cal_kernel(x, y, ell, "matern52")),
+               (1 + sqrt(5) * r + 5 * r^2 / 3) * exp(-sqrt(5) * r))
+  expect_equal(spDBL:::.cal_kernel(x, y, ell, "sqexp"), spDBL:::.cal_sqexp(x, y, ell))
+})
+
+test_that("a design GP per time step propagates each time's own variance", {
+  f <- calibration_fixture(design_kernel = "matern52", design_groups = "time")
+  e <- f$emulator
+  expect_identical(e$design_kernel, "matern52")
+  expect_identical(e$design_groups, "time")
+  expect_identical(e$predictor$groups, c(1L, 1L, 2L, 2L))
+  expect_identical(dim(e$predictor$lengthscale), c(2L, 2L))
+  expect_false(isTRUE(all.equal(e$predictor$lengthscale[1, ],
+                                e$predictor$lengthscale[2, ])))
+  # Independent calculation, time by time: Matern 5/2 kernel on unit inputs
+  # with that time's hyperparameters, maximum-likelihood column covariance
+  # Fc' K_t^{-1} Fc / N over the time's episodes.
+  x <- e$input
+  N <- nrow(x)
+  matern <- function(a, b, ell) {
+    r <- sqrt(outer(seq_len(nrow(a)), seq_len(nrow(b)), Vectorize(function(i, j)
+      sum(((a[i, ] - b[j, ]) / ell)^2))))
+    (1 + sqrt(5) * r + 5 * r^2 / 3) * exp(-sqrt(5) * r)
+  }
+  Fc <- lapply(e$F_ls, function(F) sweep(F, 2, colMeans(F)))
+  for (eta in list(f$eta, c(0.02, 0.97), e$input[5, ])) {
+    design <- spDBL:::predict_offline_ar2(e$predictor, eta)
+    v <- numeric(e$T)
+    for (t in seq_len(e$T)) {
+      ell <- e$predictor$lengthscale[t, ]
+      K <- matern(x, x, ell) + diag(e$predictor$nugget[t], N)
+      k <- matern(x, matrix(eta, 1), ell)
+      v[t] <- max(0, 1 - drop(crossprod(k, solve(K, k))))
+      episodes <- (t - 1L) * e$B + seq_len(e$B)
+      for (i in episodes) {
+        expect_equal(design$F[[i]], colMeans(e$F_ls[[i]]) +
+          drop(crossprod(k, solve(K, Fc[[i]]))), tolerance = 1e-8)
+        expect_equal(design$variance[(i - 1L) * 4L + 1:4],
+          v[t] * diag(crossprod(Fc[[i]], solve(K, Fc[[i]])) / N), tolerance = 1e-8)
+      }
+      for (m in 1:2) {
+        p <- spDBL:::predict_calibration(eta, m, e)
+        expected <- matrix(0, e$S, e$S)
+        for (i in episodes) for (j in episodes) {
+          bi <- e$block_cols[(i - 1L) %% e$B + 1L, ]
+          bj <- e$block_cols[(j - 1L) %% e$B + 1L, ]
+          expected[bi, bj] <- v[t] * t(e$posterior$theta[[i]][, , m]) %*%
+            (crossprod(Fc[[i]], solve(K, Fc[[j]])) / N) %*% e$posterior$theta[[j]][, , m]
+        }
+        expect_equal(design_cov(p, t), expected, tolerance = 1e-8, ignore_attr = TRUE)
+        pointwise <- spDBL:::predict_calibration(eta, m, e, covariance = "marginal")
+        expect_equal(pointwise$variance[t, ], diag(spDBL:::.cal_time_covariance(p, t)),
+                     tolerance = 1e-10, ignore_attr = TRUE)
+      }
+    }
+    expect_equal(design$variance_factor, v, tolerance = 1e-8)
+    expect_equal(design$episode_factor, rep(v, each = e$B), tolerance = 1e-8)
+    expect_equal(spDBL:::predict_calibration(eta, 1L, e)$design_variance, v,
+                 tolerance = 1e-8)
+  }
+})
+
+test_that("design GP groups are fitted as separate GPs", {
+  f <- calibration_fixture()
+  e <- f$emulator
+  grouped <- spDBL:::fit_offline_ar2(e$input, e$F_ls, c(0, 0), c(1, 1),
+                                     kernel = "matern52", groups = c(1, 1, 2, 2))
+  for (g in 1:2) {
+    alone <- spDBL:::fit_offline_ar2(e$input, e$F_ls[2 * g - 1:0], c(0, 0), c(1, 1),
+                                     kernel = "matern52")
+    cols <- (g - 1L) * 8L + 1:8
+    expect_equal(grouped$lengthscale[g, ], drop(alone$lengthscale))
+    expect_equal(grouped$nugget[g], alone$nugget)
+    expect_equal(grouped$alpha[, cols], alone$alpha)
+    expect_equal(grouped$column_variance[cols], alone$column_variance)
+    expect_equal(spDBL:::predict_offline_ar2(grouped, f$eta)$F[2 * g - 1:0],
+                 spDBL:::predict_offline_ar2(alone, f$eta)$F)
+  }
+  # A group of constant designs has no GP error and keeps fixed settings.
+  constant <- rep(list(matrix(1, nrow(e$input), 4)), 2)
+  mixed <- spDBL:::fit_offline_ar2(e$input, c(constant, e$F_ls[3:4]), c(0, 0), c(1, 1),
+                                   kernel = "matern52", groups = c(1, 1, 2, 2))
+  expect_true(is.na(mixed$optimizer_convergence[1]))
+  expect_equal(mixed$lengthscale[1, ], c(0.5, 0.5))
+  design <- spDBL:::predict_offline_ar2(mixed, f$eta)
+  expect_equal(unlist(design$F[1:2]), rep(1, 8))
+  expect_equal(design$variance[1:8], rep(0, 8))
+  for (bad in list(c(1, 1, 3, 3), c(1, 2), c(0, 1, 1, 1), c(1, 1.5, 2, 2)))
+    expect_error(spDBL:::fit_offline_ar2(e$input, e$F_ls, c(0, 0), c(1, 1),
+                                         groups = bad), "groups must number")
+  expect_error(spDBL:::fit_offline_ar2(e$input, e$F_ls, c(0, 0), c(1, 1),
+                                       kernel = "linear"), "should be one of")
+})
+
+test_that("design predictors saved before kernel groups still predict", {
+  f <- calibration_fixture()
+  e <- f$emulator
+  old <- e$predictor
+  old$kernel <- NULL
+  old$groups <- NULL
+  old$lengthscale <- drop(old$lengthscale)
+  old$K_chol <- old$K_chol[[1]]
+  old$episode_factor <- NULL
+  expect_equal(spDBL:::predict_offline_ar2(old, f$eta),
+               spDBL:::predict_offline_ar2(e$predictor, f$eta))
+  expect_equal(spDBL:::.cal_design_whitened(old), spDBL:::.cal_design_whitened(e$predictor))
+})
+
 test_that("design uncertainty can be switched off", {
   f <- calibration_fixture()
   e <- f$emulator
@@ -120,7 +241,7 @@ test_that("design uncertainty can be switched off", {
   expect_identical(plain[c("mu", "Sigma")], on[c("mu", "Sigma")])
   expect_identical(spDBL:::.cal_time_covariance(plain, 2L), plain$Sigma)
   expect_equal(spDBL:::.cal_time_covariance(on, 2L),
-               on$Sigma + on$design_variance * crossprod(on$design_factors[[2]]))
+               on$Sigma + on$design_variance[2] * crossprod(on$design_factors[[2]]))
   expect_equal(spDBL:::predict_calibration(f$eta, 2L, off, covariance = "marginal")$variance,
                matrix(diag(plain$Sigma), e$T, e$S, byrow = TRUE), ignore_attr = TRUE)
   expect_identical(spDBL:::.cal_design_factors(off, 1L, c(2L, 3L)), list())

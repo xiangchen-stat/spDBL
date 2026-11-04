@@ -68,8 +68,9 @@ instead, so no new simulator runs are needed.
 1. `calibration_prepare()` requires a `"sigma2R"` emulator. It reuses the
    emulator's draws or resamples them (`sample_calibration_emulator()`), then
    `make_offline_calibration_input()` fits the design-row GP
-   (`fit_offline_ar2()`, squared exponential with one length scale per input)
-   and caches Cholesky factors. Result: class `spDBL_calibration_input`.
+   (`fit_offline_ar2()`; by default a Matern 5/2 kernel with one length scale
+   per input and separate hyperparameters for each time step) and caches
+   Cholesky factors. Result: class `spDBL_calibration_input`.
    `predict_calibration()` turns one coefficient draw into the field mean and
    covariance at an input. With `design_uncertainty = TRUE` (the default) the
    covariance includes the design GP's error, as a rank-N factor per time
