@@ -52,6 +52,20 @@ overridden, for example `--grids=10,20,50,100`, `--windows=1,2,5`,
 above are not in the validation profile; request them explicitly or use
 `--profile=paper`.
 
+Add `--resume` to continue an interrupted run: a task is skipped, and its
+earlier result reused, when its result file holds a successful run of the
+same task under the same settings (`jobs`, `timeout_sec` and the output and
+cache paths may differ). Anything else is rerun.
+
+The paper profile, in the order used for the manuscript (E1 needs an
+otherwise idle machine):
+
+```sh
+Rscript benchmarks/e1_scaling.R     --profile=paper
+Rscript benchmarks/e2_accuracy.R    --profile=paper
+Rscript benchmarks/e3_calibration.R --profile=paper --jobs=14
+```
+
 Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 
 * `<experiment>_results.csv`: one row per task (E3: one row per task and
@@ -76,15 +90,22 @@ Defined in `R/config.R`.
 
 | | validation | paper |
 |---|---|---|
-| E1 grids | 10², 20², 30², 40², 50² | 10², 20², 50², 100² |
+| E1 grids | 10², 20², 30², 40², 50² | 10², 20², 30², 40², 50², 70², 100² |
 | E1 `episode_window` | 1, 2, 5 | 1, 2, 5 |
-| E1/E2 design | 40 training + 10 held-out runs, T = 26 | same |
-| E2 grids | 10², 20² | 10², 20², 50², 100² |
+| E1 design | 40 training + 10 held-out runs, T = 26 | same |
+| E2 grids | 10², 20² | 10², 20², 50² |
+| E2 design | 40 training + 10 held-out runs, T = 26 | 40 training + 50 held-out runs, T = 26 |
 | E2 spDBL draws (`nsam`) | 20 | 20 |
-| E3 replicates | 3 | 50 |
-| E3 spDBL | 4 emulator draws x 2 chains x 500 iter (250 warmup) | 20 draws x 4 chains x 2000 iter (1000 warmup), `cores = 4` |
+| E3 replicates | 3 | 30 |
+| E3 spDBL | 4 emulator draws x 2 chains x 500 iter (250 warmup) | 20 draws x 4 chains x 2000 iter (1000 warmup) |
 | E3 RobustCalibration | S = 2000, S_0 = 500, 2 chains | S = 10000, S_0 = 2000 (package defaults), 4 chains |
-| parallel workers (`jobs`) | E1: 1, E2: 2, E3: 3 | 1 |
+| E3 cores per task | 1 | 1 |
+| parallel workers (`jobs`) | E1: 1, E2: 2, E3: 3 | E1, E2: 1; E3: `--jobs=14` |
+
+E2 stops at 50² in the paper profile because spDBL keeps every coefficient
+draw: with 20 draws, peak memory at 100² is projected at about 120 GB. E3
+runs every task on one core, as RobustCalibration has no parallel chains, so
+wall and CPU time agree for both packages; throughput comes from `jobs`.
 
 All validation numbers are labelled `validation only` in the outputs: they come
 from a laptop shared with other jobs and from reduced MCMC lengths.
@@ -141,9 +162,13 @@ from a laptop shared with other jobs and from reduced MCMC lengths.
   both packages). spDBL: per emulator-conditional fit; the table reports the
   worst R-hat and smallest ESS across conditionals, and ESS/s is the summed
   bulk ESS of the slowest parameter across conditionals divided by
-  `calibration_fit()` wall time. RobustCalibration: chains are separate
-  `rcalibration()` calls with different seeds; ESS/s is the slowest
-  parameter's bulk ESS divided by the summed run time. spDBL's own
+  `calibration_fit()` wall time (`ess_per_s`) and CPU time
+  (`ess_per_cpu_s`, which counts rstan's chain processes). RobustCalibration:
+  chains are separate `rcalibration()` calls with different seeds, run one
+  after another; ESS/s is the slowest parameter's bulk ESS divided by the
+  summed run time, which is also its CPU time. `e3_summary.csv` adds, per
+  method, the share of replicates with R-hat above 1.01 and the total number
+  of divergences. spDBL's own
   diagnostics (`divergences`, `treedepth_hits`, `pkg_max_rhat_all`,
   `pkg_min_neff_all`, which include tau2) are also recorded.
 
@@ -199,9 +224,10 @@ from a laptop shared with other jobs and from reduced MCMC lengths.
   `1:k` on the object but passes `NULL` to the sampler, and
   `predict.ppgasp()` then fails ("argument is of length zero").
   (v) Random-walk Metropolis vs NUTS: compare ESS/s, not iterations.
-  (vi) Both methods start every chain at the centre of the box (spDBL's
-  `calibration_fit(init = "midpoint")`, the default; RobustCalibration's default), so
-  R-hat is less informative than with dispersed starts.
+  (vi) RobustCalibration starts every chain at the centre of the box (its
+  default). spDBL uses the profile's `init`, passed to `calibration_fit()`:
+  `"midpoint"` (the package default, also the centre) or `"random"`
+  (uniform in the box, which makes R-hat more informative).
 * **Validation runs share the machine** with other jobs and use up to three
   parallel workers; timings are indicative only.
 
@@ -220,14 +246,14 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
   design-GP prediction cost grows with grid size x draws x held-out runs
   (17 s at 20² with 20 draws and 10 runs), so expect tens of minutes at 100²;
   memory follows E1.
-* **E3 (6 x 6, 936 observations).** Measured cost per iteration: spDBL NUTS
-  0.054-0.088 s, RobustCalibration S-GaSP 0.12-0.135 s and GaSP
-  0.039-0.045 s. Per replicate at paper settings: spDBL 160,000 iterations,
-  about 2.4-3.9 CPU-hours (0.6-1 h wall with `cores = 4`); RobustCalibration
-  4 x 10,000 iterations, about 1.3-1.5 h (S-GaSP) and 0.5 h (GaSP). For 50
-  replicates, roughly 210-300 CPU-hours in total, i.e. 13-19 h on 16 cores
-  (for 20 replicates, 6-8 h). Peak RSS is about 0.45 GB per spDBL process and
-  about 2 GB per RobustCalibration process.
+* **E3 (6 x 6, 936 observations).** Measured on three paper-setting
+  replicates (spDBL 1.2.0, five tasks sharing the machine): spDBL about
+  3.1-4.0 CPU-hours per replicate (160,000 NUTS iterations);
+  RobustCalibration about 1.8 h (S-GaSP) and 0.6 h (GaSP) for 4 x 10,000
+  iterations. That is about 6 CPU-hours per replicate for the three
+  methods, so 30 replicates take about 13 h with 14 single-core tasks on
+  16 cores. Peak RSS is about 0.8 GB per spDBL process and about 2 GB per
+  RobustCalibration process.
 
 ## Workarounds for spDBL (no package code is modified)
 
@@ -261,5 +287,6 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
   backward pass exists yet, so E1 stops at what fits in memory.
 * An E3 variant with a stationary-GP discrepancy generator, where
   RobustCalibration rather than spDBL is correctly specified.
-* Re-run E1 after the pending `R_field` fix (current numbers are the
-  "before" baseline).
+* The E1 validation numbers predate the 1.2.0 `R_field` change
+  (`emulator_learn()` no longer forms the dense S x S matrix); the paper
+  profile is run on 1.2.0.

@@ -44,7 +44,7 @@ run_spdbl <- function(d, rep, cfg, task) {
   fit <- timed(calibration_fit(prep$value, rep$z, d$U,
     chains = cfg$chains, iter = cfg$iter, warmup = cfg$warmup,
     draws_per_emulator = keep, n0 = d$prior$n0, d0 = d$prior$d0,
-    seed = task$seed, cores = cfg$cores, refresh = 0L,
+    seed = task$seed, cores = cfg$cores, refresh = 0L, init = cfg$init,
     keep_discrepancy = FALSE, cache_dir = cfg$stan_cache))
   f <- fit$value
   out <- lapply(active, function(j) {
@@ -73,10 +73,13 @@ run_spdbl <- function(d, rep, cfg, task) {
   out$sampling_s <- fit$elapsed
   out$sampling_cpu_s <- fit$cpu
   out$wall_total_s <- em$elapsed + prep$elapsed + fit$elapsed
-  # ESS/s: the slowest parameter's ESS, summed over independent conditionals.
+  # ESS/s: the slowest parameter's ESS, summed over independent conditionals,
+  # per wall second and per CPU second (rstan's chain processes included).
   out$ess_per_s <- min(out$ess_bulk_total) / fit$elapsed
-  out$settings <- sprintf("M=%d chains=%d iter=%d warmup=%d cores=%d",
-    cfg$n_draws, cfg$chains, cfg$iter, cfg$warmup, cfg$cores)
+  out$ess_per_cpu_s <- min(out$ess_bulk_total) / fit$cpu
+  out$settings <- sprintf("M=%d chains=%d iter=%d warmup=%d cores=%d init=%s",
+    cfg$n_draws, cfg$chains, cfg$iter, cfg$warmup, cfg$cores,
+    paste(cfg$init, collapse = ","))
   out
 }
 
@@ -127,6 +130,7 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$sampling_cpu_s <- sum(times)
   out$wall_total_s <- sum(times)
   out$ess_per_s <- min(out$ess_bulk_total) / sum(times)
+  out$ess_per_cpu_s <- out$ess_per_s  # chains run one after another, one core
   out$settings <- sprintf("%s S=%d S_0=%d chains=%d", discrepancy, cfg$rc_S,
                           cfg$rc_S0, cfg$rc_chains)
   out

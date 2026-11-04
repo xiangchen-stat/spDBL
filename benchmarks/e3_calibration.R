@@ -49,18 +49,29 @@ tasks <- list()
 for (r in seq_len(cfg$n_rep)) for (m in cfg$methods)
   tasks[[length(tasks) + 1]] <- list(id = sprintf("e3_r%03d_%s", r, m),
     rep = r, method = m, data_file = data_file, seed = cfg$seed + r)
+# Longest tasks first, so that the run does not end on one long task.
+# Single-core times per replicate at paper settings: spdbl about 3.5 h,
+# rc_sgasp about 1.8 h, rc_gasp about 0.6 h. Task seeds do not depend on order.
+duration_rank <- c(spdbl = 1, rc_sgasp = 2, rc_gasp = 3)
+tasks <- tasks[order(duration_rank[vapply(tasks, `[[`, "", "method")],
+                     vapply(tasks, `[[`, 0, "rep"))]
 results <- bench_run_tasks(tasks, "e3_worker.R", cfg)
 tab <- bench_write_results(results, cfg, "e3_results")
 
 ok <- tab[tab$status == "OK", ]
 if (nrow(ok)) {
+  per_rep <- function(x, col) tapply(x[[col]], x$rep, `[`, 1)
   agg <- do.call(rbind, lapply(split(ok, ok$method), function(x) data.frame(
     method = x$method[1], n_rep = length(unique(x$rep)),
     rmse_rel_error = sqrt(mean(x$rel_error^2)), coverage95 = mean(x$covered),
     mean_rel_width = mean(x$rel_width), max_rhat = max(x$rhat_max),
+    share_rhat_over_1.01 = mean(tapply(x$rhat_max, x$rep, max) > 1.01),
     min_ess_bulk = min(x$ess_bulk_min),
-    mean_wall_s = mean(tapply(x$wall_total_s, x$rep, `[`, 1)),
-    mean_ess_per_s = mean(tapply(x$ess_per_s, x$rep, `[`, 1)))))
+    divergences = if (is.null(x$divergences)) NA else sum(per_rep(x, "divergences")),
+    mean_wall_s = mean(per_rep(x, "wall_total_s")),
+    mean_cpu_s = mean(per_rep(x, "sampling_cpu_s")),
+    mean_ess_per_s = mean(per_rep(x, "ess_per_s")),
+    mean_ess_per_cpu_s = mean(per_rep(x, "ess_per_cpu_s")))))
   utils::write.csv(agg, file.path(cfg$out, "e3_summary.csv"), row.names = FALSE)
   print(agg, row.names = FALSE, digits = 3)
 }

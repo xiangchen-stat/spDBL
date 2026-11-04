@@ -50,12 +50,13 @@ bench_config <- function(experiment, args = bench_parse_args()) {
   profile <- if (is.null(args$profile)) "validation" else args$profile
   cfg <- bench_profiles[[experiment]][[profile]]
   if (is.null(cfg)) stop("Unknown profile '", profile, "' for ", experiment)
-  control <- c("profile", "out", "lib", "positional", "cache")
+  control <- c("profile", "out", "lib", "positional", "cache", "resume")
   unknown <- setdiff(names(args), c(names(cfg), control))
   if (length(unknown)) stop("Unknown option(s): ", paste(unknown, collapse = ", "))
   for (k in intersect(names(args), names(cfg))) cfg[[k]] <- args[[k]]
   cfg$experiment <- experiment
   cfg$profile <- profile
+  cfg$resume <- isTRUE(args$resume)
   cfg$box <- bench_sir_box
   cfg$out <- if (is.null(args$out))
     file.path(bench_dir(), "results", experiment, profile) else args$out
@@ -189,14 +190,42 @@ bench_parse_time_log <- function(lines) {
   c(peak_rss_mb = NA_real_, peak_footprint_mb = NA_real_)
 }
 
+# Settings that may change between a run and its resumption without
+# changing any result.
+bench_volatile <- c("jobs", "timeout_sec", "resume", "out", "cache", "stan_cache")
+
+# With --resume: the earlier result of this task if it succeeded under the
+# same task definition and the same settings (volatile ones aside), else NULL.
+# Results written before resume support lack process_wall_s and are rerun.
+bench_reusable <- function(task, cfg) {
+  file <- file.path(cfg$out, "raw", paste0(task$id, ".rds"))
+  old <- if (file.exists(file)) tryCatch(readRDS(file), error = function(e) NULL)
+  if (is.null(old) || !identical(old$row$status[1], "OK") ||
+      is.null(old$row$process_wall_s)) return(NULL)
+  stable <- function(x) x[setdiff(names(x), bench_volatile)]
+  same <- identical(old$task[names(task)], task) &&
+    identical(stable(old$meta$config), stable(cfg))
+  if (same) old else NULL
+}
+
 # Run every task in its own Rscript process under /usr/bin/time. Each task is
-# a list with at least $id; the worker writes raw/<id>.rds. Returns a list of
-# worker results (status FAILED/TIMEOUT rows are kept, never dropped).
+# a list with at least $id; the worker writes raw/<id>.rds, which is then
+# rewritten with the process measurements added. Returns a list of worker
+# results (status FAILED/TIMEOUT rows are kept, never dropped). With
+# cfg$resume, successful earlier results of identical tasks are reused.
 bench_run_tasks <- function(tasks, worker, cfg) {
   rscript <- file.path(R.home("bin"), "Rscript")
   time_cmd <- bench_time_command()
   worker <- file.path(bench_dir(), worker)
   run_one <- function(task) {
+    if (isTRUE(cfg$resume)) {
+      old <- bench_reusable(task, cfg)
+      if (!is.null(old)) {
+        message(sprintf("[%s] %s: reused earlier result", format(Sys.time(), "%H:%M:%S"),
+          task$id))
+        return(old)
+      }
+    }
     task$cfg <- cfg
     task$result_file <- file.path(cfg$out, "raw", paste0(task$id, ".rds"))
     task_file <- file.path(cfg$out, "tasks", paste0(task$id, ".rds"))
@@ -220,6 +249,7 @@ bench_run_tasks <- function(tasks, worker, cfg) {
     res$row$peak_footprint_mb <- mem[["peak_footprint_mb"]]
     res$row$rss_method <- if (is.null(time_cmd)) "none" else paste(time_cmd, collapse = " ")
     res$row$label <- cfg$label
+    if (file.exists(task$result_file)) saveRDS(res, task$result_file)
     message(sprintf("[%s] %s: %s (%.1f s, peak RSS %.0f MB)", format(Sys.time(), "%H:%M:%S"),
       task$id, res$row$status[1], process_wall, mem[["peak_rss_mb"]]))
     res

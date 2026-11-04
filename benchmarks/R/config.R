@@ -24,9 +24,11 @@ bench_profiles <- list(
       predict_mc = FALSE, measure_rfield = TRUE, seed = 20261101,
       timeout_sec = 1800, jobs = 1, threads = 1),
     paper = list(
-      label = "paper", grids = c(10, 20, 50, 100), windows = c(1, 2, 5),
-      covariance = "iw", n_train = 40, n_test = 10, n_time = 26, nsam = 10,
-      ar_choice = 2, eval_from = 3, predict_mc = TRUE, measure_rfield = TRUE,
+      # 100^2 with window 5 may exceed 64 GB (peak RSS about 68 GB projected
+      # from 50^2); it runs last, and its peak memory is recorded either way.
+      label = "paper", grids = c(10, 20, 30, 40, 50, 70, 100),
+      windows = c(1, 2, 5), covariance = "iw", n_train = 40, n_test = 10,
+      n_time = 26, nsam = 10, ar_choice = 2, eval_from = 3, predict_mc = TRUE, measure_rfield = TRUE,
       seed = 20261101, timeout_sec = 6 * 3600, jobs = 1, threads = 1)),
   e2 = list(
     validation = list(
@@ -38,13 +40,15 @@ bench_profiles <- list(
       eval_from = 3, mlegp_pc_percent = 99.9, seed = 20261101,
       timeout_sec = 1800, jobs = 2, threads = 1),
     paper = list(
-      label = "paper", grids = c(10, 20, 50, 100), episode_window = 2,
+      label = "paper", grids = c(10, 20, 50), episode_window = 2,
       methods = c("spdbl_iw_known", "spdbl_s2r_known", "spdbl_s2r_designgp",
                   "spdbl_s2r_designgp_unit", "ppgasp_default", "ppgasp_tuned",
                   "mlegp_pca"),
       # nsam = 20: spDBL stores every coefficient draw (nsam x episodes x
-      # 2C x C doubles), about 17 GB at 100^2 with episode_window = 2.
-      n_train = 40, n_test = 10, n_time = 26, nsam = 20, ar_choice = 2,
+      # 2C x C doubles). Peak RSS grows about as grid^3 at a fixed window:
+      # about 15 GB at 50^2 but about 120 GB at 100^2, so E2 stops at 50^2.
+      # 50 held-out runs: 10 sampled the input box too thinly for coverage.
+      n_train = 40, n_test = 50, n_time = 26, nsam = 20, ar_choice = 2,
       eval_from = 3, mlegp_pc_percent = 99.9, seed = 20261101,
       timeout_sec = 6 * 3600, jobs = 1, threads = 1)),
   e3 = list(
@@ -52,12 +56,18 @@ bench_profiles <- list(
       label = "validation only", n_rep = 3,
       methods = c("spdbl", "rc_sgasp", "rc_gasp"), episode_window = 2,
       n_draws = 4, chains = 2, iter = 500, warmup = 250, cores = 1,
+      init = "midpoint",
       rc_S = 2000, rc_S0 = 500, rc_chains = 2, field_n0 = 30, field_d0 = 2,
       inner = 0.8, seed = 20261101, timeout_sec = 3600, jobs = 3, threads = 1),
     paper = list(
-      label = "paper", n_rep = 50,
+      # Every task is single-core (cores = 1; RobustCalibration has no
+      # parallel chains), so wall and CPU time agree and both packages are
+      # timed alike. Throughput comes from running tasks side by side: run
+      # with --jobs=14 on a 16-core machine (about 13 h for 30 replicates).
+      label = "paper", n_rep = 30,
       methods = c("spdbl", "rc_sgasp", "rc_gasp"), episode_window = 2,
-      n_draws = 20, chains = 4, iter = 2000, warmup = 1000, cores = 4,
+      n_draws = 20, chains = 4, iter = 2000, warmup = 1000, cores = 1,
+      init = "midpoint",
       rc_S = 10000, rc_S0 = 2000, rc_chains = 4, field_n0 = 30, field_d0 = 2,
       inner = 0.8, seed = 20261101, timeout_sec = 24 * 3600, jobs = 1,
       threads = 1)))
