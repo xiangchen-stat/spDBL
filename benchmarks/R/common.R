@@ -50,13 +50,15 @@ bench_config <- function(experiment, args = bench_parse_args()) {
   profile <- if (is.null(args$profile)) "validation" else args$profile
   cfg <- bench_profiles[[experiment]][[profile]]
   if (is.null(cfg)) stop("Unknown profile '", profile, "' for ", experiment)
-  control <- c("profile", "out", "lib", "positional", "cache", "resume")
+  control <- c("profile", "out", "lib", "positional", "cache", "resume", "reps")
   unknown <- setdiff(names(args), c(names(cfg), control))
   if (length(unknown)) stop("Unknown option(s): ", paste(unknown, collapse = ", "))
   for (k in intersect(names(args), names(cfg))) cfg[[k]] <- args[[k]]
   cfg$experiment <- experiment
   cfg$profile <- profile
   cfg$resume <- isTRUE(args$resume)
+  # E3 only: run a subset of replicates (a job's share when split over nodes).
+  cfg$reps <- args$reps
   cfg$box <- bench_sir_box
   cfg$out <- if (is.null(args$out))
     file.path(bench_dir(), "results", experiment, profile) else args$out
@@ -196,8 +198,10 @@ bench_parse_time_log <- function(lines) {
 }
 
 # Settings that may change between a run and its resumption without
-# changing any result.
-bench_volatile <- c("jobs", "timeout_sec", "resume", "out", "cache", "stan_cache")
+# changing any result. `reps` only selects which replicates a job runs, so
+# jobs that split E3 over nodes and the final collecting run agree.
+bench_volatile <- c("jobs", "timeout_sec", "resume", "out", "cache", "stan_cache",
+                    "reps")
 
 # With --resume: the earlier result of this task if it succeeded under the
 # same task definition and the same settings (volatile ones aside), else NULL.

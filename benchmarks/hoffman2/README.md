@@ -14,6 +14,7 @@ usual.
 | `smoke.sh` | Tiny E1/E2/E3 runs (a few minutes) that check the whole pipeline, including peak-memory measurement, before the long jobs. |
 | `prepare.sh` | Batch job running `setup.sh` then `smoke.sh` (8 CPUs, 32 GB, 4 h). |
 | `e1.sh`, `e2.sh`, `e3.sh` | Batch jobs for the paper profiles. |
+| `e3-collect.sh` | Collects E3 after it was split over nodes. |
 | `submit.sh` | Submits any of the above with the clone as working directory and the log in `~/spdbl-bench/logs/`. |
 
 ## Steps
@@ -72,6 +73,29 @@ experiments are timed on the same hardware.
 | E1 | whole node | One task at a time for clean timings; 100² with window 5 is projected at about 68 GB. |
 | E2 | whole node | One task at a time; spDBL at 50² is projected at about 15 GB. |
 | E3 | whole node | 34 single-core tasks side by side. |
+
+### E3 split over nodes (used for the paper)
+
+On one node, 34 single-core E3 tasks contend for memory bandwidth: against a
+workstation, RobustCalibration ran about 5x and spDBL about 3x slower, which
+also tilts the timing comparison. The paper run therefore uses five nodes,
+each running six replicates (18 tasks, half the cores), and then collects
+the results with `--resume`:
+
+```sh
+ids=""
+for r in 1-6 7-12 13-18 19-24 25-30; do
+  id=$(SPDBL_E3_REPS=$(seq -s, ${r%-*} ${r#*-}) SPDBL_E3_JOBS=18 \
+    bash benchmarks/hoffman2/submit.sh e3 | awk '/Submitted/ {print $4}')
+  ids="$ids:$id"
+done
+SPDBL_SBATCH_ARGS="--dependency=afterok$ids" bash benchmarks/hoffman2/submit.sh e3-collect
+```
+
+`--reps` only selects replicates, so the collecting run (`e3-collect.sh`,
+all replicates, `--resume`) reuses every finished task and writes
+`e3_results.csv` and `e3_summary.csv` for the whole run. Cached simulated data
+are written atomically, so the five jobs can create them at the same time.
 
 To use another node type, pass its feature (listed by
 `sinfo -p campus -o "%f"`), e.g.

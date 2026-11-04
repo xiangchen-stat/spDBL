@@ -45,8 +45,13 @@ if ("spdbl" %in% cfg$methods) {
   message(sprintf("Stan model ready in %.1f s (cache: %s)", warm, cfg$stan_cache))
 }
 
+# --reps=1,2,3 runs only those replicates (one job's share when E3 is split
+# over nodes); a later run with --resume and no --reps collects all of them.
+reps <- if (is.null(cfg$reps)) seq_len(cfg$n_rep) else as.integer(cfg$reps)
+if (!length(reps) || anyNA(reps) || any(reps < 1L | reps > cfg$n_rep) ||
+    anyDuplicated(reps)) stop("--reps must list distinct replicates in 1..n_rep")
 tasks <- list()
-for (r in seq_len(cfg$n_rep)) for (m in cfg$methods)
+for (r in reps) for (m in cfg$methods)
   tasks[[length(tasks) + 1]] <- list(id = sprintf("e3_r%03d_%s", r, m),
     rep = r, method = m, data_file = data_file, seed = cfg$seed + r)
 # Longest tasks first, so that the run does not end on one long task.

@@ -35,6 +35,18 @@ sir_stack <- function(runs) {
     do.call(rbind, lapply(runs, function(y) y[t, , drop = FALSE])))
 }
 
+# Write to a temporary file in the same directory, then rename: jobs that
+# create the same cached data at once never see a partial file.
+bench_save_atomic <- function(x, file) {
+  tmp <- tempfile(paste0(basename(file), "."), tmpdir = dirname(file))
+  saveRDS(x, tmp)
+  if (!file.rename(tmp, file)) {
+    unlink(tmp)
+    if (!file.exists(file)) stop("Could not write ", file)
+  }
+  invisible(file)
+}
+
 # Training and held-out SIR runs on a grid x grid lattice. Training and test
 # inputs are independent Latin hypercubes in the same box; the design does
 # not depend on the grid, so every grid size uses the same parameter values.
@@ -54,7 +66,7 @@ sir_dataset <- function(grid, n_train, n_test, n_time, seed, box, cache) {
     test = sir_stack(runs_test), lower = box$lower, upper = box$upper,
     n_people = box$n_people, simulation_seconds = t_sim,
     generator = "spDBL::gen_pde (log(I + 1) of the 2-D SIR PDE)")
-  saveRDS(d, file)
+  bench_save_atomic(d, file)
   message(sprintf("Simulated %d SIR runs on %d^2 grid in %.1f s -> %s",
     n_train + n_test, grid, t_sim, basename(file)))
   file
@@ -95,6 +107,6 @@ sir_calibration_replicates <- function(n_rep, seed, box, cache, inner = 0.8,
     Nx = d$Nx, Ny = d$Ny, time = d$time, grid = d$grid, U = U,
     prior = list(n0 = n0, d0 = d0), replicates = reps,
     generator = "gen_pde truth + random-walk discrepancy (data-raw/sir-calibration.R recipe)")
-  saveRDS(out, file)
+  bench_save_atomic(out, file)
   file
 }

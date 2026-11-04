@@ -11,6 +11,19 @@
 # Submit with:   bash benchmarks/hoffman2/submit.sh e3
 # A job stopped by the 24 h limit is continued by submitting it again
 # (--resume keeps finished tasks and reruns only the unfinished ones).
+#
+# With 34 tasks per node, memory-bandwidth contention slows every task
+# (RobustCalibration about 5x, spDBL about 3x against a workstation), which
+# also distorts the timing comparison. The paper run therefore splits E3 over
+# five nodes, six replicates (18 tasks) each, then collects the results:
+#   for r in 1-6 7-12 13-18 19-24 25-30; do
+#     SPDBL_E3_REPS=$(seq -s, ${r%-*} ${r#*-}) SPDBL_E3_JOBS=18 \
+#       bash benchmarks/hoffman2/submit.sh e3
+#   done
+#   SPDBL_SBATCH_ARGS="--dependency=afterok:<the five job ids>" \
+#     bash benchmarks/hoffman2/submit.sh e3-collect
+# SPDBL_E3_REPS lists this job's replicates; SPDBL_E3_JOBS sets the number of
+# tasks run side by side (default: CPUs - 2).
 #SBATCH --job-name=spdbl-e3
 #SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
@@ -21,5 +34,6 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-JOBS=$(( SPDBL_CPUS > 2 ? SPDBL_CPUS - 2 : 1 ))
-Rscript benchmarks/e3_calibration.R --profile=paper --jobs=$JOBS --resume
+JOBS=${SPDBL_E3_JOBS:-$(( SPDBL_CPUS > 2 ? SPDBL_CPUS - 2 : 1 ))}
+Rscript benchmarks/e3_calibration.R --profile=paper --jobs=$JOBS --resume \
+  ${SPDBL_E3_REPS:+--reps=$SPDBL_E3_REPS}
