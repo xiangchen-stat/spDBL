@@ -19,7 +19,10 @@ fi
 # (Intel MKL) thread count to 1.
 SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.4.1}
 if command -v module >/dev/null 2>&1; then
-  # Not in a pipeline: module changes the environment of this shell.
+  # The login defaults include a newer intel module that conflicts with the
+  # one R/4.4.1 was built with, so start from a clean module set. Not in a
+  # pipeline: module changes the environment of this shell.
+  module purge >/dev/null 2>&1 || true
   module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" || true
 fi
 if ! command -v Rscript >/dev/null 2>&1; then
