@@ -94,16 +94,19 @@ bench_hardware <- function() {
   run <- function(cmd, args) tryCatch(paste(system2(cmd, args, stdout = TRUE,
     stderr = FALSE), collapse = " "), error = function(e) NA_character_,
     warning = function(w) NA_character_)
+  # Batch-scheduler job (Grid Engine / Slurm), empty when run interactively.
+  scheduler <- Sys.getenv(c("JOB_ID", "NSLOTS", "QUEUE", "SLURM_JOB_ID",
+                            "SLURM_CPUS_ON_NODE"))
   if (sys == "Darwin") {
     list(cpu = run("sysctl", c("-n", "machdep.cpu.brand_string")),
          cores = run("sysctl", c("-n", "hw.ncpu")),
          memory_bytes = run("sysctl", c("-n", "hw.memsize")),
-         load = run("uptime", character()))
+         load = run("uptime", character()), scheduler = scheduler)
   } else {
     list(cpu = run("sh", c("-c", shQuote("grep -m1 'model name' /proc/cpuinfo"))),
          cores = as.character(parallel::detectCores()),
          memory_bytes = run("sh", c("-c", shQuote("grep MemTotal /proc/meminfo"))),
-         load = run("uptime", character()))
+         load = run("uptime", character()), scheduler = scheduler)
   }
 }
 
@@ -167,10 +170,12 @@ gc_peak_mb <- function() {
 
 # --- Worker processes -------------------------------------------------------
 
+# GNU or BSD time binary: SPDBL_TIME if set (e.g. a GNU time built on a
+# cluster without /usr/bin/time), else /usr/bin/time.
 bench_time_command <- function() {
-  if (!file.exists("/usr/bin/time")) return(NULL)
-  if (Sys.info()[["sysname"]] == "Darwin") c("/usr/bin/time", "-l") else
-    c("/usr/bin/time", "-v")
+  bin <- Sys.getenv("SPDBL_TIME", "/usr/bin/time")
+  if (!file.exists(bin)) return(NULL)
+  if (Sys.info()[["sysname"]] == "Darwin") c(bin, "-l") else c(bin, "-v")
 }
 
 # Peak RSS (MB) reported by /usr/bin/time: bytes on macOS (-l), kB on Linux (-v).

@@ -102,11 +102,15 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   times <- accept <- numeric(cfg$rc_chains)
   for (c in seq_len(cfg$rc_chains)) {
     set.seed(task$seed + 100L * c)
+    # Same starting rule as spDBL: the default (centre of the box) for
+    # init = "midpoint", or a uniform draw in the box for init = "random".
+    start <- if (identical(cfg$init, "random"))
+      stats::runif(length(active), theta_range[, 1], theta_range[, 2]) else NULL
     run <- timed(rcalibration(design = x, observations = obs,
       p_theta = length(active), simul_type = 0, input_simul = X_sim,
       output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
       theta_range = theta_range, S = cfg$rc_S, S_0 = cfg$rc_S0,
-      discrepancy_type = discrepancy))
+      discrepancy_type = discrepancy, initial_values = start))
     chains[[c]] <- run$value@post_sample[, seq_along(active), drop = FALSE]
     times[c] <- run$elapsed
     accept[c] <- run$value@accept_S[1] / cfg$rc_S
@@ -131,8 +135,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$wall_total_s <- sum(times)
   out$ess_per_s <- min(out$ess_bulk_total) / sum(times)
   out$ess_per_cpu_s <- out$ess_per_s  # chains run one after another, one core
-  out$settings <- sprintf("%s S=%d S_0=%d chains=%d", discrepancy, cfg$rc_S,
-                          cfg$rc_S0, cfg$rc_chains)
+  out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s", discrepancy,
+    cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","))
   out
 }
 

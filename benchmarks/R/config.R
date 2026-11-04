@@ -66,8 +66,12 @@ bench_profiles <- list(
       # with --jobs=14 on a 16-core machine (about 13 h for 30 replicates).
       label = "paper", n_rep = 30,
       methods = c("spdbl", "rc_sgasp", "rc_gasp"), episode_window = 2,
+      # init = "random": every chain of both packages starts at a uniform
+      # draw in the box. Some replicates have separated posterior modes;
+      # dispersed starts let R-hat detect them, while chains that all start
+      # at the centre tend to stay in the same mode.
       n_draws = 20, chains = 4, iter = 2000, warmup = 1000, cores = 1,
-      init = "midpoint",
+      init = "random",
       rc_S = 10000, rc_S0 = 2000, rc_chains = 4, field_n0 = 30, field_d0 = 2,
       inner = 0.8, seed = 20261101, timeout_sec = 24 * 3600, jobs = 1,
       threads = 1)))

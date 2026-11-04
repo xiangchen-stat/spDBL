@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
+# Environment for the spDBL benchmarks on UCLA Hoffman2 (Grid Engine).
+# Sourced from the repository root by setup.sh, smoke.sh and the job
+# scripts. Any variable can be set beforehand, e.g.
+#   export SPDBL_R_MODULE=R/4.4.0      # see: module avail R
+#   qsub -v SPDBL_R_MODULE=R/4.4.0 benchmarks/hoffman2/e1.sh
+
+if [ ! -f DESCRIPTION ] || ! grep -q "^Package: spDBL" DESCRIPTION; then
+  echo "Run from the root of the spDBL repository (found no spDBL DESCRIPTION in $PWD)" >&2
+  return 1 2>/dev/null || exit 1
+fi
+export SPDBL_ROOT=$PWD
+
+if ! command -v module >/dev/null 2>&1 && [ -f /u/local/Modules/default/init/modules.sh ]; then
+  . /u/local/Modules/default/init/modules.sh
+fi
+SPDBL_R_MODULE=${SPDBL_R_MODULE:-R/4.4.0}
+if command -v module >/dev/null 2>&1; then
+  # SPDBL_EXTRA_MODULES, e.g. "gcc/11.3.0", if R needs a newer compiler.
+  # Not in a pipeline: module changes the environment of this shell.
+  module load $SPDBL_EXTRA_MODULES "$SPDBL_R_MODULE" || true
+fi
+if ! command -v Rscript >/dev/null 2>&1; then
+  echo "Rscript not found after 'module load $SPDBL_R_MODULE'. Available R modules:" >&2
+  module avail R 2>&1 | grep -i "R/" >&2 || true
+  echo "Set SPDBL_R_MODULE to one of them." >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+# Everything the benchmarks write outside the repository. $HOME is kept
+# ($SCRATCH is purged after 14 days); the total is a few GB.
+export SPDBL_WORK=${SPDBL_WORK:-$HOME/spdbl-bench}
+export SPDBL_BENCH_LIB=${SPDBL_BENCH_LIB:-$SPDBL_WORK/rlib}
+export SPDBL_BENCH_CACHE=${SPDBL_BENCH_CACHE:-$SPDBL_WORK/sim-cache}
+export SPDBL_STAN_CACHE_DIR=${SPDBL_STAN_CACHE_DIR:-$SPDBL_WORK/stan-cache}
+export R_USER_CACHE_DIR=${R_USER_CACHE_DIR:-$SPDBL_WORK/r-cache}
+export R_LIBS_USER=$SPDBL_BENCH_LIB
+# Peak memory per task comes from GNU time; setup.sh builds one if the node
+# has no /usr/bin/time.
+if [ -z "$SPDBL_TIME" ]; then
+  if [ -x /usr/bin/time ]; then SPDBL_TIME=/usr/bin/time
+  else SPDBL_TIME=$SPDBL_WORK/bin/time; fi
+fi
+export SPDBL_TIME
+mkdir -p "$SPDBL_BENCH_LIB" "$SPDBL_BENCH_CACHE" "$SPDBL_STAN_CACHE_DIR" \
+  "$R_USER_CACHE_DIR" "$HOME/spdbl-bench/logs"
+
+echo "spDBL benchmarks: host $(hostname), job ${JOB_ID:-interactive}, slots ${NSLOTS:-?}"
+echo "  $(Rscript --version 2>&1 | head -1)"
+echo "  CPU: $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | sed 's/.*: //')"
+echo "  library: $SPDBL_BENCH_LIB"

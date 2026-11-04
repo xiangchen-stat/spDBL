@@ -34,7 +34,11 @@ export SPDBL_BENCH_CACHE=/path/to/sim-cache        # cached SIR simulations
 ```
 
 rstan (>= 2.32.7) and a C++ toolchain are needed for E3. `ps` is optional and
-used only for in-process RSS snapshots.
+used only for in-process RSS snapshots. Peak memory per task comes from
+`/usr/bin/time`, or from the binary named in `SPDBL_TIME`.
+
+`hoffman2/` has setup, smoke-test and job scripts for running the paper
+profiles on a Grid Engine cluster (UCLA Hoffman2); see `hoffman2/README.md`.
 
 One command per experiment (run from the package root):
 
@@ -224,10 +228,15 @@ from a laptop shared with other jobs and from reduced MCMC lengths.
   `1:k` on the object but passes `NULL` to the sampler, and
   `predict.ppgasp()` then fails ("argument is of length zero").
   (v) Random-walk Metropolis vs NUTS: compare ESS/s, not iterations.
-  (vi) RobustCalibration starts every chain at the centre of the box (its
-  default). spDBL uses the profile's `init`, passed to `calibration_fit()`:
-  `"midpoint"` (the package default, also the centre) or `"random"`
-  (uniform in the box, which makes R-hat more informative).
+  (vi) Both packages follow the profile's `init`. `"midpoint"`: every chain
+  starts at the centre of the box (the default of both packages).
+  `"random"` (paper profile): every chain starts at a uniform draw in the
+  box, through `calibration_fit(init = "random")` for spDBL and
+  `rcalibration(initial_values = )` for RobustCalibration. Some replicates
+  have separated posterior modes (in the paper settings' replicate 1,
+  chains settle at eta2 near 0.34 or near 0.21 and never cross); dispersed
+  starts let R-hat detect this, while chains started at the centre tend to
+  agree on one mode. Within a mode, chains mix well.
 * **Validation runs share the machine** with other jobs and use up to three
   parallel workers; timings are indicative only.
 
