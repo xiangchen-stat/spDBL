@@ -49,8 +49,9 @@ not been published elsewhere. Changes by version are in [NEWS.md](NEWS.md).
    * samples only (η, τ²) with Stan's NUTS;
    * recovers the fields and the discrepancy afterwards by exact Gaussian
      backward sampling (`calibration_predict()`);
-   * pools the conditional posteriors over emulator draws with equal weights,
-     reporting R̂, effective sample sizes and divergences for each.
+   * pools the conditional posteriors over emulator draws with equal weights
+     (a modular, or "cut", posterior: the field data do not update the
+     emulator), reporting R̂, effective sample sizes and divergences for each.
 
    Two Stan programs, one with the discrepancy marginalised and one with it
    explicit, have R reference implementations of the same log densities.
@@ -73,21 +74,22 @@ not been published elsewhere. Changes by version are in [NEWS.md](NEWS.md).
     `calibration_predict()`.
 
   They return classed, serialisable objects (`spDBL_emulator`,
-  `spDBL_calibration_input`, `spDBL_calibration`) with `print()`,
-  `summary()`, `predict()` and `plot()` methods. The filters, smoothers,
+  `spDBL_calibration_input`, `spDBL_calibration`) with `print()` methods,
+  and `summary()`, `predict()` or `plot()` methods where they apply. The filters, smoothers,
   samplers and predictors remain exported as building blocks for new
   emulators.
 * **Large grids.**
   * Emulators no longer build the dense S × S field kernel unless it is
     supplied, which removes an O(S³) step and O(S²) memory from every fit.
   * Out-of-core backward smoothing (`BS_bigdata_R()`) and prediction
-    (`FFBS_predict_bigdata_R()`) join forward filtering (`FF_bigdata_R()`),
-    streaming CSV blocks. They match the in-memory versions.
+    (`FFBS_predict_bigdata_R()`, posterior means) join forward filtering
+    (`FF_bigdata_R()`), streaming CSV blocks. They match the in-memory
+    versions; the workflow functions do not use them yet.
 * **Reproducibility.**
   * Functions that take a seed restore the caller's random-number state.
   * Compiled Stan models are cached on disk, keyed by the program and the R,
     rstan and platform versions.
-  * Long calibrations can checkpoint each conditional fit.
+  * `calibration_fit()` can save each conditional fit as it completes.
   * Bundled datasets record their provenance.
   * An installed script reproduces the calibration example with recorded
     settings.
@@ -135,11 +137,16 @@ The paper-scale results are in `benchmarks/results/*/paper/`.
   simulator runs, were compared with RobustGaSP (`ppgasp`) and a
   principal-component GP on 50 held-out runs.
   * spDBL's 95% intervals covered 95–96% of held-out values on every grid.
-  * Its RMSE was the lowest on the 20 × 20 grid and within 4–6% of the best
+  * Its RMSE was the lowest on the 20 × 20 grid and 4–6% above the best
     otherwise.
+  * An ablation (`benchmarks/e2_ablation.R`) shows that this accuracy and
+    coverage come from the per-time-step Matérn design GP: alone, it predicts
+    as well, while `ppgasp` fitted per time step covers 78–92%.
 * **Calibration (E3).** In 30 replicate calibrations against
   RobustCalibration:
-  * accuracy matched (relative RMSE 0.103 against 0.102–0.105);
-  * spDBL was the most accurate for the hardest parameter;
-  * its interval coverage was the highest (82% against 76–80%);
-  * no simulator runs were needed.
+  * the posterior means matched in accuracy (relative RMSE 0.103 against
+    0.102–0.105);
+  * every method's 95% intervals under-covered (82% against 76–80%), and
+    chains started at random points often failed to mix for both packages;
+  * no simulator runs were needed, whereas the research code solves the PDE
+    at every proposal.
