@@ -89,12 +89,16 @@
 #'   use adapt_delta = 0.95. Both use max_treedepth = 12.
 #' @param refresh Stan progress reporting interval.
 #' @param checkpoint_dir Optional directory for completed conditional fits.
+#'   Each fit is saved as it completes; a fit already saved there with the same
+#'   data, settings, seed and Stan program is reused instead of refitted, so an
+#'   interrupted calibration resumes where it stopped.
 #' @param cache,cache_dir Whether to reuse compiled models and optional user
 #'   cache directory. Installed package files are never modified.
 #' @param init Starting values of the free parameters for every chain:
-#'   `"midpoint"` (the default) starts at the centre of the bounds; `"random"`
-#'   draws each chain's start uniformly within the bounds, reproducibly from
-#'   `seed`; or a numeric vector of parameter values in training-column order
+#'   `"random"` (the default) draws each chain's start uniformly within the
+#'   bounds, reproducibly from `seed`, so that \eqn{\hat R} can reveal chains
+#'   that settle in different modes; `"midpoint"` starts every chain at the
+#'   centre of the bounds; or a numeric vector of parameter values in training-column order
 #'   (named vectors are matched by name), strictly inside the bounds of the
 #'   free parameters. Values given for fixed parameters are ignored. Each
 #'   conditional fit starts afresh; precisions start at n0 / d0.
@@ -133,7 +137,7 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
       list(adapt_engaged = FALSE, stepsize = 0.001, max_treedepth = 12L) else
       list(adapt_delta = 0.95, max_treedepth = 12L), refresh = 100L,
     checkpoint_dir = NULL, cache = TRUE, cache_dir = NULL, compiled_model = NULL,
-    init = "midpoint") {
+    init = "random") {
   if (missing(iter))
     stop("Set iter, the number of iterations per chain: for example ",
          "chains = 4, iter = 2000 for inference, or iter = 1 for a quick execution check")

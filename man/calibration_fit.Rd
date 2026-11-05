@@ -32,7 +32,7 @@ calibration_fit(
   cache = TRUE,
   cache_dir = NULL,
   compiled_model = NULL,
-  init = "midpoint"
+  init = "random"
 )
 }
 \arguments{
@@ -82,7 +82,10 @@ use adapt_delta = 0.95. Both use max_treedepth = 12.}
 
 \item{refresh}{Stan progress reporting interval.}
 
-\item{checkpoint_dir}{Optional directory for completed conditional fits.}
+\item{checkpoint_dir}{Optional directory for completed conditional fits.
+Each fit is saved as it completes; a fit already saved there with the same
+data, settings, seed and Stan program is reused instead of refitted, so an
+interrupted calibration resumes where it stopped.}
 
 \item{cache, cache_dir}{Whether to reuse compiled models and optional user
 cache directory. Installed package files are never modified.}
@@ -90,9 +93,10 @@ cache directory. Installed package files are never modified.}
 \item{compiled_model}{Optional compatible compiled Stan model for advanced use.}
 
 \item{init}{Starting values of the free parameters for every chain:
-\code{"midpoint"} (the default) starts at the centre of the bounds; \code{"random"}
-draws each chain's start uniformly within the bounds, reproducibly from
-\code{seed}; or a numeric vector of parameter values in training-column order
+\code{"random"} (the default) draws each chain's start uniformly within the
+bounds, reproducibly from \code{seed}, so that \eqn{\hat R} can reveal chains
+that settle in different modes; \code{"midpoint"} starts every chain at the
+centre of the bounds; or a numeric vector of parameter values in training-column order
 (named vectors are matched by name), strictly inside the bounds of the
 free parameters. Values given for fixed parameters are ignored. Each
 conditional fit starts afresh; precisions start at n0 / d0.}

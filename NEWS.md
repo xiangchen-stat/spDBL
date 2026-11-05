@@ -24,6 +24,12 @@
   `design_groups` select the design GP; `design_kernel = "sqexp",
   design_groups = "shared"` restores the previous one. Both Stan programs
   evaluate the chosen kernel, with one design variance factor per time step.
+* `calibration_fit()` starts each chain at a random point within the bounds by
+  default (`init = "random"`), so that Rhat can reveal chains that settle in
+  different modes; `init = "midpoint"` restores the previous default. In the
+  bundled `dt_calibration` example the midpoint equals the true parameter
+  value. The recorded vignette example and the installed reproduction script
+  pass `init = "midpoint"` and are unchanged.
 * `calibration_fit()` requires `iter`. For inference use several chains and
   enough iterations (for example `chains = 4, iter = 2000`); `iter = 1` is a
   quick execution check.
@@ -73,9 +79,13 @@
   summary reports the in-sample fit of the smoothed coefficients and the
   posterior mean residual variance. Prepared calibration objects gain
   `print()` and `predict()`.
-* `calibration_fit(init = )` sets the chains' starting values: `"midpoint"`
-  (the default, unchanged), `"random"` (uniform within the bounds,
-  reproducible from `seed`), or a vector of parameter values.
+* `calibration_fit(checkpoint_dir = )` now resumes: a conditional fit already
+  saved there with the same data, settings, seed and Stan program is reused
+  instead of refitted, so an interrupted calibration continues where it
+  stopped. Fits saved with other settings are refitted.
+* `calibration_fit(init = )` sets the chains' starting values: `"random"`
+  (uniform within the bounds, reproducible from `seed`; the new default, see
+  above), `"midpoint"`, or a vector of parameter values.
 * Every exported function now has a runnable example. The calibration
   examples that compile Stan run only interactively.
 

@@ -38,7 +38,7 @@ control <- if (config$warmup == 0L)
 fit <- calibration_fit(cal, d$field$z[, config$sites, drop = FALSE], d$field$U,
   locations = config$sites, chains = config$chains, iter = config$iter,
   warmup = config$warmup, draws_per_emulator = config$keep,
-  seed = 1237L, control = control, refresh = 0L,
+  seed = 1237L, control = control, refresh = 0L, init = "midpoint",
   checkpoint_dir = file.path(out, "conditionals"),
   cache_dir = file.path(out, "stan-cache"))
 fit$execution_only <- mode %in% c("smoke", "oneiter500")

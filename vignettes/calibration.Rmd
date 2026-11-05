@@ -144,7 +144,7 @@ states are integrated out by a Kalman filter and recovered afterward.
 ```{r fit-command, eval=FALSE, purl=FALSE}
 fit <- calibration_fit(
   cal, z, U = d$field$U, locations = sites,
-  iter = 1, seed = 1237, refresh = 0
+  iter = 1, seed = 1237, refresh = 0, init = "midpoint"
 )
 summary(fit)
 ```
@@ -167,12 +167,14 @@ fit_long <- calibration_fit(
 )
 ```
 
-Each conditional fit starts separately at the midpoint of the parameter bounds
-and at precision n0/d0. It does not continue a chain from the preceding emulator
-draw. In this synthetic example the midpoint also equals the true eta, so close
-agreement after one iteration is strongly affected by initialization. Use
-`init = "random"` to start each chain at a random point within the bounds, or
-pass a vector of parameter values. Rhat and
+This recorded execution experiment starts each conditional fit at the midpoint
+of the parameter bounds (`init = "midpoint"`) and at precision n0/d0; it does
+not continue a chain from the preceding emulator draw. In this synthetic example
+the midpoint also equals the true eta, so the close agreement after one
+iteration comes from the initialization, not from inference. The default,
+`init = "random"`, starts each chain at a random point within the bounds, which
+lets Rhat reveal chains that settle in different modes; a vector of parameter
+values can also be given. Rhat and
 effective sample size are unavailable for these one-transition conditionals.
 
 Sampling requires the optional RStan package and a working C++ toolchain at

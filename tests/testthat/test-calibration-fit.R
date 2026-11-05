@@ -199,7 +199,7 @@ test_that("conditional fits keep chain, iteration and state bookkeeping", {
     fit <- calibration_fit(e, f$z, f$U, chains = 2L, iter = 10L, warmup = 5L,
       draws_per_emulator = 4L, marginal_discrepancy = FALSE, keep_predictions = TRUE,
       control = list(adapt_delta = 0.9), refresh = 0L, checkpoint_dir = checkpoints,
-      compiled_model = "fake-model", seed = 21L),
+      compiled_model = "fake-model", seed = 21L, init = "midpoint"),
     "Emulator draw 2 needs additional"))
   expect_match(msgs[1], "Calibration conditional on emulator draw 1 \\(1/2\\)")
   expect_s3_class(fit, "spDBL_calibration")
@@ -298,6 +298,12 @@ test_that("chains start at the midpoint, at random, or at given values", {
   fit_with(stats::setNames(rev(values), rev(e$parameter_names)))
   expect_equal(starts(log$calls[[9]]), matrix(c(0.25, 0.8), 3, 2, byrow = TRUE))
   expect_error(fit_with("centre"), "midpoint")
+  # Random starts are the default.
+  default <- suppressMessages(calibration_fit(e, f$z, f$U, chains = 3L, iter = 4L,
+    warmup = 2L, draws_per_emulator = 2L, refresh = 0L,
+    compiled_model = "fake-model", seed = 5L))
+  expect_identical(default$settings$init, "random")
+  expect_identical(starts(log$calls[[length(log$calls) - 1L]]), first)
   expect_error(fit_with(values[1]), "one value per parameter")
   expect_error(fit_with(c(lower[1], values[2])), "strictly inside")
   expect_error(fit_with(stats::setNames(values, c("a", "z"))), "parameter names")
@@ -348,4 +354,35 @@ test_that("an empty Stan result is reported", {
   expect_error(suppressMessages(spDBL:::fit_calibration_rstan(f$emulator, f$z, f$U,
     chains = 1, iter = 2, warmup = 1, draws_per_emulator = 1, compiled_model = "m",
     refresh = 0)), "Stan returned no calibration samples")
+})
+
+test_that("checkpointed conditional fits are reused only with identical settings", {
+  skip_without_fake_rstan()
+  f <- calibration_fit_fixture()
+  e <- f$emulator
+  log <- local_fake_rstan()
+  checkpoints <- tempfile("checkpoints")
+  on.exit(unlink(checkpoints, recursive = TRUE), add = TRUE)
+  run <- function(seed = 3L) calibration_fit(e, f$z, f$U, chains = 2L, iter = 6L,
+    warmup = 3L, draws_per_emulator = 3L, refresh = 0L, checkpoint_dir = checkpoints,
+    compiled_model = "fake-model", seed = seed)
+  first <- suppressMessages(run())
+  expect_length(log$calls, 2L)
+  expect_false(is.null(readRDS(file.path(checkpoints, "conditional_001.rds"))$fingerprint))
+  # The same call resumes from the saved fits without sampling again.
+  msgs <- capture_messages(again <- run())
+  expect_length(log$calls, 2L)
+  expect_true(any(grepl("reusing the saved fit conditional_001.rds", msgs)))
+  expect_identical(again$mcmc_eta, first$mcmc_eta)
+  expect_identical(again$diagnostics, first$diagnostics)
+  # Other settings invalidate the saved fits.
+  msgs <- capture_messages(other <- run(seed = 4L))
+  expect_length(log$calls, 4L)
+  expect_true(any(grepl("saved with other data or settings; refitting", msgs)))
+  # A checkpoint without a fingerprint (an older version) is refitted too.
+  saved <- readRDS(file.path(checkpoints, "conditional_002.rds"))
+  saved$fingerprint <- NULL
+  saveRDS(saved, file.path(checkpoints, "conditional_002.rds"))
+  suppressMessages(run(seed = 4L))
+  expect_length(log$calls, 5L)
 })

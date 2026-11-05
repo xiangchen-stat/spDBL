@@ -222,6 +222,25 @@ fit_calibration_rstan <- function(emulator, z, U,
       matrix(stats::runif(chains * data$D), chains, data$D)
     } else matrix(if (identical(init, "midpoint")) 0.5 else init,
                   chains, data$D, byrow = TRUE)
+    # A fit saved by an earlier run with identical data and settings is
+    # reused, so an interrupted calibration resumes where it stopped.
+    checkpoint <- if (!is.null(checkpoint_dir))
+      file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m))
+    fingerprint <- if (!is.null(checkpoint)) rlang::hash(list(data = data,
+      eta_start = eta_start, chains = chains, iter = iter, warmup = warmup,
+      seed = seed + j, draws_per_emulator = draws_per_emulator, control = control,
+      marginal_discrepancy = marginal_discrepancy,
+      program = tryCatch(model@model_code, error = function(e) NULL)))
+    if (!is.null(checkpoint) && file.exists(checkpoint)) {
+      saved <- tryCatch(readRDS(checkpoint), error = function(e) NULL)
+      if (identical(saved$fingerprint, fingerprint)) {
+        message("  reusing the saved fit ", basename(checkpoint))
+        out[[j]] <- saved$samples
+        diagnostics[[j]] <- saved$diagnostics
+        next
+      }
+      message("  ", basename(checkpoint), " was saved with other data or settings; refitting")
+    }
     # local() keeps this fit's values; the loop reassigns eta_start and data.
     start <- local({
       eta <- eta_start
@@ -280,10 +299,10 @@ fit_calibration_rstan <- function(emulator, z, U,
       out[[j]]$u <- array(states[, -1, , drop = FALSE], c(length(selected), data$T, data$S))
       out[[j]]$u0 <- matrix(states[, 1, ], length(selected), data$S)
     }
-    if (!is.null(checkpoint_dir)) saveRDS(list(samples = out[[j]],
+    if (!is.null(checkpoint)) saveRDS(list(samples = out[[j]],
       diagnostics = diagnostics[[j]], marginal_discrepancy = marginal_discrepancy,
-      chains = chains, iter = iter, warmup = warmup, init = init),
-      file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m)))
+      chains = chains, iter = iter, warmup = warmup, init = init,
+      fingerprint = fingerprint), checkpoint)
   }
   bind_arrays <- function(name, dims) {
     # rbind flattened trajectories to keep the first dimension as posterior draws.

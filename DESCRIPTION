@@ -37,7 +37,7 @@ Imports:
     ggplot2,
     readr,
     magrittr,
-    rlang,
+    rlang (>= 1.0.0),
     scales
 Suggests:
     testthat (>= 3.3.2),
