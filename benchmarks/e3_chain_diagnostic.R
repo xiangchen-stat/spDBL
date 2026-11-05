@@ -52,6 +52,15 @@ active <- which(d$upper > d$lower)
 set.seed(seed + 1L)
 start_unit <- matrix(stats::runif(chains * length(active)), chains, length(active))
 range <- (d$upper - d$lower)[active]
+# Median log posterior density (R reference density of the marginal Stan
+# program, on the unit scale of eta) over 50 of the chain's draws.
+log_density <- function(idx) {
+  idx <- idx[unique(round(seq(1, length(idx), length.out = 50)))]
+  stats::median(vapply(idx, function(k) spDBL:::calibration_marginal_log_density(
+    (fit$mcmc_eta[k, active] - d$lower[active]) / range,
+    1 / c(fit$tau2_0[k], fit$mcmc_tau2[k, ]), cal, draw, rep$z, d$U,
+    n0 = d$prior$n0, d0 = d$prior$d0), numeric(1)))
+}
 rows <- lapply(seq_len(chains), function(ch) {
   sel <- fit$chain == ch
   e <- fit$mcmc_eta[sel, active, drop = FALSE]
@@ -60,10 +69,12 @@ rows <- lapply(seq_len(chains), function(ch) {
     t(stats::setNames(colMeans(e), paste0("mean_", names(active)))),
     t(stats::setNames(apply(e, 2, stats::sd) / range, paste0("relsd_", names(active)))),
     mean_tau2 = mean(fit$mcmc_tau2[sel, , drop = FALSE]),
-    min_start_distance_to_bound = min(pmin(start_unit[ch, ], 1 - start_unit[ch, ])))
+    min_start_distance_to_bound = min(pmin(start_unit[ch, ], 1 - start_unit[ch, ])),
+    log_density = log_density(which(sel)))
 })
 tab <- do.call(rbind, rows)
 utils::write.csv(tab, file.path(out, "chains.csv"), row.names = FALSE)
+saveRDS(fit[c("mcmc_eta", "mcmc_tau2", "tau2_0", "chain", "iteration")], file.path(out, "draws.rds"))
 saveRDS(list(diagnostics = fit$diagnostics, truth = rep$eta[active], elapsed_s = elapsed,
   settings = list(rep = rep_id, draw = draw, chains = chains, iter = cfg$iter,
     warmup = cfg$warmup, init = cfg$init, seed = seed)), file.path(out, "diagnostics.rds"))
