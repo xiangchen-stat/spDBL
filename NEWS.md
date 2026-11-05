@@ -12,9 +12,15 @@
 * The design GP that predicts autoregressive design rows at untried inputs
   (`calibration_prepare()`) now uses a Matern 5/2 kernel with separate
   hyperparameters for each time step, instead of one squared-exponential
-  kernel for all times. On freshly simulated SIR fields (40 training and 50
-  held-out runs), the RMSE of PDE-free predictions fell by 27%, 13% and 9%
-  on 10 x 10, 20 x 20 and 50 x 50 grids. New arguments `design_kernel` and
+  kernel for all times. With 40 training and 50 held-out SIR runs on
+  10 x 10, 20 x 20 and 50 x 50 grids, the RMSE of PDE-free predictions fell
+  by 4%, 9% and 5% in the E2 benchmark and by 27%, 13% and 9% on a second,
+  independent simulation; in E2, 95% intervals covered 95-96% of held-out
+  values (93-95% before). In the E3 calibration benchmark (30 replicates),
+  the relative RMSE of the calibrated parameters fell from 0.115 to 0.103
+  and the intervals narrowed by a third, while their coverage fell from 94%
+  to 82%. Fitting one GP per time step adds about 8 s to
+  `calibration_prepare()` for 26 time steps. New arguments `design_kernel` and
   `design_groups` select the design GP; `design_kernel = "sqexp",
   design_groups = "shared"` restores the previous one. Both Stan programs
   evaluate the chosen kernel, with one design variance factor per time step.

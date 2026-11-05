@@ -84,6 +84,14 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 * `logs/<task>.log`: worker output and the `/usr/bin/time` report.
 * `tasks/<task>.rds`: the exact task given to the worker.
 
+The committed `results/*/paper/` folders are the runs behind the manuscript:
+E1 and E2 one task per Hoffman2 node, E3 split over five nodes with 18
+one-core tasks each (Xeon Gold 6240, R 4.6.1, oneMKL, spDBL 1.2.0).
+`results/e2/paper-sqexp-shared/` is the same E2 run with the design GP used
+before the Matern 5/2 change (`design_kernel = "sqexp", design_groups =
+"shared"`). Before committing, the user name and home directory were replaced
+by `<user>` and `~`.
+
 Simulated data are cached (`SPDBL_BENCH_CACHE`, default `benchmarks/cache/`)
 and keyed on grid, design size, number of times and seed, so all methods and
 experiments see identical runs.
