@@ -56,6 +56,13 @@
 
 ## New features
 
+* `predict()` for fitted emulators and prepared calibration objects gains
+  `interval = "prediction"` and `level`. It returns pointwise predictive
+  means, standard deviations and central intervals: Student-t given known
+  autoregressive rows, and, for prediction without simulator runs, the
+  equal-weight mixture over emulator draws (with the design-GP variance)
+  summarised by its moments. Tests compare it with Monte Carlo from the
+  package's samplers. The benchmarks now use it.
 * Out-of-core smoothing and prediction: `BS_bigdata_R()` runs the backward
   pass over the files written by `FF_bigdata_R()`, and
   `FFBS_predict_bigdata_R()` predicts at new inputs block by block. Both

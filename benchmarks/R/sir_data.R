@@ -24,9 +24,36 @@ sir_lhs <- function(n, lower, upper, seed, inner = 1) {
   X
 }
 
-sir_simulate <- function(X, grid, n_time, n_people) {
+sir_simulate <- function(X, grid, n_time, n_people, domain = NULL) {
   lapply(seq_len(nrow(X)), function(i)
-    spDBL::gen_pde(X[i, ], grid, grid, n_people, n_time))
+    if (is.null(domain)) spDBL::gen_pde(X[i, ], grid, grid, n_people, n_time) else
+      sir_pde_domain(X[i, ], grid, n_people, n_time, domain))
+}
+
+# The SIR PDE of spDBL::gen_pde() on a fixed physical domain [0, L]^2 split
+# into grid x grid cells, so that every grid size simulates the same epidemic.
+# gen_pde() uses unit cells, so its domain grows with the grid. Here the cell
+# width is L / grid; the state is a density (N people per cell at every
+# resolution, matching the reaction term S I / N), so the local dynamics do not
+# depend on the cell size; and each of gen_pde()'s two seeds fills the fine
+# cells inside the seed cell of the L x L grid. With grid = L this is exactly
+# gen_pde(). Returns log(I + 1), times in rows and cells in columns.
+sir_pde_domain <- function(eta, grid, N, n_time, L) {
+  r <- grid / L
+  if (r < 1 || r != round(r)) stop("grid must be a multiple of the domain size L")
+  cells <- function(i) ((i - 1) * r + 1):(i * r)
+  g1 <- ReacTran::setup.grid.1D(x.up = 0, x.down = L, N = grid)
+  S0 <- matrix(N, grid, grid)
+  I0 <- matrix(0, grid, grid)
+  I0[cells(L / 2), cells(L / 2)] <- 1
+  I0[cells(round(L / 10)), cells(round(L / 10))] <- N * 0.05
+  R0 <- matrix(0, grid, grid)
+  parms <- list(eta = eta, Gridx = g1, Gridy = g1, Nx = grid, Ny = grid, N = N)
+  n_state <- 3 * grid^2
+  out <- deSolve::ode.2D(y = c(S0, I0, R0), times = seq(0, n_time - 1),
+    func = spDBL::SIR, parms = parms, nspec = 3, dimens = c(grid, grid),
+    lrw = max(1e5, 500 * n_state), names = c("X1", "X2", "X3"))[, -1]
+  log(out + 1)[, (1 + grid^2):(2 * grid^2)]
 }
 
 # Runs (list of T x S matrices) -> time-indexed list of n x S matrices.
@@ -50,22 +77,28 @@ bench_save_atomic <- function(x, file) {
 # Training and held-out SIR runs on a grid x grid lattice. Training and test
 # inputs are independent Latin hypercubes in the same box; the design does
 # not depend on the grid, so every grid size uses the same parameter values.
-sir_dataset <- function(grid, n_train, n_test, n_time, seed, box, cache) {
-  file <- file.path(cache, sprintf("sir_g%03d_n%d-%d_T%d_s%d.rds",
+# With `domain = L`, every grid discretises the same L x L domain
+# (sir_pde_domain()); the default keeps gen_pde()'s unit cells.
+sir_dataset <- function(grid, n_train, n_test, n_time, seed, box, cache,
+                        domain = NULL) {
+  file <- file.path(cache, sprintf("sir_g%03d_n%d-%d_T%d_s%d%s.rds",
     as.integer(grid), as.integer(n_train), as.integer(n_test),
-    as.integer(n_time), as.integer(seed)))
+    as.integer(n_time), as.integer(seed),
+    if (is.null(domain)) "" else sprintf("_L%d", as.integer(domain))))
   if (file.exists(file)) return(file)
   X_train <- sir_lhs(n_train, box$lower, box$upper, seed)
   X_test <- sir_lhs(n_test, box$lower, box$upper, seed + 1L)
   t_sim <- system.time({
-    runs_train <- sir_simulate(X_train, grid, n_time, box$n_people)
-    runs_test <- sir_simulate(X_test, grid, n_time, box$n_people)
+    runs_train <- sir_simulate(X_train, grid, n_time, box$n_people, domain)
+    runs_test <- sir_simulate(X_test, grid, n_time, box$n_people, domain)
   })[["elapsed"]]
   d <- list(grid = grid, n_time = n_time, input_train = X_train,
     input_test = X_test, train = sir_stack(runs_train),
     test = sir_stack(runs_test), lower = box$lower, upper = box$upper,
-    n_people = box$n_people, simulation_seconds = t_sim,
-    generator = "spDBL::gen_pde (log(I + 1) of the 2-D SIR PDE)")
+    n_people = box$n_people, simulation_seconds = t_sim, domain = domain,
+    generator = if (is.null(domain)) "spDBL::gen_pde (log(I + 1) of the 2-D SIR PDE)" else
+      sprintf("sir_pde_domain (log(I + 1) of the 2-D SIR PDE on a fixed %d x %d domain)",
+              as.integer(domain), as.integer(domain)))
   bench_save_atomic(d, file)
   message(sprintf("Simulated %d SIR runs on %d^2 grid in %.1f s -> %s",
     n_train + n_test, grid, t_sim, basename(file)))

@@ -20,11 +20,18 @@
 #' Methods for the result of [emulator_learn()]. `print()` shows the model
 #' settings. `summary()` adds the in-sample fit of the smoothed coefficients
 #' and the posterior mean of the residual variance. `predict()` calls
-#' [emulator_predict()].
+#' [emulator_predict()], or with `interval = "prediction"` returns pointwise
+#' predictive distributions.
 #'
 #' @param x,object An `spDBL_emulator` from [emulator_learn()].
 #' @param newdata Matrix (or vector, for one run) of new mechanistic inputs.
 #' @param dt_pde_test,F_new_ls,MC Passed to [emulator_predict()].
+#' @param interval `"none"` (the default) returns what [emulator_predict()]
+#'   returns. `"prediction"` returns the pointwise predictive distribution
+#'   given the autoregressive rows: for each site and time, a Student-t
+#'   distribution from integrating the coefficients, the residual covariance
+#'   and the input Gaussian process analytically.
+#' @param level Coverage of the central prediction intervals.
 #' @param ... Unused.
 #' @return `print()` returns `x` invisibly. `summary()` returns an object of
 #'   class `summary.spDBL_emulator`, a list with
@@ -39,7 +46,11 @@
 #'       inverse-Wishart model and \eqn{D/(n-1)} times the mean diagonal of
 #'       `R_episode` for the \eqn{\sigma^2 R} model, from the final filter.}
 #'   }
-#'   `predict()` returns what [emulator_predict()] returns.
+#'   `predict()` returns what [emulator_predict()] returns, or, with
+#'   `interval = "prediction"`, a list with time-indexed lists `mean`, `sd`,
+#'   `lower` and `upper` of new-run by site matrices (the bounds of central
+#'   intervals with coverage `level`), plus `level`, `distribution` and the
+#'   degrees of freedom `df`.
 #' @seealso [emulator_learn()], [emulator_predict()]
 #' @examples
 #' data("dt_emulation")
@@ -50,6 +61,10 @@
 #' summary(em)
 #' pred <- predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
 #' dim(pred[[3]])
+#' band <- predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test,
+#'                 interval = "prediction")
+#' # Share of held-out outputs at time 3 inside the 95% prediction intervals
+#' mean(d$dt_pde_test[[3]] >= band$lower[[3]] & d$dt_pde_test[[3]] <= band$upper[[3]])
 #' @name spDBL_emulator-methods
 NULL
 
@@ -116,23 +131,44 @@ print.summary.spDBL_emulator <- function(x, ...) {
 #' @rdname spDBL_emulator-methods
 #' @export
 predict.spDBL_emulator <- function(object, newdata, dt_pde_test = NULL,
-                                   F_new_ls = "default", MC = FALSE, ...) {
-  emulator_predict(object, newdata, dt_pde_test = dt_pde_test,
-                   F_new_ls = F_new_ls, MC = MC)
+                                   F_new_ls = "default", MC = FALSE,
+                                   interval = c("none", "prediction"),
+                                   level = 0.95, ...) {
+  interval <- match.arg(interval)
+  if (interval == "none")
+    return(emulator_predict(object, newdata, dt_pde_test = dt_pde_test,
+                            F_new_ls = F_new_ls, MC = MC))
+  if (isTRUE(MC)) stop("interval = \"prediction\" is analytic; use MC = FALSE")
+  .check_level(level)
+  if (is.null(dim(newdata))) newdata <- matrix(newdata, nrow = 1)
+  newdata <- as.matrix(newdata)
+  if (identical(F_new_ls, "default"))
+    F_new_ls <- .emulator_default_designs(object, newdata, dt_pde_test)
+  .predictive_known(object, newdata, F_new_ls, level)
 }
 
 #' Print and predict from a prepared calibration object
 #'
 #' Methods for the result of [calibration_prepare()]. `print()` shows the
 #' parameter bounds, the design GP and the emulator draws. `predict()` calls
-#' [emulator_predict()], which needs no new simulator runs.
+#' [emulator_predict()], which needs no new simulator runs, or with
+#' `interval = "prediction"` returns pointwise predictive distributions.
 #'
 #' @param x,object An `spDBL_calibration_input` from [calibration_prepare()].
 #' @param newdata Matrix (or vector, for one input) of mechanistic inputs.
 #' @param MC Passed to [emulator_predict()].
+#' @param interval `"none"` (the default) returns what [emulator_predict()]
+#'   returns. `"prediction"` returns the pointwise predictive distribution of
+#'   the field: given each emulator draw it is Gaussian, with the
+#'   design-row uncertainty when [calibration_prepare()] propagates it; the
+#'   equal-weight mixture over draws is summarised by its mean and variance,
+#'   and the intervals are Gaussian with those moments.
+#' @param level Coverage of the central prediction intervals.
 #' @param ... Unused.
 #' @return `print()` returns `x` invisibly; `predict()` returns what
-#'   [emulator_predict()] returns.
+#'   [emulator_predict()] returns, or, with `interval = "prediction"`, a list
+#'   with time-indexed lists `mean`, `sd`, `lower` and `upper` of input by
+#'   site matrices, plus `level`, `distribution` and `n_draws`.
 #' @seealso [calibration_prepare()], [emulator_predict()]
 #' @examples
 #' data("dt_calibration")
@@ -141,6 +177,8 @@ predict.spDBL_emulator <- function(object, newdata, dt_pde_test = NULL,
 #'   covariance = "sigma2R", episode_window = 2, nsam = 3, seed = 1)
 #' cal <- calibration_prepare(em, d$lower, d$upper)
 #' cal
+#' band <- predict(cal, d$validation$input[1:2, ], interval = "prediction")
+#' round(band$sd[[10]][, 1:4], 3)
 #' pred <- predict(cal, d$validation$input[1:2, ])
 #' dim(pred[[5]])
 #' @name spDBL_calibration_input-methods
@@ -175,6 +213,13 @@ print.spDBL_calibration_input <- function(x, ...) {
 
 #' @rdname spDBL_calibration_input-methods
 #' @export
-predict.spDBL_calibration_input <- function(object, newdata, MC = FALSE, ...) {
-  emulator_predict(object, newdata, MC = MC)
+predict.spDBL_calibration_input <- function(object, newdata, MC = FALSE,
+                                            interval = c("none", "prediction"),
+                                            level = 0.95, ...) {
+  interval <- match.arg(interval)
+  if (interval == "none") return(emulator_predict(object, newdata, MC = MC))
+  if (isTRUE(MC)) stop("interval = \"prediction\" summarises all draws; use MC = FALSE")
+  .check_level(level)
+  if (is.null(dim(newdata))) newdata <- matrix(newdata, nrow = 1)
+  .predictive_design_gp(object, as.matrix(newdata), level)
 }

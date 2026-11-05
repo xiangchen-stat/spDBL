@@ -272,15 +272,8 @@ emulator_predict <- function(emulator, input_new, dt_pde_test = NULL,
   }
   s <- emulator$setup
   nT_ori <- s$nT_ori
-  if (identical(F_new_ls, "default")) {
-    if (is.null(dt_pde_test))
-      stop("Supply F_new_ls or dt_pde_test, or use a calibration_prepare() result")
-    n_test <- nrow(input_new)
-    index <- generate.grid.rowsnake(n_test, s$fncol, n_test, s$bncol)
-    F_new_ls <- if (s$AR_choice == 2)
-      gen_F_ls_AR2_EP(dt_pde_test, nT_ori, s$n_b, index) else
-      gen_F_ls_AR1_EP(dt_pde_test, nT_ori, s$n_b, index)
-  }
+  if (identical(F_new_ls, "default"))
+    F_new_ls <- .emulator_default_designs(emulator, input_new, dt_pde_test)
   args <- list(Y = s$Y, F_ls = s$F_ls, F_new_ls = F_new_ls,
     input = s$pde_para_train, input_new = input_new, nT = s$nT,
     phi_para = s$phi_para, gp_sigma2 = s$gp_sigma2, gp_tau2 = s$gp_tau2)

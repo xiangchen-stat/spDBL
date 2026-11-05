@@ -50,6 +50,23 @@ bench_profiles <- list(
       # 50 held-out runs: 10 sampled the input box too thinly for coverage.
       n_train = 40, n_test = 50, n_time = 26, nsam = 20, ar_choice = 2,
       eval_from = 3, mlegp_pc_percent = 99.9, seed = 20261101,
+      timeout_sec = 6 * 3600, jobs = 1, threads = 1),
+    fixed = list(
+      # Fixed physical domain: the 10^2, 20^2 and 50^2 grids all discretise
+      # the 10 x 10 domain of the 10^2 grid (sir_pde_domain()), so they
+      # simulate the same epidemic. 10 independent training/test designs per
+      # grid; design d uses seed + 1000 (d - 1), so design 1 at 10^2 equals
+      # the paper profile's data. designgp_only and ppgasp_per_time are the
+      # ablations; the [0, 1] input-rescaling pass of spDBL is dropped (it
+      # changed RMSE by under 0.001 in the paper profile). Fixed before any
+      # fixed-domain result was seen.
+      label = "fixed domain, 10 designs", grids = c(10, 20, 50), episode_window = 2,
+      domain = 10, designs = 10,
+      methods = c("spdbl_iw_known", "spdbl_s2r_known", "spdbl_s2r_designgp",
+                  "designgp_only", "ppgasp_default", "ppgasp_tuned",
+                  "ppgasp_per_time", "mlegp_pca"),
+      n_train = 40, n_test = 50, n_time = 26, nsam = 20, ar_choice = 2,
+      eval_from = 3, mlegp_pc_percent = 99.9, seed = 20261101,
       timeout_sec = 6 * 3600, jobs = 1, threads = 1)),
   e3 = list(
     validation = list(

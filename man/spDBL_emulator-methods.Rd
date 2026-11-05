@@ -17,6 +17,8 @@
   dt_pde_test = NULL,
   F_new_ls = "default",
   MC = FALSE,
+  interval = c("none", "prediction"),
+  level = 0.95,
   ...
 )
 }
@@ -28,6 +30,14 @@
 \item{newdata}{Matrix (or vector, for one run) of new mechanistic inputs.}
 
 \item{dt_pde_test, F_new_ls, MC}{Passed to \code{\link[=emulator_predict]{emulator_predict()}}.}
+
+\item{interval}{\code{"none"} (the default) returns what \code{\link[=emulator_predict]{emulator_predict()}}
+returns. \code{"prediction"} returns the pointwise predictive distribution
+given the autoregressive rows: for each site and time, a Student-t
+distribution from integrating the coefficients, the residual covariance
+and the input Gaussian process analytically.}
+
+\item{level}{Coverage of the central prediction intervals.}
 }
 \value{
 \code{print()} returns \code{x} invisibly. \code{summary()} returns an object of
@@ -43,13 +53,18 @@ averaged over the sites of a block: \eqn{D/(n-C-1)} for the
 inverse-Wishart model and \eqn{D/(n-1)} times the mean diagonal of
 \code{R_episode} for the \eqn{\sigma^2 R} model, from the final filter.}
 }
-\code{predict()} returns what \code{\link[=emulator_predict]{emulator_predict()}} returns.
+\code{predict()} returns what \code{\link[=emulator_predict]{emulator_predict()}} returns, or, with
+\code{interval = "prediction"}, a list with time-indexed lists \code{mean}, \code{sd},
+\code{lower} and \code{upper} of new-run by site matrices (the bounds of central
+intervals with coverage \code{level}), plus \code{level}, \code{distribution} and the
+degrees of freedom \code{df}.
 }
 \description{
 Methods for the result of \code{\link[=emulator_learn]{emulator_learn()}}. \code{print()} shows the model
 settings. \code{summary()} adds the in-sample fit of the smoothed coefficients
 and the posterior mean of the residual variance. \code{predict()} calls
-\code{\link[=emulator_predict]{emulator_predict()}}.
+\code{\link[=emulator_predict]{emulator_predict()}}, or with \code{interval = "prediction"} returns pointwise
+predictive distributions.
 }
 \examples{
 data("dt_emulation")
@@ -60,6 +75,10 @@ em
 summary(em)
 pred <- predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
 dim(pred[[3]])
+band <- predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test,
+                interval = "prediction")
+# Share of held-out outputs at time 3 inside the 95\% prediction intervals
+mean(d$dt_pde_test[[3]] >= band$lower[[3]] & d$dt_pde_test[[3]] <= band$upper[[3]])
 }
 \seealso{
 \code{\link[=emulator_learn]{emulator_learn()}}, \code{\link[=emulator_predict]{emulator_predict()}}

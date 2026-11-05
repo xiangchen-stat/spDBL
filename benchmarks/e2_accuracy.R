@@ -26,17 +26,34 @@ bench_set_threads(cfg$threads)
 suppressPackageStartupMessages(library(spDBL))
 bench_write_meta(cfg)
 
-tasks <- list()
-for (g in cfg$grids) {
+# Profiles with `designs` repeat E2 over independent training/test designs
+# (design d uses seed + 1000 (d - 1)); --reps=1,2 runs only those designs.
+# `domain` fixes the physical domain (see sir_pde_domain()).
+replicated <- !is.null(cfg$designs)
+designs <- if (replicated) seq_len(cfg$designs) else 1L
+if (!is.null(cfg$reps)) {
+  designs <- as.integer(cfg$reps)
+  if (!replicated || anyNA(designs) || any(designs < 1 | designs > cfg$designs) ||
+      anyDuplicated(designs)) stop("--reps must list distinct designs in 1..designs")
+}
+for (g in cfg$grids)
   if (g %% cfg$episode_window != 0) stop("episode_window must divide every grid size")
-  data_file <- sir_dataset(g, cfg$n_train, cfg$n_test, cfg$n_time, cfg$seed,
-                           cfg$box, cfg$cache)
+combos <- expand.grid(grid = cfg$grids, design = designs)
+data_files <- parallel::mclapply(seq_len(nrow(combos)), function(k)
+  sir_dataset(combos$grid[k], cfg$n_train, cfg$n_test, cfg$n_time,
+    cfg$seed + 1000L * (combos$design[k] - 1L), cfg$box, cfg$cache, domain = cfg$domain),
+  mc.cores = max(1L, min(as.integer(cfg$jobs), nrow(combos))))
+tasks <- list()
+for (k in seq_len(nrow(combos))) {
+  g <- combos$grid[k]; dsg <- combos$design[k]
   for (m in cfg$methods)
-    tasks[[length(tasks) + 1]] <- list(id = sprintf("e2_g%03d_%s", g, m),
-      grid = g, method = m, data_file = data_file, seed = cfg$seed)
+    tasks[[length(tasks) + 1]] <- list(
+      id = if (replicated) sprintf("e2_g%03d_d%02d_%s", g, dsg, m) else sprintf("e2_g%03d_%s", g, m),
+      grid = g, design = dsg, method = m, data_file = data_files[[k]],
+      seed = cfg$seed + 1000L * (dsg - 1L))
 }
 results <- bench_run_tasks(tasks, "e2_worker.R", cfg)
 tab <- bench_write_results(results, cfg, "e2_results")
-print(tab[, intersect(c("grid", "method", "status", "rmse", "coverage95",
+print(tab[, intersect(c("grid", "design", "method", "status", "rmse", "coverage95",
   "width95", "crps", "fit_s", "predict_s", "peak_rss_mb"), names(tab))],
   row.names = FALSE, digits = 3)

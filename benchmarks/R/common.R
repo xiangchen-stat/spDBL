@@ -57,7 +57,8 @@ bench_config <- function(experiment, args = bench_parse_args()) {
   cfg$experiment <- experiment
   cfg$profile <- profile
   cfg$resume <- isTRUE(args$resume)
-  # E3 only: run a subset of replicates (a job's share when split over nodes).
+  # Run a subset of replicates (E3) or designs (E2), a job's share when split
+  # over nodes.
   cfg$reps <- args$reps
   cfg$box <- bench_sir_box
   cfg$out <- if (is.null(args$out))

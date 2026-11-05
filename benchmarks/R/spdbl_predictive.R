@@ -3,12 +3,11 @@
 
 # Pointwise predictive distributions for spDBL emulators.
 #
-# Workaround: emulator_predict() returns predictive means (MC = FALSE) or
-# coefficient-conditioned mean draws (MC = TRUE) only. It has no predictive
-# variance or interval output, so interval coverage and CRPS cannot be
-# computed from the public API alone. The functions below derive the
-# marginal predictive distribution from objects that emulator_learn() and
-# calibration_prepare() store, or from the package's internal predictor.
+# Since spDBL 1.2.0 the package computes these distributions itself:
+# predict(..., interval = "prediction") on a fitted emulator or a prepared
+# calibration object. The benchmarks use it when the installed spDBL has it
+# (identical results, checked); the derivations below are the fallback for
+# older versions, whose emulator_predict() returned means or mean draws only.
 #
 # Known AR rows (ordinary emulator). For episode e, with smoothed state
 # Theta_e | Sigma ~ MN(s_e, S_e, Sigma), input-GP cross covariance J and
@@ -55,7 +54,18 @@ spdbl_known_designs <- function(emulator, dt_test, seed) {
 }
 
 # Returns arrays [n_test, S, T] of mean, sd, 95% lower and upper bounds.
+spdbl_has_intervals <- function()
+  "interval" %in% names(formals(utils::getS3method("predict", "spDBL_emulator")))
+
+spdbl_interval_arrays <- function(p) list(mean = list_to_array(p$mean),
+  sd = list_to_array(p$sd), lower = list_to_array(p$lower),
+  upper = list_to_array(p$upper), df = p$df, n_draws = p$n_draws,
+  design_uncertainty = p$design_uncertainty)
+
 spdbl_known_predictive <- function(emulator, input_new, F_new_ls) {
+  if (spdbl_has_intervals())
+    return(spdbl_interval_arrays(stats::predict(emulator, input_new,
+      F_new_ls = F_new_ls, interval = "prediction")))
   mean_list <- spDBL::emulator_predict(emulator, input_new, F_new_ls = F_new_ls)
   s <- emulator$setup
   ff <- emulator$para_ffbs$ff
@@ -88,6 +98,8 @@ spdbl_known_predictive <- function(emulator, input_new, F_new_ls) {
 
 spdbl_designgp_predictive <- function(cal, input_new) {
   input_new <- as.matrix(input_new)
+  if (spdbl_has_intervals())
+    return(spdbl_interval_arrays(stats::predict(cal, input_new, interval = "prediction")))
   n <- nrow(input_new)
   M <- cal$M
   first <- second <- array(0, c(n, cal$S, cal$T))
