@@ -84,6 +84,14 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 * `logs/<task>.log`: worker output and the `/usr/bin/time` report.
 * `tasks/<task>.rds`: the exact task given to the worker.
 
+`results/e2/fixed/` is the E2 run behind the manuscript's E2 results
+(profile `fixed`): the 10^2, 20^2 and 50^2 grids discretise the same 10 x 10
+physical domain (`sir_pde_domain()` in `R/sir_data.R`, identical to
+`gen_pde()` at 10^2), 10 independent training/test designs per grid, with the
+design-GP and per-time `ppgasp` ablations. `e2_summary.R` writes the means
+over designs and paired t intervals against spDBL (`e2_summary.csv`,
+`e2_paired.csv`); run times are from design 1, one task per node.
+
 The committed `results/*/paper/` folders are the runs behind the manuscript:
 E1 and E2 one task per Hoffman2 node, E3 split over five nodes with 18
 one-core tasks each (Xeon Gold 6240, R 4.6.1, oneMKL, spDBL 1.2.0).
