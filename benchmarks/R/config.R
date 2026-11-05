@@ -91,4 +91,20 @@ bench_profiles <- list(
       init = "random",
       rc_S = 10000, rc_S0 = 2000, rc_chains = 4, field_n0 = 30, field_d0 = 2,
       inner = 0.8, seed = 20261101, timeout_sec = 24 * 3600, jobs = 1,
+      threads = 1),
+    mode = list(
+      # The paper profile with every chain started at its package's posterior
+      # mode. With random starts, chains settled in local modes 35 to 586
+      # log-density units below the main mode (results/e3_diagnostic), so the
+      # pooled draws were unreliable. spDBL: calibration_fit(init = "mode"),
+      # L-BFGS from 20 random starts in each conditional fit. RobustCalibration:
+      # its maximum-likelihood estimate (method = "mle", rc_mle_starts initial
+      # values), each chain started there with a small jitter, and twice the
+      # iterations of the paper profile for its random-walk Metropolis chains.
+      label = "paper, mode starts", n_rep = 30,
+      methods = c("spdbl", "rc_sgasp", "rc_gasp"), episode_window = 2,
+      n_draws = 20, chains = 4, iter = 2000, warmup = 1000, cores = 1,
+      init = "mode", rc_mle_starts = 10,
+      rc_S = 20000, rc_S0 = 5000, rc_chains = 4, field_n0 = 30, field_d0 = 2,
+      inner = 0.8, seed = 20261101, timeout_sec = 24 * 3600, jobs = 1,
       threads = 1)))

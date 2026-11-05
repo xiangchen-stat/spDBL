@@ -19,4 +19,12 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-Rscript benchmarks/e3_calibration.R --profile=paper --jobs=$SPDBL_CPUS --resume
+# Install this checkout from a clean copy in job-local storage, ahead of the
+# benchmark library, so the run uses exactly the checked-out package.
+WORK_TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-e3collect.XXXXXX")
+trap 'rm -rf "$WORK_TMP"' EXIT
+mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
+git archive HEAD | tar -x -C "$WORK_TMP/src"
+R CMD INSTALL --no-test-load --library="$WORK_TMP/lib" "$WORK_TMP/src"
+export SPDBL_BENCH_LIB=$WORK_TMP/lib
+Rscript benchmarks/e3_calibration.R --profile=${SPDBL_E3_PROFILE:-paper} --jobs=$SPDBL_CPUS --resume

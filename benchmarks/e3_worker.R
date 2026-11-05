@@ -68,6 +68,11 @@ run_spdbl <- function(d, rep, cfg, task) {
   out$divergences <- sum(pkg_diag$div)
   out$treedepth_hits <- sum(pkg_diag$td)
   out$pkg_max_rhat_all <- max(pkg_diag$rhat)
+  # init = "mode": the fewest starts that reached the best optimum (within one
+  # log-density unit) over the conditional fits.
+  near <- vapply(f$diagnostics, function(x)
+    if (is.null(x$mode_search)) NA_real_ else as.numeric(x$mode_search$near_best), numeric(1))
+  out$mode_near_best_min <- if (all(is.na(near))) NA_real_ else min(near, na.rm = TRUE)
   out$pkg_min_neff_all <- min(pkg_diag$neff)
   out$emulator_s <- em$elapsed + prep$elapsed
   out$sampling_s <- fit$elapsed
@@ -98,13 +103,35 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   X_sim <- d$training$input[, active, drop = FALSE]
   theta_range <- cbind(d$lower[active], d$upper[active])
   emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep])))
+  # init = "mode": RobustCalibration's own maximum-likelihood estimate from
+  # rc_mle_starts initial values, the counterpart of spDBL's mode search; its
+  # time counts towards the calibration time.
+  mode_s <- 0
+  theta_mode <- NULL
+  if (identical(cfg$init, "mode")) {
+    set.seed(task$seed)
+    mle <- timed(utils::capture.output(fit_mle <- rcalibration(design = x,
+      observations = obs, p_theta = length(active), simul_type = 0,
+      input_simul = X_sim, output_simul = Y[, keep],
+      loc_index_emulator = seq_len(sum(keep)), theta_range = theta_range,
+      discrepancy_type = discrepancy, method = "mle",
+      num_initial_values = cfg$rc_mle_starts)))
+    theta_mode <- fit_mle@param_est[seq_along(active)]
+    mode_s <- mle$elapsed
+  }
   chains <- vector("list", cfg$rc_chains)
   times <- accept <- numeric(cfg$rc_chains)
   for (c in seq_len(cfg$rc_chains)) {
     set.seed(task$seed + 100L * c)
-    # Same starting rule as spDBL: the default (centre of the box) for
-    # init = "midpoint", or a uniform draw in the box for init = "random".
-    start <- if (identical(cfg$init, "random"))
+    # Same starting rules as spDBL: the default (centre of the box) for
+    # init = "midpoint", a uniform draw in the box for init = "random", and
+    # the mode jittered on the logit scale (sd 0.05) for init = "mode".
+    start <- if (!is.null(theta_mode)) {
+      width <- theta_range[, 2] - theta_range[, 1]
+      u <- pmin(pmax((theta_mode - theta_range[, 1]) / width, 1e-6), 1 - 1e-6)
+      theta_range[, 1] + width * stats::plogis(stats::qlogis(u) +
+        stats::rnorm(length(active), sd = 0.05))
+    } else if (identical(cfg$init, "random"))
       stats::runif(length(active), theta_range[, 1], theta_range[, 2]) else NULL
     run <- timed(rcalibration(design = x, observations = obs,
       p_theta = length(active), simul_type = 0, input_simul = X_sim,
@@ -130,10 +157,11 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$accept_rate_theta <- mean(accept)
   out$n_obs_used <- length(obs)
   out$emulator_s <- emu$elapsed
-  out$sampling_s <- sum(times)
-  out$sampling_cpu_s <- sum(times)
-  out$wall_total_s <- sum(times)
-  out$ess_per_s <- min(out$ess_bulk_total) / sum(times)
+  out$mode_search_s <- mode_s
+  out$sampling_s <- sum(times) + mode_s
+  out$sampling_cpu_s <- sum(times) + mode_s
+  out$wall_total_s <- sum(times) + mode_s
+  out$ess_per_s <- min(out$ess_bulk_total) / (sum(times) + mode_s)
   out$ess_per_cpu_s <- out$ess_per_s  # chains run one after another, one core
   out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s", discrepancy,
     cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","))

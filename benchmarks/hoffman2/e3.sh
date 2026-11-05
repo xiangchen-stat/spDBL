@@ -23,7 +23,8 @@
 #   SPDBL_SBATCH_ARGS="--dependency=afterok:<the five job ids>" \
 #     bash benchmarks/hoffman2/submit.sh e3-collect
 # SPDBL_E3_REPS lists this job's replicates; SPDBL_E3_JOBS sets the number of
-# tasks run side by side (default: CPUs - 2).
+# tasks run side by side (default: CPUs - 2); SPDBL_E3_PROFILE selects the
+# profile (default paper; "mode" starts every chain at its posterior mode).
 #SBATCH --job-name=spdbl-e3
 #SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
@@ -34,6 +35,14 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
+# Install this checkout from a clean copy in job-local storage, ahead of the
+# benchmark library, so the run uses exactly the checked-out package.
+WORK_TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-e3.XXXXXX")
+trap 'rm -rf "$WORK_TMP"' EXIT
+mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
+git archive HEAD | tar -x -C "$WORK_TMP/src"
+R CMD INSTALL --no-test-load --library="$WORK_TMP/lib" "$WORK_TMP/src"
+export SPDBL_BENCH_LIB=$WORK_TMP/lib
 JOBS=${SPDBL_E3_JOBS:-$(( SPDBL_CPUS > 2 ? SPDBL_CPUS - 2 : 1 ))}
-Rscript benchmarks/e3_calibration.R --profile=paper --jobs=$JOBS --resume \
+Rscript benchmarks/e3_calibration.R --profile=${SPDBL_E3_PROFILE:-paper} --jobs=$JOBS --resume \
   ${SPDBL_E3_REPS:+--reps=$SPDBL_E3_REPS}
