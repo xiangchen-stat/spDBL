@@ -18,7 +18,12 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-LIB=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-listing1.XXXXXX")
-trap 'rm -rf "$LIB"' EXIT
-R CMD INSTALL --no-test-load --library="$LIB" .
+# Install from a clean copy of the commit in job-local storage: jobs that
+# start together from one clone must not compile in the same src/.
+WORK_TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-listing1.XXXXXX")
+trap 'rm -rf "$WORK_TMP"' EXIT
+mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
+git archive HEAD | tar -x -C "$WORK_TMP/src"
+LIB=$WORK_TMP/lib
+R CMD INSTALL --no-test-load --library="$LIB" "$WORK_TMP/src"
 R_LIBS="$LIB" Rscript benchmarks/listing1_run.R

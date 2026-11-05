@@ -24,9 +24,14 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-LIB=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-e2fixed.XXXXXX")
-trap 'rm -rf "$LIB"' EXIT
-R CMD INSTALL --no-test-load --library="$LIB" .
+# Install from a clean copy of the commit in job-local storage: jobs that
+# start together from one clone must not compile in the same src/.
+WORK_TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-e2fixed.XXXXXX")
+trap 'rm -rf "$WORK_TMP"' EXIT
+mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
+git archive HEAD | tar -x -C "$WORK_TMP/src"
+LIB=$WORK_TMP/lib
+R CMD INSTALL --no-test-load --library="$LIB" "$WORK_TMP/src"
 export SPDBL_BENCH_LIB=$LIB
 Rscript benchmarks/e2_accuracy.R --profile=fixed --resume --jobs=${SPDBL_E2_JOBS:-1} \
   ${SPDBL_E2_REPS:+--reps=$SPDBL_E2_REPS}
