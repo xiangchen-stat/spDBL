@@ -18,3 +18,4 @@
 ^benchmarks$
 ^codecov\.yml$
 ^material$
+^IMPROVEMENTS\.md$

@@ -221,6 +221,8 @@ this checkout, use `bash vignettes/renderEmulation.sh quarto model-comparison`.
 * `vignette("model-comparison")`: WAIC for MNIW multivariate regression.
 * [Package architecture](https://xiangchen-stat.github.io/spDBL/articles/architecture.html):
   how the code is organised, for contributors.
+* [IMPROVEMENTS.md](https://github.com/xiangchen-stat/spDBL/blob/main/IMPROVEMENTS.md):
+  what the package adds to the published method and its research code.
 
 ## Getting help and contributing
 
