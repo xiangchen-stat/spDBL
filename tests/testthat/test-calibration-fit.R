@@ -37,6 +37,7 @@ local_fake_rstan <- function(divergent_call = 0L, rhat = 1.001, env = parent.fra
   log <- new.env()
   log$calls <- list()
   log$compiled <- character()
+  log$optimizing <- integer()
   local_mocked_bindings(
     sampling = function(object, data, init, chains, iter, warmup, seed, cores,
                         refresh, pars, control, ...) {
@@ -55,6 +56,17 @@ local_fake_rstan <- function(divergent_call = 0L, rhat = 1.001, env = parent.fra
       lapply(seq_len(object$chains), function(c) cbind(
         divergent__ = c(as.numeric(object$divergent), rep(0, object$n_iter - 1)),
         treedepth__ = c(12, rep(3, object$n_iter - 1)))),
+    # Two local optima: starts with eta_unit[1] < 0.5 reach (0.3, ...) with
+    # log density -10, the others (0.8, ...) with -20; one start fails.
+    optimizing = function(object, data, init, seed, ...) {
+      log$optimizing <- c(log$optimizing, seed)
+      eta <- as.numeric(init$eta_unit)
+      low <- eta[1] < 0.5
+      list(par = list(eta_unit = array(rep(if (low) 0.3 else 0.8, length(eta)), length(eta)),
+                      precision = rep(if (low) 20 else 5, length(init$precision))),
+           value = if (low) -10 else -20,
+           return_code = if (length(log$optimizing) == 2L) 70L else 0L)
+    },
     stan_model = function(file, ...) {
       log$compiled <- c(log$compiled, basename(file))
       methods::new("stanmodel", model_name = basename(file))
@@ -298,12 +310,12 @@ test_that("chains start at the midpoint, at random, or at given values", {
   fit_with(stats::setNames(rev(values), rev(e$parameter_names)))
   expect_equal(starts(log$calls[[9]]), matrix(c(0.25, 0.8), 3, 2, byrow = TRUE))
   expect_error(fit_with("centre"), "midpoint")
-  # Random starts are the default.
+  # The mode search is the default.
   default <- suppressMessages(calibration_fit(e, f$z, f$U, chains = 3L, iter = 4L,
     warmup = 2L, draws_per_emulator = 2L, refresh = 0L,
     compiled_model = "fake-model", seed = 5L))
-  expect_identical(default$settings$init, "random")
-  expect_identical(starts(log$calls[[length(log$calls) - 1L]]), first)
+  expect_identical(default$settings$init, "mode")
+  expect_false(is.null(default$diagnostics[[1]]$mode_search))
   expect_error(fit_with(values[1]), "one value per parameter")
   expect_error(fit_with(c(lower[1], values[2])), "strictly inside")
   expect_error(fit_with(stats::setNames(values, c("a", "z"))), "parameter names")
@@ -385,4 +397,35 @@ test_that("checkpointed conditional fits are reused only with identical settings
   saveRDS(saved, file.path(checkpoints, "conditional_002.rds"))
   suppressMessages(run(seed = 4L))
   expect_length(log$calls, 5L)
+})
+
+test_that("init = 'mode' starts the chains at the best of several optima", {
+  skip_without_fake_rstan()
+  f <- calibration_fit_fixture()
+  e <- f$emulator
+  log <- local_fake_rstan()
+  fit <- suppressMessages(calibration_fit(e, f$z, f$U, draws = 1L, chains = 3L,
+    iter = 4L, warmup = 2L, draws_per_emulator = 2L, refresh = 0L,
+    compiled_model = "fake-model", seed = 7L, init = "mode", mode_starts = 6L))
+  # Six optimizations, seeded per start; the failed one is skipped.
+  expect_length(log$optimizing, 6L)
+  expect_identical(log$optimizing, 7L + 1000L + 1:6)
+  search <- fit$diagnostics[[1]]$mode_search
+  expect_identical(search$log_density[2], -Inf)
+  expect_identical(max(search$log_density), -10)
+  expect_equal(search$eta_unit, c(0.3, 0.3))
+  # Every chain starts near the better optimum, with its precisions.
+  start <- t(vapply(1:3, function(k) log$calls[[1]]$init_fun(chain_id = k)$eta_unit, numeric(2)))
+  expect_true(all(abs(start - 0.3) < 0.05))
+  expect_gt(min(dist(start)), 0)
+  precision <- log$calls[[1]]$init_fun(chain_id = 1)$precision
+  expect_true(all(abs(precision / 20 - 1) < 0.25))
+  # Reproducible from the seed.
+  again <- suppressMessages(calibration_fit(e, f$z, f$U, draws = 1L, chains = 3L,
+    iter = 4L, warmup = 2L, draws_per_emulator = 2L, refresh = 0L,
+    compiled_model = "fake-model", seed = 7L, init = "mode", mode_starts = 6L))
+  expect_identical(t(vapply(1:3, function(k) log$calls[[2]]$init_fun(chain_id = k)$eta_unit,
+                            numeric(2))), start)
+  expect_error(calibration_fit(e, f$z, f$U, chains = 1L, iter = 4L, compiled_model = "fake-model",
+                               mode_starts = 0), "mode_starts")
 })

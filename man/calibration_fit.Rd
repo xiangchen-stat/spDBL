@@ -32,7 +32,8 @@ calibration_fit(
   cache = TRUE,
   cache_dir = NULL,
   compiled_model = NULL,
-  init = "random"
+  init = "mode",
+  mode_starts = 20L
 )
 }
 \arguments{
@@ -92,14 +93,24 @@ cache directory. Installed package files are never modified.}
 
 \item{compiled_model}{Optional compatible compiled Stan model for advanced use.}
 
-\item{init}{Starting values of the free parameters for every chain:
-\code{"random"} (the default) draws each chain's start uniformly within the
-bounds, reproducibly from \code{seed}, so that \eqn{\hat R} can reveal chains
-that settle in different modes; \code{"midpoint"} starts every chain at the
-centre of the bounds; or a numeric vector of parameter values in training-column order
-(named vectors are matched by name), strictly inside the bounds of the
-free parameters. Values given for fixed parameters are ignored. Each
-conditional fit starts afresh; precisions start at n0 / d0.}
+\item{init}{Starting values of the free parameters for every chain.
+\code{"mode"} (the default) runs L-BFGS (\code{rstan::optimizing()}) from
+\code{mode_starts} random starts in each conditional fit and starts every chain,
+slightly jittered, at the optimum with the highest log posterior density,
+with the precisions of that optimum. Chains started far from the main mode
+can settle in local modes of negligible posterior mass, which this avoids;
+the optima found are recorded in \code{diagnostics[[j]]$mode_search}.
+\code{"random"} draws each chain's start uniformly within the bounds,
+reproducibly from \code{seed}, so that \eqn{\hat R} can reveal chains that
+settle in different modes; \code{"midpoint"} starts every chain at the centre of
+the bounds; or give a numeric vector of parameter values in training-column
+order (named vectors are matched by name), strictly inside the bounds of
+the free parameters. Values given for fixed parameters are ignored. Each
+conditional fit starts afresh; except for \code{"mode"}, precisions start at
+n0 / d0.}
+
+\item{mode_starts}{Number of random starts of the mode search for
+\code{init = "mode"}.}
 }
 \value{
 An ordinary serializable list of class spDBL_calibration containing

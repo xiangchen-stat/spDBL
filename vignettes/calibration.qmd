@@ -181,9 +181,10 @@ of the parameter bounds (`init = "midpoint"`) and at precision n0/d0; it does
 not continue a chain from the preceding emulator draw. In this synthetic example
 the midpoint also equals the true eta, so the close agreement after one
 iteration comes from the initialization, not from inference. The default,
-`init = "random"`, starts each chain at a random point within the bounds, which
-lets Rhat reveal chains that settle in different modes; a vector of parameter
-values can also be given. Rhat and
+`init = "mode"`, starts the chains at the best of 20 local optima of the
+conditional posterior; `init = "random"` starts each chain at a random point
+within the bounds, which lets Rhat reveal chains that settle in different
+modes; a vector of parameter values can also be given. Rhat and
 effective sample size are unavailable for these one-transition conditionals.
 
 Sampling requires the optional RStan package and a working C++ toolchain at

@@ -53,6 +53,8 @@ test_that("installed Stan programs match R and pool conditionals equally", {
       compiled_model = model, marginal_discrepancy = marginal,
       refresh = 0L, keep_discrepancy = FALSE))
     expect_s3_class(fit, "spDBL_calibration")
+    expect_identical(fit$settings$init, "mode")
+    expect_true(is.finite(max(fit$diagnostics[[1]]$mode_search$log_density)))
     expect_equal(as.integer(table(fit$emulator_draw)), c(4L, 4L))
     expect_null(fit$mcmc_u)
     path <- tempfile(fileext = ".rds")

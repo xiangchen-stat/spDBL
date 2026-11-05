@@ -199,7 +199,7 @@ fit_calibration_rstan <- function(emulator, z, U,
     m0 = rep(0, length(locations)), M0 = diag(length(locations)),
     control = list(adapt_delta = 0.95, max_treedepth = 12), compiled_model = NULL,
     marginal_discrepancy = TRUE, refresh = 100, checkpoint_dir = NULL,
-    keep_discrepancy = TRUE, init = "midpoint") {
+    keep_discrepancy = TRUE, init = "midpoint", mode_starts = 20L) {
   if (!requireNamespace("rstan", quietly = TRUE)) stop("Install rstan first")
   if (warmup >= iter || chains < 1 || draws_per_emulator < 1 ||
       draws_per_emulator > chains * (iter - warmup) || !length(draws) ||
@@ -214,10 +214,12 @@ fit_calibration_rstan <- function(emulator, z, U,
     message("Calibration conditional on emulator draw ", m, " (", j, "/", length(draws), ")")
     data <- make_stan_calibration_data(emulator, m, z, U, locations, n0, d0,
                                        discount, m0, M0)
-    # Starting eta on the unit scale, one row per chain. init is "midpoint",
-    # "random" (uniform in the box, seeded per conditional fit), or a unit
-    # vector from .cal_init_spec().
-    eta_start <- if (identical(init, "random")) {
+    # Starting eta on the unit scale, one row per chain. init is "mode" (set
+    # after the checkpoint check below), "midpoint", "random" (uniform in the
+    # box, seeded per conditional fit), or a unit vector from .cal_init_spec().
+    mode_init <- identical(init, "mode")
+    precision_start <- matrix(n0 / d0, chains, data$T + 1)
+    eta_start <- if (mode_init) NULL else if (identical(init, "random")) {
       set.seed(seed + j)
       matrix(stats::runif(chains * data$D), chains, data$D)
     } else matrix(if (identical(init, "midpoint")) 0.5 else init,
@@ -227,7 +229,8 @@ fit_calibration_rstan <- function(emulator, z, U,
     checkpoint <- if (!is.null(checkpoint_dir))
       file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m))
     fingerprint <- if (!is.null(checkpoint)) rlang::hash(list(data = data,
-      eta_start = eta_start, chains = chains, iter = iter, warmup = warmup,
+      eta_start = if (mode_init) list("mode", mode_starts) else eta_start,
+      chains = chains, iter = iter, warmup = warmup,
       seed = seed + j, draws_per_emulator = draws_per_emulator, control = control,
       marginal_discrepancy = marginal_discrepancy,
       program = tryCatch(model@model_code, error = function(e) NULL)))
@@ -241,15 +244,49 @@ fit_calibration_rstan <- function(emulator, z, U,
       }
       message("  ", basename(checkpoint), " was saved with other data or settings; refitting")
     }
+    # init = "mode": L-BFGS (rstan::optimizing) from mode_starts random starts;
+    # the chains start, slightly jittered, at the optimum with the highest
+    # log posterior density. Chains started far from it can otherwise settle
+    # in local modes of negligible posterior mass.
+    mode_search <- NULL
+    if (mode_init) {
+      set.seed(seed + j)
+      starts <- matrix(stats::runif(mode_starts * data$D), mode_starts, data$D)
+      optima <- lapply(seq_len(mode_starts), function(k) {
+        values <- list(eta_unit = array(starts[k, ], data$D),
+                       precision = rep(n0 / d0, data$T + 1))
+        if (!marginal_discrepancy) values$u_std <- matrix(0, data$T + 1, data$S)
+        tryCatch(rstan::optimizing(model, data = data, init = values,
+            seed = seed + 1000L * j + k, algorithm = "LBFGS", iter = 2000L,
+            as_vector = FALSE, refresh = 0L),
+          error = function(e) NULL)
+      })
+      values <- vapply(optima, function(o)
+        if (is.null(o) || !identical(as.integer(o$return_code), 0L)) -Inf else o$value, numeric(1))
+      if (!any(is.finite(values)))
+        stop("The mode search failed from every start for emulator draw ", m)
+      best <- optima[[which.max(values)]]
+      eta_mode <- pmin(pmax(as.numeric(best$par$eta_unit), 1e-6), 1 - 1e-6)
+      precision_mode <- as.numeric(best$par$precision)
+      eta_start <- t(vapply(seq_len(chains), function(ch)
+        stats::plogis(stats::qlogis(eta_mode) + stats::rnorm(data$D, sd = 0.05)), numeric(data$D)))
+      eta_start <- matrix(eta_start, chains, data$D)
+      precision_start <- t(vapply(seq_len(chains), function(ch)
+        precision_mode * exp(stats::rnorm(data$T + 1, sd = 0.05)), numeric(data$T + 1)))
+      precision_start <- matrix(precision_start, chains, data$T + 1)
+      mode_search <- list(log_density = values, eta_unit = eta_mode,
+        near_best = sum(values > max(values) - 1))
+    }
     # local() keeps this fit's values; the loop reassigns eta_start and data.
     start <- local({
       eta <- eta_start
+      precision <- precision_start
       D <- data$D
       T <- data$T
       S <- data$S
       function(chain_id = 1) {
         values <- list(eta_unit = array(eta[chain_id, ], D),
-                       precision = rep(n0 / d0, T + 1))
+                       precision = precision[chain_id, ])
         if (!marginal_discrepancy) values$u_std <- matrix(0, T + 1, S)
         values
       }
@@ -282,7 +319,7 @@ fit_calibration_rstan <- function(emulator, z, U,
         "tau2", if (!marginal_discrepancy) "u"))$summary
     }
     sampler <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
-    diagnostics[[j]] <- list(emulator_draw = m, summary = summary,
+    diagnostics[[j]] <- list(emulator_draw = m, summary = summary, mode_search = mode_search,
       divergences = sum(vapply(sampler, function(x) sum(x[, "divergent__"]), numeric(1))),
       max_treedepth_hits = sum(vapply(sampler, function(x)
         sum(x[, "treedepth__"] >= if (is.null(control$max_treedepth)) 10 else control$max_treedepth), numeric(1))),

@@ -33,13 +33,13 @@
 }
 
 # Validate init and convert parameter values to the unit scale of the free
-# coordinates. Returns "midpoint", "random", or a numeric vector.
+# coordinates. Returns "mode", "midpoint", "random", or a numeric vector.
 .cal_init_spec <- function(init, object) {
   f <- object$predictor
-  if (is.character(init) && length(init) == 1L && init %in% c("midpoint", "random"))
+  if (is.character(init) && length(init) == 1L && init %in% c("mode", "midpoint", "random"))
     return(init)
   if (!is.numeric(init) || length(init) != length(f$lower) || any(!is.finite(init)))
-    stop("init must be \"midpoint\", \"random\", or one value per parameter")
+    stop("init must be \"mode\", \"midpoint\", \"random\", or one value per parameter")
   if (!is.null(names(init))) {
     if (anyDuplicated(names(init)) || !setequal(names(init), object$parameter_names))
       stop("Named init values must match the parameter names")
@@ -94,14 +94,23 @@
 #'   interrupted calibration resumes where it stopped.
 #' @param cache,cache_dir Whether to reuse compiled models and optional user
 #'   cache directory. Installed package files are never modified.
-#' @param init Starting values of the free parameters for every chain:
-#'   `"random"` (the default) draws each chain's start uniformly within the
-#'   bounds, reproducibly from `seed`, so that \eqn{\hat R} can reveal chains
-#'   that settle in different modes; `"midpoint"` starts every chain at the
-#'   centre of the bounds; or a numeric vector of parameter values in training-column order
-#'   (named vectors are matched by name), strictly inside the bounds of the
-#'   free parameters. Values given for fixed parameters are ignored. Each
-#'   conditional fit starts afresh; precisions start at n0 / d0.
+#' @param init Starting values of the free parameters for every chain.
+#'   `"mode"` (the default) runs L-BFGS (`rstan::optimizing()`) from
+#'   `mode_starts` random starts in each conditional fit and starts every chain,
+#'   slightly jittered, at the optimum with the highest log posterior density,
+#'   with the precisions of that optimum. Chains started far from the main mode
+#'   can settle in local modes of negligible posterior mass, which this avoids;
+#'   the optima found are recorded in `diagnostics[[j]]$mode_search`.
+#'   `"random"` draws each chain's start uniformly within the bounds,
+#'   reproducibly from `seed`, so that \eqn{\hat R} can reveal chains that
+#'   settle in different modes; `"midpoint"` starts every chain at the centre of
+#'   the bounds; or give a numeric vector of parameter values in training-column
+#'   order (named vectors are matched by name), strictly inside the bounds of
+#'   the free parameters. Values given for fixed parameters are ignored. Each
+#'   conditional fit starts afresh; except for `"mode"`, precisions start at
+#'   n0 / d0.
+#' @param mode_starts Number of random starts of the mode search for
+#'   `init = "mode"`.
 #' @param compiled_model Optional compatible compiled Stan model for advanced use.
 #' @return An ordinary serializable list of class spDBL_calibration containing
 #'   samples, per-conditional diagnostics, settings, and prediction context.
@@ -137,7 +146,7 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
       list(adapt_engaged = FALSE, stepsize = 0.001, max_treedepth = 12L) else
       list(adapt_delta = 0.95, max_treedepth = 12L), refresh = 100L,
     checkpoint_dir = NULL, cache = TRUE, cache_dir = NULL, compiled_model = NULL,
-    init = "random") {
+    init = "mode", mode_starts = 20L) {
   if (missing(iter))
     stop("Set iter, the number of iterations per chain: for example ",
          "chains = 4, iter = 2000 for inference, or iter = 1 for a quick execution check")
@@ -159,6 +168,8 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
     stop("U must be a finite full-grid covariance scale matrix; check priors")
   .cal_spd(U, "U")
   init_unit <- .cal_init_spec(init, object)
+  if (length(mode_starts) != 1L || !is.finite(mode_starts) || mode_starts < 1 ||
+      mode_starts != as.integer(mode_starts)) stop("mode_starts must be a positive integer")
   invisible(make_stan_calibration_data(object, draws[1], z, U, locations,
     n0, d0, discount, m0, M0))
   if (is.null(compiled_model))
@@ -170,12 +181,12 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
     m0 = m0, M0 = M0, control = control, compiled_model = compiled_model,
     marginal_discrepancy = marginal_discrepancy, refresh = refresh,
     checkpoint_dir = checkpoint_dir, keep_discrepancy = keep_discrepancy,
-    init = init_unit)
+    init = init_unit, mode_starts = as.integer(mode_starts))
   colnames(result$mcmc_eta) <- object$parameter_names
   result$execution_only <- warmup == 0L || iter - warmup < 2L
   result$settings <- list(backend = backend, draws = draws, chains = chains,
     iter = iter, warmup = warmup, draws_per_emulator = draws_per_emulator,
-    seed = seed, control = control, init = init,
+    seed = seed, control = control, init = init, mode_starts = mode_starts,
     emulator_sampling = .cal_sampling_method(object$posterior$sampling_method,
                                              object$posterior$joint_trajectories))
   result$emulator <- object
