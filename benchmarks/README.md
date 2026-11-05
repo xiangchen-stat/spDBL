@@ -87,9 +87,11 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 The committed `results/*/paper/` folders are the runs behind the manuscript:
 E1 and E2 one task per Hoffman2 node, E3 split over five nodes with 18
 one-core tasks each (Xeon Gold 6240, R 4.6.1, oneMKL, spDBL 1.2.0).
-`results/e2/paper-sqexp-shared/` is the same E2 run with the design GP used
-before the Matern 5/2 change (`design_kernel = "sqexp", design_groups =
-"shared"`). Before committing, the user name and home directory were replaced
+`results/e2/paper-sqexp-shared/` and `results/e3/paper-sqexp-shared/` are the
+same E2 and E3 runs with the design GP used before the Matern 5/2 change
+(`design_kernel = "sqexp", design_groups = "shared"`); the E3 one ran 34 tasks
+on one node, so its timings are not comparable, and its RobustCalibration
+rows are identical to those in `results/e3/paper/`. Before committing, the user name and home directory were replaced
 by `<user>` and `~`.
 
 Simulated data are cached (`SPDBL_BENCH_CACHE`, default `benchmarks/cache/`)
