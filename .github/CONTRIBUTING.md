@@ -6,7 +6,9 @@ Please follow the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.
 
 ## Reporting bugs and asking questions
 
-Open an issue at <https://github.com/xiangchen-stat/spDBL/issues>. A minimal
+Ask usage questions, and share how you use spDBL, in
+[GitHub Discussions](https://github.com/xiangchen-stat/spDBL/discussions).
+Report bugs at <https://github.com/xiangchen-stat/spDBL/issues>. A minimal
 reproducible example (`reprex::reprex()`) and your `sessionInfo()` make it
 much easier to help. For calibration problems, include the rstan and
 StanHeaders versions and your compiler.

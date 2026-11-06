@@ -226,9 +226,10 @@ this checkout, use `bash vignettes/renderEmulation.sh quarto model-comparison`.
 
 ## Getting help and contributing
 
-Please report bugs and ask questions on the
-[issue tracker](https://github.com/xiangchen-stat/spDBL/issues), with a minimal
-reproducible example. Contributions are welcome; the
+Ask questions and share how you use spDBL in
+[GitHub Discussions](https://github.com/xiangchen-stat/spDBL/discussions), and
+report bugs on the [issue tracker](https://github.com/xiangchen-stat/spDBL/issues),
+with a minimal reproducible example. Contributions are welcome; the
 [contributing guide](https://github.com/xiangchen-stat/spDBL/blob/main/.github/CONTRIBUTING.md) explains how to set up a
 development copy, run the tests (including the optional Stan tests), and
 render the vignettes. Please note that this project is released with a
