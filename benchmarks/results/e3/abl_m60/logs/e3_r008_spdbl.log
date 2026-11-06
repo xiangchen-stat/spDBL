@@ -1,0 +1,84 @@
+Calibration conditional on emulator draw 1 (1/60)
+Calibration conditional on emulator draw 2 (2/60)
+Calibration conditional on emulator draw 3 (3/60)
+Calibration conditional on emulator draw 4 (4/60)
+Calibration conditional on emulator draw 5 (5/60)
+Calibration conditional on emulator draw 6 (6/60)
+Calibration conditional on emulator draw 7 (7/60)
+Calibration conditional on emulator draw 8 (8/60)
+Calibration conditional on emulator draw 9 (9/60)
+Calibration conditional on emulator draw 10 (10/60)
+Calibration conditional on emulator draw 11 (11/60)
+Calibration conditional on emulator draw 12 (12/60)
+Calibration conditional on emulator draw 13 (13/60)
+Calibration conditional on emulator draw 14 (14/60)
+Calibration conditional on emulator draw 15 (15/60)
+Calibration conditional on emulator draw 16 (16/60)
+Calibration conditional on emulator draw 17 (17/60)
+Calibration conditional on emulator draw 18 (18/60)
+Calibration conditional on emulator draw 19 (19/60)
+Calibration conditional on emulator draw 20 (20/60)
+Calibration conditional on emulator draw 21 (21/60)
+Calibration conditional on emulator draw 22 (22/60)
+Calibration conditional on emulator draw 23 (23/60)
+Calibration conditional on emulator draw 24 (24/60)
+Calibration conditional on emulator draw 25 (25/60)
+Calibration conditional on emulator draw 26 (26/60)
+Calibration conditional on emulator draw 27 (27/60)
+Calibration conditional on emulator draw 28 (28/60)
+Calibration conditional on emulator draw 29 (29/60)
+Calibration conditional on emulator draw 30 (30/60)
+Calibration conditional on emulator draw 31 (31/60)
+Calibration conditional on emulator draw 32 (32/60)
+Calibration conditional on emulator draw 33 (33/60)
+Calibration conditional on emulator draw 34 (34/60)
+Calibration conditional on emulator draw 35 (35/60)
+Calibration conditional on emulator draw 36 (36/60)
+Calibration conditional on emulator draw 37 (37/60)
+Calibration conditional on emulator draw 38 (38/60)
+Calibration conditional on emulator draw 39 (39/60)
+Calibration conditional on emulator draw 40 (40/60)
+Calibration conditional on emulator draw 41 (41/60)
+Calibration conditional on emulator draw 42 (42/60)
+Calibration conditional on emulator draw 43 (43/60)
+Calibration conditional on emulator draw 44 (44/60)
+Calibration conditional on emulator draw 45 (45/60)
+Calibration conditional on emulator draw 46 (46/60)
+Calibration conditional on emulator draw 47 (47/60)
+Calibration conditional on emulator draw 48 (48/60)
+Calibration conditional on emulator draw 49 (49/60)
+Calibration conditional on emulator draw 50 (50/60)
+Calibration conditional on emulator draw 51 (51/60)
+Calibration conditional on emulator draw 52 (52/60)
+Calibration conditional on emulator draw 53 (53/60)
+Calibration conditional on emulator draw 54 (54/60)
+Calibration conditional on emulator draw 55 (55/60)
+Calibration conditional on emulator draw 56 (56/60)
+Calibration conditional on emulator draw 57 (57/60)
+Calibration conditional on emulator draw 58 (58/60)
+Calibration conditional on emulator draw 59 (59/60)
+Calibration conditional on emulator draw 60 (60/60)
+There were 35 warnings (use warnings() to see them)
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL-e3mode/benchmarks/e3_worker.R ~/spDBL-e3mode/benchmarks/results/e3/abl_m60/tasks/e3_r008_spdbl.rds"
+	User time (seconds): 86651.83
+	System time (seconds): 35.21
+	Percent of CPU this job got: 350%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:52:12
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 678088
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 7
+	Minor (reclaiming a frame) page faults: 11893073
+	Voluntary context switches: 87890
+	Involuntary context switches: 113008
+	Swaps: 0
+	File system inputs: 1272
+	File system outputs: 4712
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
