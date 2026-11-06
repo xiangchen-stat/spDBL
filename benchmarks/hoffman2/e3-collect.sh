@@ -26,4 +26,7 @@ mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
 git archive HEAD | tar -x -C "$WORK_TMP/src"
 R CMD INSTALL --no-test-load --library="$WORK_TMP/lib" "$WORK_TMP/src"
 export SPDBL_BENCH_LIB=$WORK_TMP/lib
-Rscript benchmarks/e3_calibration.R --profile=${SPDBL_E3_PROFILE:-paper} --jobs=$SPDBL_CPUS --resume
+# SPDBL_E3_REPS limits the collection to those replicates (e.g. the 10 of an
+# ablation profile); without it every replicate of the profile is collected.
+Rscript benchmarks/e3_calibration.R --profile=${SPDBL_E3_PROFILE:-paper} --jobs=$SPDBL_CPUS --resume \
+  ${SPDBL_E3_REPS:+--reps=$SPDBL_E3_REPS}
