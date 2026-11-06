@@ -313,19 +313,24 @@ fit_calibration_rstan <- function(emulator, z, U,
         grep("^tau2\\[", colnames(samples), value = TRUE),
         if (!marginal_discrepancy) grep("^u\\[", colnames(samples), value = TRUE))
       summary <- cbind(mean = colMeans(samples[, parameter_names, drop = FALSE]),
-        n_eff = NA_real_, Rhat = NA_real_)
+        n_eff = NA_real_, Rhat = NA_real_, ess_bulk = NA_real_, ess_tail = NA_real_)
     } else {
       summary <- rstan::summary(fit, pars = c(paste0("eta[", data$active, "]"),
         "tau2", if (!marginal_discrepancy) "u"))$summary
+      # Rank-normalised split Rhat and bulk and tail effective sample sizes
+      # (Vehtari et al., 2021) replace the classic diagnostics that
+      # rstan::summary() reports.
+      summary <- cbind(summary[, setdiff(colnames(summary), "Rhat"), drop = FALSE],
+        .cal_convergence(raw[, , rownames(summary), drop = FALSE]))
     }
     sampler <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
     diagnostics[[j]] <- list(emulator_draw = m, summary = summary, mode_search = mode_search,
       divergences = sum(vapply(sampler, function(x) sum(x[, "divergent__"]), numeric(1))),
       max_treedepth_hits = sum(vapply(sampler, function(x)
         sum(x[, "treedepth__"] >= if (is.null(control$max_treedepth)) 10 else control$max_treedepth), numeric(1))),
-      max_rhat = if (any(is.finite(summary[, "Rhat"]))) max(summary[, "Rhat"], na.rm = TRUE) else NA_real_,
-      min_n_eff = if (any(is.finite(summary[, "n_eff"])))
-        min(summary[is.finite(summary[, "n_eff"]), "n_eff"]) else NA_real_)
+      max_rhat = .cal_extreme(summary[, "Rhat"], max),
+      min_n_eff = .cal_extreme(summary[, "ess_bulk"], min),
+      min_ess_tail = .cal_extreme(summary[, "ess_tail"], min))
     if (diagnostics[[j]]$divergences > 0 ||
         (!is.na(diagnostics[[j]]$max_rhat) && diagnostics[[j]]$max_rhat > 1.01))
       warning("Emulator draw ", m, " needs additional convergence checks; inspect diagnostics")
@@ -372,3 +377,18 @@ fit_calibration_rstan <- function(emulator, z, U,
   }
   result
 }
+
+# Per-parameter convergence diagnostics from an iterations x chains x
+# parameters array of post-warmup draws.
+.cal_convergence <- function(draws) {
+  one <- function(k) {
+    x <- matrix(draws[, , k], dim(draws)[1], dim(draws)[2])
+    c(Rhat = rstan::Rhat(x), ess_bulk = rstan::ess_bulk(x),
+      ess_tail = rstan::ess_tail(x))
+  }
+  out <- t(vapply(seq_len(dim(draws)[3]), one, numeric(3)))
+  rownames(out) <- dimnames(draws)[[3]]
+  out
+}
+
+.cal_extreme <- function(x, f) if (any(is.finite(x))) f(x[is.finite(x)]) else NA_real_

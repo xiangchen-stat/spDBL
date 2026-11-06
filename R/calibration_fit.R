@@ -259,7 +259,8 @@ summary.spDBL_calibration <- function(object, ...) {
   diagnostics <- do.call(rbind, lapply(object$diagnostics, function(d)
     data.frame(emulator_draw = d$emulator_draw, divergences = d$divergences,
       max_treedepth_hits = d$max_treedepth_hits, max_rhat = d$max_rhat,
-      min_n_eff = d$min_n_eff)))
+      min_n_eff = d$min_n_eff,
+      min_ess_tail = if (is.null(d$min_ess_tail)) NA_real_ else d$min_ess_tail)))
   structure(list(parameters = parameters, diagnostics = diagnostics,
     n_samples = nrow(object$mcmc_eta), settings = object$settings,
     execution_only = object$execution_only,
@@ -278,9 +279,13 @@ print.summary.spDBL_calibration <- function(x, ...) {
   cat("Divergences:", sum(x$diagnostics$divergences),
       "; tree-depth hits:", sum(x$diagnostics$max_treedepth_hits), "\n")
   cat("Rhat/ESS apply to each conditional fit, not to the pooled mixture.\n")
-  if (any(is.finite(x$diagnostics$max_rhat)))
-    cat("Largest conditional Rhat:", max(x$diagnostics$max_rhat, na.rm = TRUE),
-        "; smallest conditional ESS:", min(x$diagnostics$min_n_eff, na.rm = TRUE), "\n")
+  if (any(is.finite(x$diagnostics$max_rhat))) {
+    cat(sprintf("Largest conditional Rhat: %.3f; smallest conditional bulk ESS: %.0f",
+        max(x$diagnostics$max_rhat, na.rm = TRUE), min(x$diagnostics$min_n_eff, na.rm = TRUE)))
+    tail_ess <- x$diagnostics$min_ess_tail
+    if (any(is.finite(tail_ess))) cat(sprintf(", tail ESS: %.0f", min(tail_ess, na.rm = TRUE)))
+    cat("\n")
+  }
   if (isTRUE(x$execution_only)) cat("One-transition/no-warmup samples do not establish convergence.\n")
   cat(x$predictor_uncertainty, "\n")
   invisible(x)

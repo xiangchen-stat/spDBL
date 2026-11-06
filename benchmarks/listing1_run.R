@@ -40,11 +40,19 @@ info <- list(
   draws = nrow(env$fit$mcmc_eta),
   fields_dim = lapply(env$fields, dim),
   spdbl_version = as.character(utils::packageVersion("spDBL")),
+  git_commit = tryCatch({
+    sha <- suppressWarnings(system2("git", c("-C", shQuote(bench), "rev-parse", "HEAD"),
+                                    stdout = TRUE, stderr = FALSE))
+    dirty <- length(suppressWarnings(system2("git", c("-C", shQuote(bench), "status",
+      "--porcelain", "--untracked-files=no"), stdout = TRUE, stderr = FALSE))) > 0
+    paste0(sha[1], if (dirty) "-dirty")
+  }, error = function(e) NA_character_),
   r_version = R.version.string, cpu = cpu_model,
   sys = Sys.info()[c("sysname", "release", "machine")],
   slurm = Sys.getenv(c("SLURM_JOB_ID", "SLURM_CPUS_ON_NODE")),
   session = utils::sessionInfo())
 saveRDS(info, file.path(out, "listing1.rds"))
-writeLines(utils::capture.output(print(info$session)), file.path(out, "session.txt"))
+writeLines(c(paste("Commit:", info$git_commit), "",
+  utils::capture.output(print(info$session))), file.path(out, "session.txt"))
 message(sprintf("Listing 1 finished in %.1f min (CPU %.1f min); results in %s",
   info$elapsed_s / 60, info$cpu_s / 60, out))

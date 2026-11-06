@@ -71,12 +71,18 @@ local_fake_rstan <- function(divergent_call = 0L, rhat = 1.001, env = parent.fra
       log$compiled <- c(log$compiled, basename(file))
       methods::new("stanmodel", model_name = basename(file))
     },
+    Rhat = function(sims) rhat,
+    ess_bulk = function(sims) 51,
+    ess_tail = function(sims) 47,
     .package = "rstan", .env = env)
   local_mocked_s3_method("summary", "fake_stanfit", function(object, pars, ...) {
     names <- dimnames(object$raw)[[3]]
     names <- names[names != "lp__"]
-    list(summary = cbind(mean = rep(0, length(names)), n_eff = seq_along(names) + 50,
-                         Rhat = rep(rhat, length(names))))
+    # The classic Rhat is deliberately bad: the package must replace it.
+    s <- cbind(mean = rep(0, length(names)), n_eff = seq_along(names) + 50,
+               Rhat = rep(9, length(names)))
+    rownames(s) <- names
+    list(summary = s)
   }, frame = env)
   log
 }
@@ -149,7 +155,7 @@ test_that("summaries, plots and predictions work on stored calibration draws", {
   expect_identical(s$emulator_sampling, "joint")
   out <- capture_output(print(fit))
   expect_match(out, "Divergences: 3 ; tree-depth hits: 1")
-  expect_match(out, "Largest conditional Rhat: 1.004 ; smallest conditional ESS: 120")
+  expect_match(out, "Largest conditional Rhat: 1.004; smallest conditional bulk ESS: 120")
   expect_match(out, "Design-row GP variance is propagated")
   pdf(NULL)  # keep plot() from opening a file device in the working directory
   on.exit(dev.off(), add = TRUE)
@@ -244,6 +250,9 @@ test_that("conditional fits keep chain, iteration and state bookkeeping", {
   expect_equal(vapply(fit$diagnostics, `[[`, numeric(1), "max_treedepth_hits"), c(2, 2))
   expect_equal(fit$diagnostics[[1]]$max_rhat, 1.001)
   expect_equal(fit$diagnostics[[1]]$min_n_eff, 51)
+  # The rank-normalised diagnostics replace rstan::summary()'s classic Rhat.
+  expect_equal(fit$diagnostics[[1]]$min_ess_tail, 47)
+  expect_true(all(fit$diagnostics[[1]]$summary[, "Rhat"] < 9))
   saved <- readRDS(file.path(checkpoints, "conditional_002.rds"))
   expect_equal(saved$samples$eta, fit$mcmc_eta[5:8, ], ignore_attr = TRUE)
   expect_false(saved$marginal_discrepancy)

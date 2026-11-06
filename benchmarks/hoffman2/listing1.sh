@@ -4,7 +4,7 @@
 
 # Listing 1 of the MLOSS manuscript, run exactly as printed (its
 # calibration_fit() call uses cores = 4): 20 emulator draws x 4 chains x 2000
-# iterations, about an hour on 4 cores. This checkout is installed into a
+# iterations, about two hours on 4 cores. This checkout is installed into a
 # job-local library first, so the run uses exactly the checked-out package;
 # dependencies come from the benchmark library.
 # Submit with:   bash benchmarks/hoffman2/submit.sh listing1

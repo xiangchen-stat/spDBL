@@ -113,11 +113,23 @@ bench_hardware <- function() {
   }
 }
 
+# Commit of the repository holding the benchmarks, with "-dirty" when tracked
+# files differ from it; NA outside a git checkout.
+bench_git_commit <- function(dir = bench_dir()) {
+  git <- function(...) tryCatch(suppressWarnings(system2("git", c("-C", shQuote(dir), ...),
+    stdout = TRUE, stderr = FALSE)), error = function(e) character())
+  sha <- git("rev-parse", "HEAD")
+  if (!length(sha) || !nzchar(sha[1])) return(NA_character_)
+  dirty <- length(git("status", "--porcelain", "--untracked-files=no")) > 0
+  paste0(sha[1], if (dirty) "-dirty")
+}
+
 # Provenance for one run: session, platform, BLAS/LAPACK, versions, config.
 bench_meta <- function(cfg = NULL) {
   spdbl_path <- tryCatch(find.package("spDBL"), error = function(e) NA_character_)
   list(time = format(Sys.time(), tz = "UTC", usetz = TRUE),
     label = if (!is.null(cfg)) cfg$label else NA,
+    git_commit = bench_git_commit(),
     config = cfg,
     session_info = utils::capture.output(print(utils::sessionInfo())),
     sys_info = Sys.info(),
@@ -137,6 +149,7 @@ bench_write_meta <- function(cfg, name = "meta") {
   meta <- bench_meta(cfg)
   saveRDS(meta, file.path(cfg$out, paste0(name, ".rds")))
   txt <- c(paste("Label:", meta$label), paste("Time:", meta$time),
+    paste("Commit:", meta$git_commit),
     paste("Profile:", cfg$profile), "", "Config:",
     utils::capture.output(utils::str(cfg[setdiff(names(cfg), "box")])), "",
     "Hardware:", utils::capture.output(utils::str(meta$hardware)), "",

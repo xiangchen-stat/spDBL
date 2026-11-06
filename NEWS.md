@@ -32,6 +32,13 @@
   the true parameter value) remain available. The recorded vignette example
   and the installed reproduction script pass `init = "midpoint"` and are
   unchanged.
+* The convergence diagnostics of `calibration_fit()` (`diagnostics[[j]]$summary`,
+  `max_rhat`, `min_n_eff`, and `summary()`) are now the rank-normalised split
+  Rhat and bulk effective sample size of Vehtari et al. (2021), from
+  `rstan::Rhat()` and `rstan::ess_bulk()`, instead of the classic diagnostics
+  of `rstan::summary()`; the tail effective sample size is added
+  (`min_ess_tail`). They flag poorly mixed chains more reliably, so some
+  fits that passed before now warn.
 * `calibration_fit()` requires `iter`. For inference use several chains and
   enough iterations (for example `chains = 4, iter = 2000`); `iter = 1` is a
   quick execution check.
