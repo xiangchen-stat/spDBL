@@ -8,7 +8,6 @@
 # $SPDBL_BENCH_CACHE and the E2 raw results committed in the repository.
 # Submit with:   bash benchmarks/hoffman2/submit.sh e2_ablation
 #SBATCH --job-name=spdbl-e2-ablation
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=24G

@@ -9,7 +9,6 @@
 # A job stopped by the 24 h limit is continued by submitting it again
 # (--resume keeps finished tasks).
 #SBATCH --job-name=spdbl-e2
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --exclusive
 #SBATCH --mem=0

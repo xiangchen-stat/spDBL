@@ -10,7 +10,6 @@
 #     bash benchmarks/hoffman2/submit.sh e3-collect
 # If a task is missing it runs here, so check the split jobs' logs first.
 #SBATCH --job-name=spdbl-e3-collect
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G

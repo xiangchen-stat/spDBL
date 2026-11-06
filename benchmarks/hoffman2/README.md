@@ -64,9 +64,12 @@ usual.
 
 ## Resource requests
 
-All jobs use the `campus` partition (24 h limit) and Intel Xeon Gold 6240
-nodes (36 cores, 192 GB), the most common node type there, so the three
-experiments are timed on the same hardware.
+All jobs ask for Intel Xeon Gold 6240 nodes (36 cores, 192 GB), so the
+experiments are timed on the same hardware. The scripts name no partition:
+Slurm routes a job by its account. The paper runs (to November 5, 2026) used
+the `campus` partition; since the group account has nodes of its own, its jobs
+run on `pi_shared` (other groups' idle nodes, 24 h limit), which has the same
+6240 nodes.
 
 | Job | Request | Why |
 |---|---|---|
@@ -98,7 +101,7 @@ all replicates, `--resume`) reuses every finished task and writes
 are written atomically, so the five jobs can create them at the same time.
 
 To use another node type, pass its feature (listed by
-`sinfo -p campus -o "%f"`), e.g.
+`sinfo -p pi_shared -o "%f"`), e.g.
 `SPDBL_SBATCH_ARGS="--constraint=intel-gold-6442Y" bash benchmarks/hoffman2/submit.sh e3`.
 The E3 task count follows the node's CPU count.
 

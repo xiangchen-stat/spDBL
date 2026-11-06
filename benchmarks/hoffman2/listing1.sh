@@ -9,7 +9,6 @@
 # dependencies come from the benchmark library.
 # Submit with:   bash benchmarks/hoffman2/submit.sh listing1
 #SBATCH --job-name=spdbl-listing1
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G

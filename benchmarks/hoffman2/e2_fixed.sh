@@ -15,7 +15,6 @@
 #     bash benchmarks/hoffman2/submit.sh e2_fixed                      # collect (--resume)
 # Then: Rscript benchmarks/e2_summary.R
 #SBATCH --job-name=spdbl-e2-fixed
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --exclusive
 #SBATCH --mem=0

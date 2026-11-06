@@ -8,7 +8,7 @@
 # the prepare job (bash benchmarks/hoffman2/submit.sh prepare), or by hand
 # from the repository root in an interactive session, not on a login node:
 #
-#   srun -p campus -t 4:00:00 -c 8 --mem=32G --pty bash -l
+#   srun -t 4:00:00 -c 8 --mem=32G --pty bash -l
 #   cd ~/spDBL && bash benchmarks/hoffman2/setup.sh
 #
 # Safe to rerun: installed packages are kept and spDBL is reinstalled.

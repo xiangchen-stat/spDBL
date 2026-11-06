@@ -26,7 +26,6 @@
 # tasks run side by side (default: CPUs - 2); SPDBL_E3_PROFILE selects the
 # profile (default paper; "mode" starts every chain at its posterior mode).
 #SBATCH --job-name=spdbl-e3
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --exclusive
 #SBATCH --mem=0

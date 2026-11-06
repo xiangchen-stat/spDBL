@@ -7,7 +7,6 @@
 # paper jobs, so the compiled Stan model and packages match them.
 # Submit with:   bash benchmarks/hoffman2/submit.sh prepare
 #SBATCH --job-name=spdbl-prepare
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G

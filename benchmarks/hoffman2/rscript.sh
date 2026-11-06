@@ -10,7 +10,6 @@
 #   SPDBL_SBATCH_ARGS="--cpus-per-task=8 --mem=32G --time=3:00:00" \
 #     bash benchmarks/hoffman2/submit.sh rscript
 #SBATCH --job-name=spdbl-rscript
-#SBATCH --partition=campus
 #SBATCH --constraint=intel-gold-6240
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
