@@ -386,6 +386,8 @@ gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
 #'
 #' @seealso \code{\link{gen_pde}}
 #' @examples
+#' if (requireNamespace("deSolve", quietly = TRUE) &&
+#'     requireNamespace("ReacTran", quietly = TRUE)) {
 #' set.seed(1)
 #' parms <- list(eta = c(0.3, 0.1, 0, 0, 0), Nx = 2, Ny = 2, N = 100,
 #'               Gridx = ReacTran::setup.grid.1D(x.up = 0, x.down = 2, N = 2),
@@ -394,9 +396,11 @@ gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
 #' d <- SIR(t = 0, y = y, parms = parms)[[1]]
 #' length(d)
 #' all.equal(sum(d), 0)  # without diffusion, S + I + R is conserved
+#' }
 #'
 #' @export
 SIR <- function(t, y, parms) {
+  .need_pde_packages()
   Nx <- parms$Nx
   Ny <- parms$Ny
   N <- parms$N
@@ -456,13 +460,17 @@ SIR <- function(t, y, parms) {
 #'
 #' @seealso \code{\link{SIR}}, \code{\link{update_y_eta}}
 #' @examples
+#' if (requireNamespace("deSolve", quietly = TRUE) &&
+#'     requireNamespace("ReacTran", quietly = TRUE)) {
 #' y <- gen_pde(eta = c(0.5, 0.1, 0.05, 0.05, 0.05), Nx = 4, Ny = 4, N = 100,
 #'              nT_ori = 3)
 #' dim(y)  # nT_ori x (Nx * Ny)
 #' round(rowSums(y), 3)  # total log(1 + I) grows over time
+#' }
 #'
 #' @export
 gen_pde <- function(eta, Nx, Ny, N, nT_ori){
+  .need_pde_packages()
   # NOTE: Nx is length of x-dimension, or rows, Ny is the length of the y-dimension, or columns.
   # set up parameters
   Nx <- Nx
@@ -1006,4 +1014,13 @@ cal_Bt_bt <- function(mut, invSigma, tau2t, zt_ut, I_Stilde){
   res$Bt <- Bt
   res$Btbt <- Btbt
   return(res)
+}
+
+# The demonstration simulator needs the suggested packages deSolve and ReacTran.
+.need_pde_packages <- function() {
+  pkgs <- c("deSolve", "ReacTran")
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing)) stop("Install ", paste(missing, collapse = ", "),
+    " to run the SIR simulator (SIR(), gen_pde())", call. = FALSE)
+  invisible(TRUE)
 }

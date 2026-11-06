@@ -128,25 +128,38 @@ not been published elsewhere. Changes by version are in [NEWS.md](NEWS.md).
 
 ## Benchmarks
 
-Scripts, Slurm job files and raw results are in [`benchmarks/`](benchmarks/).
-The paper-scale results are in `benchmarks/results/*/paper/`.
+Scripts, Slurm job files and raw results are in [`benchmarks/`](benchmarks/);
+[`benchmarks/README.md`](benchmarks/README.md) maps each result folder to the
+manuscript. The manuscript uses `results/e1/paper`, `results/e2/fixed`,
+`results/e3/mode`, `results/e3_diagnostic` and `results/listing1`.
 
-* **Emulator scaling (E1).** Training is closed form; with 10⁴ sites a fit
-  takes 1.5 to 15.5 minutes, depending on the episode window.
-* **Emulator accuracy (E2).** Predictions at untried inputs, made without
-  simulator runs, were compared with RobustGaSP (`ppgasp`) and a
-  principal-component GP on 50 held-out runs.
-  * spDBL's 95% intervals covered 95–96% of held-out values on every grid.
-  * Its RMSE was the lowest on the 20 × 20 grid and 4–6% above the best
-    otherwise.
-  * An ablation (`benchmarks/e2_ablation.R`) shows that this accuracy and
-    coverage come from the per-time-step Matérn design GP: alone, it predicts
-    as well, while `ppgasp` fitted per time step covers 78–92%.
+* **Emulator scaling (E1).** Training is closed form. With 10⁴ sites, fitting
+  the inverse-Wishart emulator with 10 posterior draws takes 1.4 minutes and
+  13 GiB with episode window 1, and 15.5 minutes and 62 GiB with window 5.
+* **Emulator accuracy (E2).** On a fixed 10 × 10 domain at three resolutions
+  (10², 20², 50²), with 10 designs of 40 training and 50 held-out runs per
+  grid, predictions at untried inputs made without simulator runs were
+  compared with RobustGaSP (`ppgasp`) and a principal-component GP.
+  * spDBL's 95% intervals covered 94.5–95.8% of held-out values on every grid;
+    the competitors' covered 82–88%, less in 119 of the 120 design-paired
+    comparisons.
+  * The principal-component GP's RMSE was lower by 0.014–0.026, within
+    design-to-design variation; `ppgasp`'s was higher on every grid,
+    significantly at 50².
+  * The ablations in the same run show that the coverage comes from the
+    per-time-step Matérn design GP: used alone it covers 94.6–94.9%,
+    while `ppgasp` fitted per time step covers 85.5–87.6%. The dynamic model
+    lowers the design GP's RMSE by 1–1.5%.
+  * Prediction is slower and uses more memory than the competitors': 43 s to
+    15 minutes for 50 runs, and 5.7 GiB against 0.6 GiB at 50².
 * **Calibration (E3).** In 30 replicate calibrations against
-  RobustCalibration:
-  * the posterior means matched in accuracy (relative RMSE 0.103 against
-    0.102–0.105);
-  * every method's 95% intervals under-covered (82% against 76–80%), and
-    chains started at random points often failed to mix for both packages;
+  RobustCalibration (S-GaSP and GaSP discrepancies), every method's chains
+  started at its own optimum:
+  * posterior means matched in accuracy (relative RMSE 0.100 against 0.107 and
+    0.118);
+  * spDBL's chains mixed better (median smallest bulk ESS 949 against 106 and
+    40; rank-normalised Rhat above 1.01 in 13 replicates against 30 and 30);
+  * every method's 95% intervals under-covered, spDBL's most (54% against
+    60% and 67%);
   * no simulator runs were needed, whereas the research code solves the PDE
     at every proposal.

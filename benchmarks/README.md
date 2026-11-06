@@ -11,6 +11,11 @@ calibration quality. The scripts live outside the package build
 | E2 emulator accuracy | `e2_accuracy.R` (+ `e2_worker.R`) | Held-out RMSE, MAE, 95% interval coverage and mean width, Gaussian CRPS, fit and predict time, and peak RSS for spDBL (3 settings), RobustGaSP `ppgasp` (default and tuned), and an mlegp PCA-GP. |
 | E3 calibration | `e3_calibration.R` (+ `e3_worker.R`) | Point error, 95% credible-interval coverage and width for eta, R-hat, bulk/tail ESS, ESS/s, divergences, and wall time for spDBL (`calibration_fit`, RStan) vs RobustCalibration (S-GaSP and GaSP discrepancy), over replicate field datasets with known truth. |
 | Check | `check_predictive.R` | Verifies the analytic spDBL predictive variance used in E2 against Monte Carlo built from the package's own samplers. |
+| E2 summary | `e2_summary.R` | Means over designs and design-paired t intervals against spDBL (`e2_summary.csv`, `e2_paired.csv`). |
+| E2 ablation | `e2_ablation.R` | (First E2 profile; profile `fixed` runs the same ablations as methods.) Where spDBL's simulator-free accuracy comes from: the design GP alone and `ppgasp` fitted per time step, against spDBL, on the same runs. |
+| E3 chain diagnostic | `e3_chain_diagnostic.R` | 24 NUTS chains from random starts on one replicate and emulator draw: where each chain starts and settles, and its log density (the local modes in the manuscript). |
+| E3 MLE check | `e3_rc_mle_check.R` | Where RobustCalibration stores its maximum-likelihood estimate and how long a multi-start fit takes (used to start its chains in profile `mode`). |
+| Listing 1 | `listing1.R`, `listing1_run.R` | The manuscript's Listing 1, run exactly as printed, with its output, run time, git commit and session. |
 
 Shared code is in `R/`: `config.R` (profiles), `common.R` (CLI parsing,
 provenance, per-process peak memory, scoring rules), `sir_data.R` (designs
@@ -61,13 +66,16 @@ earlier result reused, when its result file holds a successful run of the
 same task under the same settings (`jobs`, `timeout_sec` and the output and
 cache paths may differ). Anything else is rerun.
 
-The paper profile, in the order used for the manuscript (E1 needs an
-otherwise idle machine):
+The runs behind the manuscript (E1 needs an otherwise idle machine; on
+Hoffman2 use the job scripts in `hoffman2/`):
 
 ```sh
 Rscript benchmarks/e1_scaling.R     --profile=paper
-Rscript benchmarks/e2_accuracy.R    --profile=paper
-Rscript benchmarks/e3_calibration.R --profile=paper --jobs=14
+Rscript benchmarks/e2_accuracy.R    --profile=fixed
+Rscript benchmarks/e2_summary.R     --profile=fixed
+Rscript benchmarks/e2_ablation.R
+Rscript benchmarks/e3_calibration.R --profile=mode --jobs=14
+Rscript benchmarks/listing1_run.R
 ```
 
 Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
@@ -76,31 +84,62 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
   parameter), including `status`, `exit_status`, timings, `peak_rss_mb` and
   the run `label`.
 * `e3_summary.csv`: per-method aggregates for E3.
-* `meta.rds` / `meta.txt`: the configuration, `sessionInfo()`, `Sys.info()`,
-  BLAS/LAPACK, package versions, library paths, thread settings, CPU, memory
-  and load.
+* `meta.rds` / `meta.txt`: the configuration, the git commit of the
+  benchmarks (with `-dirty` if tracked files differed; recorded from
+  November 5, 2026), `sessionInfo()`, `Sys.info()`, BLAS/LAPACK, package
+  versions, library paths, thread settings, CPU, memory and load.
 * `raw/<task>.rds`: the worker result with its own provenance (the same
   fields, recorded inside the worker process) and the task definition.
 * `logs/<task>.log`: worker output and the `/usr/bin/time` report.
 * `tasks/<task>.rds`: the exact task given to the worker.
 
-`results/e2/fixed/` is the E2 run behind the manuscript's E2 results
-(profile `fixed`): the 10^2, 20^2 and 50^2 grids discretise the same 10 x 10
+### Which results the manuscript uses
+
+| Folder | Profile | Used for |
+|---|---|---|
+| `results/e1/paper/` | `paper` | E1, Figure 2(a), Table A1 |
+| `results/e2/fixed/` | `fixed` | E2, Figure 2(b, c), Tables A2 and A3 |
+| `results/e3/mode/` | `mode` | E3, Figure 2(d), Table A4 |
+| `results/e3_diagnostic/rep011_draw01_c24/` | `paper` | the local modes in E3 |
+| `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
+
+Superseded runs, kept for the record and cited in the manuscript's appendix
+where they bear on a result:
+
+* `results/e2/paper/`: the first E2 profile, with one design per grid and
+  unit grid cells, so that, as in E1, larger grids were larger domains with
+  different epidemics, which confounds resolution with the problem. There
+  spDBL's intervals also covered 95.0-95.6% on every grid, but at 50² tuned
+  `ppgasp` had lower RMSE than spDBL (0.66 against 0.70) and similar coverage
+  (95.4% against 95.0%). The fixed-domain profile replaced it and was set
+  before any of its results were seen.
+* `results/e3/paper/`: E3 with every chain of both packages started at a
+  uniform draw in the box (`init = "random"`). Chains settled in local modes,
+  so the pooled draws were unreliable (spDBL Rhat above 1.1 in 26 of 30
+  replicates); profile `mode` replaced it.
+* `results/e2_ablation/paper/`: `e2_ablation.R` on the first E2 profile's
+  data; profile `fixed` includes the same ablations (`designgp_only`,
+  `ppgasp_per_time`) as methods.
+* `results/e2/paper-sqexp-shared/`, `results/e3/paper-sqexp-shared/`: the
+  paper-profile runs with the design GP used before the Matern 5/2 change.
+
+`results/e2/fixed/` (profile `fixed`): the 10^2, 20^2 and 50^2 grids discretise the same 10 x 10
 physical domain (`sir_pde_domain()` in `R/sir_data.R`, identical to
 `gen_pde()` at 10^2), 10 independent training/test designs per grid, with the
 design-GP and per-time `ppgasp` ablations. `e2_summary.R` writes the means
 over designs and paired t intervals against spDBL (`e2_summary.csv`,
 `e2_paired.csv`); run times are from design 1, one task per node.
 
-The committed `results/*/paper/` folders are the runs behind the manuscript:
-E1 and E2 one task per Hoffman2 node, E3 split over five nodes with 18
-one-core tasks each (Xeon Gold 6240, R 4.6.1, oneMKL, spDBL 1.2.0).
-`results/e2/paper-sqexp-shared/` and `results/e3/paper-sqexp-shared/` are the
-same E2 and E3 runs with the design GP used before the Matern 5/2 change
-(`design_kernel = "sqexp", design_groups = "shared"`); the E3 one ran 34 tasks
+All runs used Hoffman2 Xeon Gold 6240 nodes with R 4.6.1 and oneMKL: E1 and E2
+one task per node, E3 split over five nodes with 18 one-core tasks each. The
+spDBL version is 1.2.0 throughout, but the runs come from development
+snapshots of November 3-5, 2026, before the release; from November 5 the
+metadata records the commit. The sqexp-shared runs used
+`design_kernel = "sqexp", design_groups = "shared"`; the E3 one ran 34 tasks
 on one node, so its timings are not comparable, and its RobustCalibration
-rows are identical to those in `results/e3/paper/`. Before committing, the user name and home directory were replaced
-by `<user>` and `~`.
+rows are identical to those in `results/e3/paper/`. Before committing, the
+user name and home and scratch directories were replaced by `<user>`, `~`
+and `$TMPDIR`.
 
 Simulated data are cached (`SPDBL_BENCH_CACHE`, default `benchmarks/cache/`)
 and keyed on grid, design size, number of times and seed, so all methods and
@@ -110,19 +149,21 @@ experiments see identical runs.
 
 Defined in `R/config.R`.
 
-| | validation | paper |
-|---|---|---|
-| E1 grids | 10², 20², 30², 40², 50² | 10², 20², 30², 40², 50², 70², 100² |
-| E1 `episode_window` | 1, 2, 5 | 1, 2, 5 |
-| E1 design | 40 training + 10 held-out runs, T = 26 | same |
-| E2 grids | 10², 20² | 10², 20², 50² |
-| E2 design | 40 training + 10 held-out runs, T = 26 | 40 training + 50 held-out runs, T = 26 |
-| E2 spDBL draws (`nsam`) | 20 | 20 |
-| E3 replicates | 3 | 30 |
-| E3 spDBL | 4 emulator draws x 2 chains x 500 iter (250 warmup) | 20 draws x 4 chains x 2000 iter (1000 warmup) |
-| E3 RobustCalibration | S = 2000, S_0 = 500, 2 chains | S = 10000, S_0 = 2000 (package defaults), 4 chains |
-| E3 cores per task | 1 | 1 |
-| parallel workers (`jobs`) | E1: 1, E2: 2, E3: 3 | E1, E2: 1; E3: `--jobs=14` |
+| | validation | paper | fixed (E2) / mode (E3) |
+|---|---|---|---|
+| E1 grids | 10², 20², 30², 40², 50² | 10², 20², 30², 40², 50², 70², 100² | -- |
+| E1 `episode_window` | 1, 2, 5 | 1, 2, 5 | -- |
+| E1 design | 40 training + 10 held-out runs, T = 26 | same | -- |
+| E2 grids | 10², 20² | 10², 20², 50², unit cells | 10², 20², 50² on one 10 x 10 domain |
+| E2 design | 40 training + 10 held-out runs, T = 26 | 40 training + 50 held-out runs, T = 26, one design | same, 10 designs per grid |
+| E2 spDBL draws (`nsam`) | 20 | 20 | 20 |
+| E2 ablations | -- | -- | `designgp_only`, `ppgasp_per_time` |
+| E3 replicates | 3 | 30 | 30 |
+| E3 spDBL | 4 emulator draws x 2 chains x 500 iter (250 warmup) | 20 draws x 4 chains x 2000 iter (1000 warmup) | same |
+| E3 starts | centre of the box | uniform random (`init = "random"`) | spDBL `init = "mode"` (best of 20 L-BFGS optima); RobustCalibration its 10-start MLE, jittered |
+| E3 RobustCalibration | S = 2000, S_0 = 500, 2 chains | S = 10000, S_0 = 2000 (package defaults), 4 chains | S = 20000, S_0 = 5000, 4 chains |
+| E3 cores per task | 1 | 1 | 1 |
+| parallel workers (`jobs`) | E1: 1, E2: 2, E3: 3 | E1, E2: 1; E3: `--jobs=14` | E2: 1; E3: 18 per node |
 
 E2 stops at 50² in the paper profile because spDBL keeps every coefficient
 draw: with 20 draws, peak memory at 100² is projected at about 120 GB. E3
@@ -135,7 +176,10 @@ from a laptop shared with other jobs and from reduced MCMC lengths.
 ## Data
 
 * **E1/E2.** SIR reaction-diffusion fields from `spDBL::gen_pde()` (response
-  `log(I + 1)`, population 10,000, T = 26 time points including t = 0).
+  `log(I + 1)`, population 10,000, T = 26 time points including t = 0); in
+  profile `fixed`, from `sir_pde_domain()` (`R/sir_data.R`), which
+  discretises one 10 x 10 domain at every grid size and equals `gen_pde()`
+  at 10².
   Inputs: (eta1, eta2, alpha2) in [2, 4] x [0.2, 0.4] x [0, 0.2] with
   alpha1 = alpha3 = 0 (the `dt_calibration` box). Training and held-out inputs
   are independent random Latin hypercubes (seeds `seed` and `seed + 1`), the
@@ -245,22 +289,31 @@ from a laptop shared with other jobs and from reduced MCMC lengths.
   explicitly: with the default `NULL`, `rcalibration()` stores
   `1:k` on the object but passes `NULL` to the sampler, and
   `predict.ppgasp()` then fails ("argument is of length zero").
-  (v) Random-walk Metropolis vs NUTS: compare ESS/s, not iterations.
-  (vi) Both packages follow the profile's `init`. `"midpoint"`: every chain
-  starts at the centre of the box (the default of both packages).
-  `"random"` (paper profile): every chain starts at a uniform draw in the
-  box, through `calibration_fit(init = "random")` for spDBL and
-  `rcalibration(initial_values = )` for RobustCalibration. Some replicates
-  have separated posterior modes (in the paper settings' replicate 1,
-  chains settle at eta2 near 0.34 or near 0.21 and never cross); dispersed
-  starts let R-hat detect this, while chains started at the centre tend to
-  agree on one mode. Within a mode, chains mix well.
+  (v) Random-walk Metropolis vs NUTS: compare ESS/s, not iterations; ESS/s
+  for RobustCalibration comes from chains that had not converged
+  (Rhat above 1.01 in every replicate of profile `mode`).
+  (vi) Starts follow the profile's `init`. `"midpoint"` (validation): every
+  chain at the centre of the box. `"random"` (profile `paper`): every chain
+  at a uniform draw in the box, through `calibration_fit(init = "random")`
+  and `rcalibration(initial_values = )`; chains then settled in local modes
+  (`e3_chain_diagnostic.R`: six modes in one replicate, 36 to 586
+  log-density units below the main one, three on the boundary of the box).
+  `"mode"` (profile `mode`, the manuscript): spDBL starts every chain of a
+  conditional fit, slightly jittered, at the best of 20 L-BFGS optima
+  (`calibration_fit()`'s default); RobustCalibration starts at its own
+  10-start maximum-likelihood estimate, jittered. Because a fit's chains
+  start near one optimum, Rhat then checks mixing within that mode; the
+  optima of all starts are recorded (`diagnostics[[j]]$mode_search`).
+  (vii) ESS for spDBL is summed over the 20 conditional fits, each keeping
+  all 4,000 post-warmup draws; `calibration_fit()` keeps 200 per emulator
+  draw by default.
 * **Validation runs share the machine** with other jobs and use up to three
   parallel workers; timings are indicative only.
 
 ## Resource planning for the paper profile
 
-Rough log-log extrapolations from the validation runs (Apple M3 Max,
+Written before the paper runs, and kept as a record. Rough log-log
+extrapolations from the validation runs (Apple M3 Max,
 reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
 
 * **E1, 100², N = 40, T = 26, nsam = 10.** `emulator_learn()` about 4 min
@@ -284,12 +337,14 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
 
 ## Workarounds for spDBL (no package code is modified)
 
-* `emulator_predict()` returns means (or coefficient-conditioned mean draws)
-  but no predictive variance or intervals. `R/spdbl_predictive.R` derives
+* Up to spDBL 1.1.1, `emulator_predict()` returned means (or
+  coefficient-conditioned mean draws) only. `R/spdbl_predictive.R` derived
   the marginal predictive from the stored filter/smoother output and
-  `calibration_prepare()` objects; `check_predictive.R` confirms it against
+  `calibration_prepare()` objects; `check_predictive.R` confirmed it against
   Monte Carlo from the package's own samplers (variance ratio 1.000, 5-95%
-  range 0.987-1.016 with 400 draws).
+  range 0.987-1.016 with 400 draws). Since 1.2.0 the package's
+  `predict(..., interval = "prediction")` gives the same distributions, and
+  the harness uses it.
 * In spDBL 1.1.1 the default AR design for held-out runs drew random numbers
   from the global RNG and used Y_1 (t = 1) and Y_3 (t = 2); the harness builds
   the rows once with a fixed seed. Since 1.2.0 the designs are deterministic
@@ -303,13 +358,15 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
 
 ## TODO (not yet implemented)
 
-* Previous implementation baseline: the research code of Banerjee et al.
-  (2025) (Gibbs + Metropolis with a PDE solve per iteration; the paper
-  reports 59 min for the 6 x 6 SIR).
+* Previous implementation: the research code of Banerjee et al. (2025)
+  (Gibbs + Metropolis with a PDE solve per iteration) is cited, not rerun;
+  that paper reports 59 min for the 6 x 6 SIR on an Apple M3 Max.
 * SEPIA (Python) calibration baseline.
 * duqling `pollutant` space-time function as a neutral E2 problem.
-* E4 ablations: marginal vs joint emulator sampling, marginal vs explicit
-  discrepancy Stan program, number of emulator draws M.
+* E4 ablations of E3's under-coverage: marginal vs joint emulator sampling,
+  design uncertainty on and off, number of emulator draws M, and design rows
+  from the simulator (oracle); also marginal vs explicit discrepancy Stan
+  program.
 * 200² grid via out-of-core filtering (`FF_bigdata_R`): no wrapper or
   backward pass exists yet, so E1 stops at what fits in memory.
 * An E3 variant with a stationary-GP discrepancy generator, where

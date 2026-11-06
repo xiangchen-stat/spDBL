@@ -14,9 +14,10 @@
   hyperparameters for each time step, instead of one squared-exponential
   kernel for all times. With 40 training and 50 held-out SIR runs on
   10 x 10, 20 x 20 and 50 x 50 grids, the RMSE of PDE-free predictions fell
-  by 4%, 9% and 5% in the E2 benchmark and by 27%, 13% and 9% on a second,
-  independent simulation; in E2, 95% intervals covered 95-96% of held-out
-  values (93-95% before). Fitting one GP per time step adds about 8 s to
+  by 4.0%, 9.5% and 5.2% in the first E2 benchmark profile (unit grid cells,
+  one design; `benchmarks/results/e2/paper`) and by 27%, 13% and 9% on a
+  second, independent simulation; in that profile, 95% intervals covered
+  95-96% of held-out values (93-95% before). Fitting one GP per time step adds about 8 s to
   `calibration_prepare()` for 26 time steps. New arguments `design_kernel` and
   `design_groups` select the design GP; `design_kernel = "sqexp",
   design_groups = "shared"` restores the previous one. Both Stan programs
@@ -138,7 +139,9 @@
 * Fewer hard dependencies. ggplot2, ggpubr and scales move from Imports to
   Suggests: they are needed only by the plotting helpers (`quick_heat()`,
   `quick_save()`, `plot_panel_heatmap_9()` and its variants), which now say
-  which package to install. magrittr, invgamma, LaplacesDemon and matrixcalc
+  which package to install. deSolve and ReacTran also move to Suggests: only
+  the demonstration SIR simulator (`SIR()`, `gen_pde()`) uses them.
+  magrittr, invgamma, LaplacesDemon and matrixcalc
   are no longer used; their inverse-gamma draws, traces, log determinants and
   positive-definiteness check are computed in base R with the same
   definitions, so results are unchanged.
@@ -154,8 +157,9 @@
   calibration back end against independent calculations. The RStan back-end
   logic is also tested with a fake rstan, so it runs without compiling Stan.
   Suggests now requires testthat >= 3.3.2.
-* Every hand-written source file now carries an MIT license header
-  (`SPDX-License-Identifier: MIT`), checked in CI.
+* Every hand-written source file, including the vignettes, now carries an MIT
+  license header (`SPDX-License-Identifier: MIT`), checked in CI.
+* `citation("spDBL")` also cites the software itself.
 * GitHub Actions: `R CMD check` on macOS, Windows, and Ubuntu (R devel,
   release, previous release); test coverage including the RStan integration
   tests; license-header check; pkgdown website.

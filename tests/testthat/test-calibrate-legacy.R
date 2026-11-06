@@ -132,6 +132,8 @@ sir_parms <- function(eta, Nx = 4, Ny = 4, N = 100) {
 }
 
 test_that("SIR reduces to the reaction terms without diffusion", {
+  skip_if_not_installed("deSolve")
+  skip_if_not_installed("ReacTran")
   set.seed(95)
   S <- runif(16, 50, 100); I <- runif(16, 0, 10); R <- runif(16, 0, 5)
   d <- SIR(0, c(S, I, R), sir_parms(c(0.3, 0.1, 0, 0, 0)))[[1]]
@@ -143,6 +145,8 @@ test_that("SIR reduces to the reaction terms without diffusion", {
 })
 
 test_that("SIR diffusion leaves uniform interiors unchanged and drains boundaries", {
+  skip_if_not_installed("deSolve")
+  skip_if_not_installed("ReacTran")
   y <- c(rep(5, 16), rep(0, 32))
   d <- SIR(0, y, sir_parms(c(0, 0, 0.3, 0.2, 0.1)))[[1]]
   dS <- matrix(d[1:16], 4, 4)
@@ -152,6 +156,8 @@ test_that("SIR diffusion leaves uniform interiors unchanged and drains boundarie
 })
 
 test_that("gen_pde returns log infections on the grid", {
+  skip_if_not_installed("deSolve")
+  skip_if_not_installed("ReacTran")
   frozen <- gen_pde(c(0, 0, 0, 0, 0), Nx = 4, Ny = 4, N = 100, nT_ori = 3)
   expect_identical(dim(frozen), c(3L, 16L))
   expect_true(all(is.finite(frozen)) && all(frozen >= 0))
@@ -164,6 +170,8 @@ test_that("gen_pde returns log infections on the grid", {
 })
 
 test_that("gen_pde sizes the solver work space by the grid", {
+  skip_if_not_installed("deSolve")
+  skip_if_not_installed("ReacTran")
   requested <- numeric()
   local_mocked_bindings(ode.2D = function(y, ..., lrw) {
     requested <<- c(requested, lrw)

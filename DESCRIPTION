@@ -5,10 +5,16 @@ Authors@R: c(
     person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
     person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))
   )
-Description: Provides tools for Bayesian learning of spatiotemporal dynamical mechanistic models.
-    Includes methods for parameter estimation, simulation, and inference using hierarchical and
-    state-space modeling approaches, following Banerjee, Chen, Frankenburg and Zhou (2025)
-    <https://jmlr.org/papers/v26/22-0896.html>.
+Description: Emulates the gridded output of spatiotemporal mechanistic
+    simulators with a matrix-variate dynamic linear model whose posterior is
+    available in closed form, processing large grids as sequences of spatial
+    blocks, and predicts the output at untried inputs. Calibrates simulator
+    parameters to noisy field data without further simulator runs: a design
+    Gaussian process supplies the emulator's autoregressive inputs, and 'Stan'
+    (through the suggested package 'rstan') samples the parameters
+    conditionally on emulator posterior draws, with the emulator field and a
+    dynamic spatial discrepancy integrated out. Follows Banerjee, Chen,
+    Frankenburg and Zhou (2025) <https://jmlr.org/papers/v26/22-0896.html>.
 License: MIT + file LICENSE
 URL: https://xiangchen-stat.github.io/spDBL/, https://github.com/xiangchen-stat/spDBL
 BugReports: https://github.com/xiangchen-stat/spDBL/issues
@@ -22,8 +28,6 @@ LinkingTo:
 Imports:
     Rcpp,
     matrixsampling,
-    deSolve,
-    ReacTran,
     mniw,
     utils,
     tools,
@@ -33,6 +37,8 @@ Imports:
     readr,
     rlang (>= 1.0.0)
 Suggests:
+    deSolve,
+    ReacTran,
     ggplot2,
     ggpubr,
     scales,

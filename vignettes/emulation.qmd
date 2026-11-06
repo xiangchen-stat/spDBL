@@ -1,4 +1,6 @@
 ---
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
 title: "PDE Emulation with FFBS"
 # Read by standard R Markdown / R package builders
 # Read by Quarto

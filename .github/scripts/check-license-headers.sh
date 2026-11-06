@@ -17,7 +17,7 @@ while IFS= read -r f; do
     missing=1
   fi
 done < <(find R src inst/stan inst/examples tests data-raw benchmarks vignettes \
-           -type f \( -name '*.R' -o -name '*.cpp' -o -name '*.h' -o -name '*.stan' -o -name '*.sh' \) \
+           -type f \( -name '*.R' -o -name '*.cpp' -o -name '*.h' -o -name '*.stan' -o -name '*.sh' -o -name '*.Rmd' -o -name '*.qmd' \) \
            2>/dev/null | sort)
 
 if [ "$missing" -ne 0 ]; then
