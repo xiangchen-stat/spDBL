@@ -33,15 +33,40 @@ summarise_parameter <- function(draws, truth, lower, upper) {
     error = mean(draws) - truth, rel_error = (mean(draws) - truth) / range)
 }
 
+# Field data for the abl_self ablation: the replicate's discrepancy and noise
+# with the simulator output y replaced by a draw from the emulator's own model
+# at the true parameters (one emulator draw chosen at random; at each time
+# Gaussian with the conditional fit's mean and covariance, independently
+# across times). The fixed initial field is kept.
+self_consistent_field <- function(rep, cal, seed) {
+  set.seed(seed + 500000L)
+  m <- sample.int(cal$M, 1L)
+  pred <- spDBL:::predict_calibration(rep$eta, m, cal)
+  n_t <- nrow(pred$mu)
+  times <- seq(nrow(rep$y) - n_t + 1L, nrow(rep$y))
+  y <- rep$y
+  for (k in seq_len(n_t)) {
+    if (all(abs(rep$y[times[k], ] - pred$mu[k, ]) < 1e-10)) next
+    C <- spDBL:::.cal_time_covariance(pred, k)
+    y[times[k], ] <- pred$mu[k, ] + drop(crossprod(chol(C), stats::rnorm(ncol(C))))
+  }
+  rep$z - rep$y + y
+}
+
 run_spdbl <- function(d, rep, cfg, task) {
   suppressPackageStartupMessages(library(spDBL))
   active <- which(d$upper > d$lower)
   em <- timed(emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
     covariance = "sigma2R", episode_window = cfg$episode_window,
     nsam = cfg$n_draws, seed = cfg$seed))
-  prep <- timed(calibration_prepare(em$value, d$lower, d$upper))
+  prep <- timed(calibration_prepare(em$value, d$lower, d$upper,
+    sampling = cfg$sampling,
+    design_uncertainty = if (is.null(cfg$design_uncertainty)) TRUE else
+      isTRUE(cfg$design_uncertainty)))
+  z <- if (identical(cfg$field_source, "emulator"))
+    self_consistent_field(rep, prep$value, task$seed) else rep$z
   keep <- cfg$chains * (cfg$iter - cfg$warmup)
-  fit <- timed(calibration_fit(prep$value, rep$z, d$U,
+  fit <- timed(calibration_fit(prep$value, z, d$U,
     chains = cfg$chains, iter = cfg$iter, warmup = cfg$warmup,
     draws_per_emulator = keep, n0 = d$prior$n0, d0 = d$prior$d0,
     seed = task$seed, cores = cfg$cores, refresh = 0L, init = cfg$init,
@@ -82,9 +107,11 @@ run_spdbl <- function(d, rep, cfg, task) {
   # per wall second and per CPU second (rstan's chain processes included).
   out$ess_per_s <- min(out$ess_bulk_total) / fit$elapsed
   out$ess_per_cpu_s <- min(out$ess_bulk_total) / fit$cpu
-  out$settings <- sprintf("M=%d chains=%d iter=%d warmup=%d cores=%d init=%s",
+  out$settings <- sprintf("M=%d chains=%d iter=%d warmup=%d cores=%d init=%s sampling=%s design_uncertainty=%s field=%s",
     cfg$n_draws, cfg$chains, cfg$iter, cfg$warmup, cfg$cores,
-    paste(cfg$init, collapse = ","))
+    paste(cfg$init, collapse = ","), prep$value$sampling_method,
+    prep$value$design_uncertainty,
+    if (is.null(cfg$field_source)) "simulator" else cfg$field_source)
   out
 }
 

@@ -108,3 +108,28 @@ bench_profiles <- list(
       rc_S = 20000, rc_S0 = 5000, rc_chains = 4, field_n0 = 30, field_d0 = 2,
       inner = 0.8, seed = 20261101, timeout_sec = 24 * 3600, jobs = 1,
       threads = 1)))
+
+# E3 ablations of the under-coverage (results/e3/abl_*): the mode profile with
+# one change each, spDBL only. Run them on replicates 1-10 (--reps=1,...,10)
+# of the same 30-replicate data, so they pair with the mode run's replicates
+# and task seeds.
+#   abl_joint  emulator coefficient paths sampled jointly (sampling = "joint")
+#              rather than per-episode marginals
+#   abl_nodu   design-GP uncertainty not propagated (design_uncertainty = FALSE)
+#   abl_m60    60 emulator draws instead of 20 (4 cores per task)
+#   abl_self   field data with y drawn from the emulator's own model at the
+#              true parameters (one random emulator draw, Gaussian across
+#              sites with the design-GP term, independent across times), the
+#              same u and noise: spDBL is then exactly specified, so this
+#              checks the inference rather than the emulator
+local({
+  base <- bench_profiles$e3$mode
+  base$methods <- "spdbl"
+  abl <- function(label, ...) utils::modifyList(base, c(list(label = label), list(...)))
+  bench_profiles$e3$abl_joint <<- abl("ablation: joint coefficient paths", sampling = "joint")
+  bench_profiles$e3$abl_nodu <<- abl("ablation: no design-GP uncertainty",
+                                      design_uncertainty = FALSE)
+  bench_profiles$e3$abl_m60 <<- abl("ablation: 60 emulator draws", n_draws = 60, cores = 4)
+  bench_profiles$e3$abl_self <<- abl("ablation: field data from the emulator's model",
+                                      field_source = "emulator")
+})
