@@ -17,10 +17,13 @@
 #' @importFrom stats dist median quantile rnorm
 #' @importFrom utils write.csv
 #' @importFrom readr read_csv
-#' @importFrom ggplot2 aes element_text geom_raster ggplot ggsave labs
-#'   scale_fill_gradientn theme unit
-#' @importFrom ggpubr ggarrange
-#' @importFrom magrittr %>%
 #' @importFrom matrixsampling rinvwishart
 #' @importFrom rlang .data
 NULL
+
+# Version of spDBL that built an object, stored with fitted objects so saved
+# results record the code that produced them.
+.spdbl_version <- function() {
+  tryCatch(as.character(utils::packageVersion("spDBL")),
+           error = function(e) NA_character_)
+}

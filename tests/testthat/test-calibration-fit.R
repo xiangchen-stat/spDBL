@@ -315,6 +315,8 @@ test_that("chains start at the midpoint, at random, or at given values", {
     warmup = 2L, draws_per_emulator = 2L, refresh = 0L,
     compiled_model = "fake-model", seed = 5L))
   expect_identical(default$settings$init, "mode")
+  expect_identical(default$settings$spDBL_version,
+                   as.character(utils::packageVersion("spDBL")))
   expect_false(is.null(default$diagnostics[[1]]$mode_search))
   expect_error(fit_with(values[1]), "one value per parameter")
   expect_error(fit_with(c(lower[1], values[2])), "strictly inside")

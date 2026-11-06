@@ -216,7 +216,7 @@ gen_calibrate_data <- function(ycal_mat, para_gen_cal, U_gen){
     y_t <- ycal_mat[t,]
     alpha <- para_gen_cal$b^t * para_gen_cal$n0
     beta <- para_gen_cal$b^t * para_gen_cal$d0
-    tau2_t <- LaplacesDemon::rinvgamma(n = 1, shape = alpha, scale = beta)
+    tau2_t <- 1 / stats::rgamma(n = 1, shape = alpha, rate = beta)
     tau2 <- c(tau2, tau2_t)
     e_u <- mniw::rmNorm(n = 1, mu = rep(0, s_cal), Sigma = tau2_t * U_gen)
     if (t == 1) {
@@ -275,7 +275,7 @@ gen_calibrate_data_uncorr <- function(ycal_mat, para_gen_cal, U_gen){
     y_t <- ycal_mat[t,]
     alpha <- para_gen_cal$b^t * para_gen_cal$n0
     beta <- para_gen_cal$b^t * para_gen_cal$d0
-    tau2_t <- LaplacesDemon::rinvgamma(n = 1, shape = alpha, scale = beta)
+    tau2_t <- 1 / stats::rgamma(n = 1, shape = alpha, rate = beta)
     tau2 <- c(tau2, tau2_t)
     e_u <- rnorm(n = s_cal, mean = 0, sd = sqrt(tau2_t * U_gen[1,1]))
     if (t == 1) {
@@ -332,7 +332,7 @@ gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
   u <- array(dim = c(nT_cal, s_cal))
   zero_s <- rep(0, s_cal)
   # t = 0
-  tau2_t <- LaplacesDemon::rinvgamma(n = 1, shape = n0, scale = d0)
+  tau2_t <- 1 / stats::rgamma(n = 1, shape = n0, rate = d0)
   tau2_0 <- tau2_t
   u_t <- mniw::rmNorm(n = 1, mu = m0, Sigma = tau2_t * M0)
   u0 <- u_t
@@ -340,7 +340,7 @@ gen_prior_u_tau2 <- function(n0, d0, b, m0, M0, U, nT_cal){
   for (t in 1:nT_cal) {
     alpha <- b^t * n0
     beta <- b^t * d0
-    tau2_t <- LaplacesDemon::rinvgamma(n = 1, shape = alpha, scale = beta)
+    tau2_t <- 1 / stats::rgamma(n = 1, shape = alpha, rate = beta)
     tau2 <- c(tau2, tau2_t)
     e_u <- mniw::rmNorm(n = 1, mu = zero_s, Sigma = tau2_t * U)
     u_t <- u_t + e_u

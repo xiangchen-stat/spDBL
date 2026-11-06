@@ -576,7 +576,8 @@ calibration_prepare <- function(emulator, lower, upper, n_draws = NULL,
     attr(emulator$res_ffbs, "joint_trajectories"))
   if (is.null(sampling)) sampling <- existing_method
   sampling <- match.arg(sampling, c("marginal", "joint"))
-  if (is.null(n_draws) && sampling == existing_method) {
+  reuse_draws <- is.null(n_draws) && sampling == existing_method
+  if (reuse_draws) {
     posterior <- list(theta = emulator$res_ffbs[seq_len(s$nT)],
       sigma2 = emulator$res_ffbs$Sigma, joint_trajectories = sampling == "joint",
       sampling_method = sampling)
@@ -596,6 +597,10 @@ calibration_prepare <- function(emulator, lower, upper, n_draws = NULL,
   out$parameter_names <- if (is.null(parameter_names))
     paste0("eta", seq_len(ncol(out$input))) else parameter_names
   out$AR_choice <- s$AR_choice
+  # The seed behind the emulator draws: the emulator's own when they are
+  # reused, this call's when they are drawn afresh.
+  out$seed <- if (reuse_draws) s$seed else seed
+  out$spDBL_version <- .spdbl_version()
   out$time <- seq_len(out$T) - 1L
   out$grid <- s$ind_sp
   out

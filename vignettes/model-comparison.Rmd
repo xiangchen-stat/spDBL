@@ -175,7 +175,7 @@ profile <- do.call(rbind, lapply(seq_len(p), function(k) {
 knitr::kable(profile, digits = 3)
 ```
 
-```{r comparison-profile, fig.width=8, fig.height=7}
+```{r comparison-profile, fig.width=8, fig.height=7, eval=requireNamespace("ggplot2", quietly = TRUE)}
 metrics <- c("WAIC", "lppd", "p_waic")
 labels <- c("WAIC (lower is better)", "lppd", "p_WAIC")
 long <- do.call(rbind, lapply(seq_along(metrics), function(j)

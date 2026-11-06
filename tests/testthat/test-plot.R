@@ -5,6 +5,11 @@ skip_if_no_png <- function() {
   skip_if_not(isTRUE(capabilities("png")), "No PNG device available")
 }
 
+# The heatmap helpers need the suggested plotting packages.
+skip_if_no_plot_packages <- function() {
+  for (pkg in c("ggplot2", "ggpubr", "scales")) skip_if_not_installed(pkg)
+}
+
 test_that("error-bar summaries use row-wise quantiles", {
   set.seed(81)
   X <- matrix(rnorm(3 * 200), 3, 200)
@@ -21,6 +26,7 @@ test_that("error-bar summaries use row-wise quantiles", {
 })
 
 test_that("quick_heat maps data to a raster and quick_save writes into path_fig", {
+  skip_if_no_plot_packages()
   dt <- data.frame(x = rep(1:3, 2), y = rep(1:2, each = 3), fill = c(0, 1, 2, 3, 4, 9))
   p <- quick_heat(dt, max_y = 5)
   expect_s3_class(p, "ggplot")
@@ -43,6 +49,7 @@ nine_panel_data <- function() {
 }
 
 test_that("emulation panel helper returns one heatmap per time stamp", {
+  skip_if_no_plot_packages()
   dat <- nine_panel_data()
   plots <- plot_panel_heatmap_9(dat, input_num = 2, tstamp = 1:9, max_y = 1,
                                 Nx = 3, Ny = 2, nT = 9, savei = FALSE)
@@ -60,6 +67,7 @@ test_that("emulation panel helper returns one heatmap per time stamp", {
 })
 
 test_that("calibration panel helpers plot rows of a time-by-location matrix", {
+  skip_if_no_plot_packages()
   set.seed(83)
   dat <- matrix(runif(9 * 6), 9, 6)
   loc <- data.frame(row = rep(1:2, times = 3), col = rep(1:3, each = 2))

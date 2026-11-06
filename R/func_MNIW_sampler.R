@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
 # SPDX-License-Identifier: MIT
 
+# Positive definiteness as matrixcalc::is.positive.definite() decides it:
+# eigenvalues within tol of zero count as zero.
+.is_positive_definite <- function(x, tol = 1e-8) {
+  ev <- eigen(x, only.values = TRUE)$values
+  ev[abs(ev) < tol] <- 0
+  !any(ev <= 0)
+}
+
 #' Check and repair a matrix to be positive definite and symmetric
 #'
 #' Verifies that a matrix is approximately symmetric (within a relative and
@@ -31,7 +39,7 @@ check_pds <- function(C, eps = 10^(-5), per = 0.05) {
   condition <- ((norm_f / mean(C)) < per) || (norm_f < eps)
   if (condition) {
     C <- (C + t(C))/2
-    if (!matrixcalc::is.positive.definite(C)) {
+    if (!.is_positive_definite(C)) {
       C <- C + 3 * 10^(-4) * diag(dim(C)[1])
       warning("Matrix is not positive definite.")
     }
@@ -63,7 +71,7 @@ check_pds <- function(C, eps = 10^(-5), per = 0.05) {
 #' @export
 make_pds <- function(C, eps = 10^(-4)) {
   C <- (C + t(C))/2
-  if (!matrixcalc::is.positive.definite(C)) {
+  if (!.is_positive_definite(C)) {
     C <- C + eps * diag(dim(C)[1])
     warning("Matrix is not positive definite.")
   }
@@ -165,7 +173,7 @@ MNIG_sampler <- function(nsam, X, v, S, C, Vb, R){
   p <- ncol(X)
   q <- ncol(C)
 
-  sigma2 <- invgamma::rinvgamma(n = nsam, shape = v, rate = S)
+  sigma2 <- 1 / stats::rgamma(n = nsam, shape = v, rate = S)
   B <- array(dim = c(p, q, nsam))
 
   for (i in 1:nsam) {

@@ -16,7 +16,10 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  # The figures need the suggested plotting packages.
+  eval = all(vapply(c("ggplot2", "ggpubr", "scales"), requireNamespace,
+                    logical(1), quietly = TRUE))
 )
 
 ```
@@ -66,7 +69,6 @@ Each element of `dt_pde_train` or `dt_pde_test` is a matrix. Rows correspond to 
 
 ```{r setup}
 require(spDBL)
-require(magrittr)
 require(ggplot2)
 require(ggpubr)
 seed <- 1234
@@ -191,8 +193,7 @@ max_y <- max(as.vector(unlist(dat))) # set max limit for all plots
     temp <- dat[[i]][input_num,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
-    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)%>%
-      as.data.frame()
+    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)
 
     p <- ggplot(dt, aes(x = col, y = row, fill = sol)) +
       geom_raster() +
@@ -245,8 +246,7 @@ dat <- res_pre_exact
     temp <- dat[[i]][input_num,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
-    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)%>%
-      as.data.frame()
+    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)
 
     p <- ggplot(dt, aes(x = col, y = row, fill = sol)) +
       geom_raster() +
@@ -325,7 +325,7 @@ Points close to the diagonal indicate accurate emulation. Wider intervals indica
                              lower = apply(X = y_pre, MARGIN = 1, FUN = quantile, prob = 0.025),
                              upper = apply(X = y_pre, MARGIN = 1, FUN = quantile, prob = 0.975))
     error_width <- (max(y_true) - min(y_true)) / 30 # denominator is for aesthetic 
-    y_pre_stat %>% ggplot(aes(x = y_true, y = med)) + 
+    ggplot(y_pre_stat, aes(x = y_true, y = med)) + 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width) + 
       geom_abline(col = "red")
@@ -343,7 +343,7 @@ Points close to the diagonal indicate accurate emulation. Wider intervals indica
                              upper = apply(X = y_pre, MARGIN = 1, FUN = quantile, prob = 0.975))
     y_pre_stat <- y_pre_stat / N_people
     error_width <- (max(y_pre_stat["y_true"]) - min(y_pre_stat["y_true"])) / 30
-    plot_error_1 <- y_pre_stat %>% ggplot(aes(x = y_true, y = med)) + 
+    plot_error_1 <- ggplot(y_pre_stat, aes(x = y_true, y = med)) + 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2, alpha = alpha_error)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width, alpha = alpha_error) + 
       geom_abline(col = "red") + 
@@ -371,7 +371,7 @@ Points close to the diagonal indicate accurate emulation. Wider intervals indica
   for (t in 1:length(time_p)) {
     # scatter plot
     error_width <- (max(y_pre_stat_error_comp_ls[[t]]["y_true"]) - min(y_pre_stat_error_comp_ls[[t]]["y_true"])) / 30
-    plot_error_1 <- y_pre_stat_error_comp_ls[[t]] %>% ggplot(aes(x = y_true, y = med)) + 
+    plot_error_1 <- ggplot(y_pre_stat_error_comp_ls[[t]], aes(x = y_true, y = med)) + 
       geom_pointrange(aes(ymin = lower, ymax = upper), size =.2, alpha = alpha_error / 3)+
       geom_errorbar(aes(ymin = lower, ymax = upper), width = error_width, alpha = alpha_error / 3) + 
       geom_abline(col = "red") + 
@@ -379,8 +379,7 @@ Points close to the diagonal indicate accurate emulation. Wider intervals indica
     plot_error_comp_ls[[t]] <- plot_error_1
     
     # error band plot
-    plot_band_predict <- y_pre_stat_error_comp_ls[[t]] %>%
-      ggplot(aes(x = y_true, y = med)) + 
+    plot_band_predict <- ggplot(y_pre_stat_error_comp_ls[[t]], aes(x = y_true, y = med)) + 
       geom_ribbon(aes(ymin = lower, ymax = upper, x = y_true), fill = "#A6CEE3", alpha = 1) +
       geom_point(aes(y = med), color = "#1F78B4", size = 0.7, alpha = 1) +
       geom_abline(color = "#E31A1C", linewidth = 1) + 

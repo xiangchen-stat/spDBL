@@ -73,6 +73,18 @@ test_that("calibration preparation inherits or overrides coefficient sampling", 
   expect_identical(inherited$posterior$theta, em_joint$res_ffbs[1:6])
 })
 
+test_that("fitted objects record their seed and spDBL version", {
+  version <- as.character(utils::packageVersion("spDBL"))
+  em <- tiny_emulator()
+  expect_identical(em$setup$seed, 91L)
+  expect_identical(em$setup$spDBL_version, version)
+  reused <- calibration_prepare(em, c(0, 0), c(1, 1))
+  expect_identical(reused$seed, 91L)
+  expect_identical(reused$spDBL_version, version)
+  fresh <- calibration_prepare(em, c(0, 0), c(1, 1), n_draws = 2L, seed = 7L)
+  expect_identical(fresh$seed, 7L)
+})
+
 test_that("custom designs retain wrapper dimensions", {
   em <- tiny_emulator()
   custom <- emulator_learn(em$setup$pde_para_train,

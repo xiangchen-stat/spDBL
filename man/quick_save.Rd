@@ -23,15 +23,19 @@ Saves \code{plot} to a PNG file in \code{path_fig} whose name is
 file names across repeated calls.
 }
 \examples{
-data("dt_calibration")
-d <- dt_calibration
-dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
-p <- quick_heat(dt, max_y = max(d$field$z))
-path_fig <- tempfile("spdbl_fig_")
-dir.create(path_fig)
-quick_save("heat", path_fig, p)
-list.files(path_fig)
-unlink(path_fig, recursive = TRUE)
+if (requireNamespace("ggplot2", quietly = TRUE) &&
+    requireNamespace("ggpubr", quietly = TRUE) &&
+    requireNamespace("scales", quietly = TRUE)) {
+  data("dt_calibration")
+  d <- dt_calibration
+  dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+  p <- quick_heat(dt, max_y = max(d$field$z))
+  path_fig <- tempfile("spdbl_fig_")
+  dir.create(path_fig)
+  quick_save("heat", path_fig, p)
+  list.files(path_fig)
+  unlink(path_fig, recursive = TRUE)
+}
 }
 \seealso{
 \code{\link{quick_heat}}

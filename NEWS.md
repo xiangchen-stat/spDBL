@@ -90,6 +90,10 @@
   from `seed`), `"midpoint"`, or a vector of parameter values.
 * Every exported function now has a runnable example. The calibration
   examples that compile Stan run only interactively.
+* Fitted emulators (`setup$seed`, `setup$spDBL_version`), prepared
+  calibration objects (`seed`, `spDBL_version`) and calibration fits
+  (`settings$spDBL_version`, with `settings$seed`) record the seed and the
+  spDBL version that produced them.
 
 ## Bug fixes
 
@@ -124,6 +128,13 @@
 
 ## Other changes
 
+* Fewer hard dependencies. ggplot2, ggpubr and scales move from Imports to
+  Suggests: they are needed only by the plotting helpers (`quick_heat()`,
+  `quick_save()`, `plot_panel_heatmap_9()` and its variants), which now say
+  which package to install. magrittr, invgamma, LaplacesDemon and matrixcalc
+  are no longer used; their inverse-gamma draws, traces, log determinants and
+  positive-definiteness check are computed in base R with the same
+  definitions, so results are unchanged.
 * `emulator_predict()` on a prepared calibration object and
   `calibration_validate()` loop over coefficient draws first, which reuses
   each draw's cached residual weights. Results are identical.

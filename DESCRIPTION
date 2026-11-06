@@ -22,24 +22,20 @@ LinkingTo:
 Imports:
     Rcpp,
     matrixsampling,
-    invgamma,
     deSolve,
     ReacTran,
-    LaplacesDemon,
-    matrixcalc,
     mniw,
     utils,
     tools,
     methods,
     graphics,
     stats,
-    ggpubr,
-    ggplot2,
     readr,
-    magrittr,
-    rlang (>= 1.0.0),
-    scales
+    rlang (>= 1.0.0)
 Suggests:
+    ggplot2,
+    ggpubr,
+    scales,
     testthat (>= 3.3.2),
     here,
     knitr,

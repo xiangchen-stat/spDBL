@@ -188,7 +188,8 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
     iter = iter, warmup = warmup, draws_per_emulator = draws_per_emulator,
     seed = seed, control = control, init = init, mode_starts = mode_starts,
     emulator_sampling = .cal_sampling_method(object$posterior$sampling_method,
-                                             object$posterior$joint_trajectories))
+                                             object$posterior$joint_trajectories),
+    spDBL_version = .spdbl_version())
   result$emulator <- object
   result$field <- list(z = z, U = U, locations = locations, n0 = n0, d0 = d0,
     discount = discount, m0 = m0, M0 = M0)

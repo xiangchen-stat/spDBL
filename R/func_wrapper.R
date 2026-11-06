@@ -223,7 +223,8 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
       block_cols = block_cols, nsam = nsam, Y = Y, F_ls = F_ls_train,
       G_ls = G, W_ls = W, V = V, R_episode = R_episode, R_field = R_field,
       prior = prior, phi_para = phi_para, phi_sp = phi_sp,
-      gp_tune = gp_tune, gp_sigma2 = gp_sigma2, gp_tau2 = gp_tau2)),
+      gp_tune = gp_tune, gp_sigma2 = gp_sigma2, gp_tau2 = gp_tau2,
+      seed = seed, spDBL_version = .spdbl_version())),
     class = "spDBL_emulator")
 }
 

@@ -439,7 +439,7 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
   mt <- at + AttFtQtinv %*% Yt_qt
   Mt <- At - AttFtQtinv %*% FtAt
   nt <- nt_1 + N * S / 2
-  Dt <- Dt_1 + 1/2 * matrixcalc::matrix.trace(crossprod(Yt_qt, Qtinv) %*% Yt_qt %*% Rinv)
+  Dt <- Dt_1 + 1/2 * sum(diag(crossprod(Yt_qt, Qtinv) %*% Yt_qt %*% Rinv))
 
   out <- list(nt = nt, Dt = Dt, at = at, At = At,
               mt = mt, Mt = Mt, delta = delta)

@@ -17,7 +17,10 @@ local({
 ```
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+  # The figures need the suggested plotting packages.
+  eval = all(vapply(c("ggplot2", "ggpubr", "scales"), requireNamespace,
+                    logical(1), quietly = TRUE)))
 spdbl_version <- tryCatch(utils::packageVersion("spDBL"),
                           error = function(e) NULL)
 if (is.null(spdbl_version) || spdbl_version < "1.1.1") {

@@ -36,9 +36,9 @@ dMTig <- function(Y, m, M, nu, d, R, log=TRUE) {
   Minv <- solve(M)
   q <- Y - m
   Q <- Rinv %*% t(q) %*% Minv %*% q
-  temp <- 1 + 1/(2*d) * LaplacesDemon::tr(Q)
+  temp <- 1 + 1/(2*d) * sum(diag(Q))
   out <- lgamma(p*S/2 + nu) - lgamma(nu) - p*S/2 * log(2 * pi * d) -
-    S/2 * LaplacesDemon::logdet(M) - p/2 * LaplacesDemon::logdet(R) -
+    S/2 * (2 * sum(log(diag(chol(M))))) - p/2 * (2 * sum(log(diag(chol(R))))) -
     (p*S/2 + nu) * log(temp)
 
   if (log == TRUE) {

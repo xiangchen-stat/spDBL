@@ -55,13 +55,17 @@ grid, one for each time stamp in \code{tstamp}. Locations are specified via
 \code{loc_cal} rather than a regular grid.
 }
 \examples{
-data("dt_calibration")
-d <- dt_calibration
-p <- plot_panel_heatmap_9_cal(d$field$z, tstamp = seq(2, 26, by = 3),
-                              max_y = max(d$field$z), loc_cal = d$grid,
-                              Nx = d$Nx, Ny = d$Ny, savei = FALSE)
-length(p)
-p[[1]]
+if (requireNamespace("ggplot2", quietly = TRUE) &&
+    requireNamespace("ggpubr", quietly = TRUE) &&
+    requireNamespace("scales", quietly = TRUE)) {
+  data("dt_calibration")
+  d <- dt_calibration
+  p <- plot_panel_heatmap_9_cal(d$field$z, tstamp = seq(2, 26, by = 3),
+                                max_y = max(d$field$z), loc_cal = d$grid,
+                                Nx = d$Nx, Ny = d$Ny, savei = FALSE)
+  length(p)
+  p[[1]]
+}
 }
 \seealso{
 \code{\link{plot_panel_heatmap_9_cal_nolab}}
