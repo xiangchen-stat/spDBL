@@ -114,13 +114,14 @@ bench_hardware <- function() {
 }
 
 # Commit of the repository holding the benchmarks, with "-dirty" when tracked
-# files differ from it; NA outside a git checkout.
+# files other than committed results differ from it; NA outside a git checkout.
 bench_git_commit <- function(dir = bench_dir()) {
   git <- function(...) tryCatch(suppressWarnings(system2("git", c("-C", shQuote(dir), ...),
     stdout = TRUE, stderr = FALSE)), error = function(e) character())
   sha <- git("rev-parse", "HEAD")
   if (!length(sha) || !nzchar(sha[1])) return(NA_character_)
-  dirty <- length(git("status", "--porcelain", "--untracked-files=no")) > 0
+  dirty <- length(git("status", "--porcelain", "--untracked-files=no", "--", ".",
+                      shQuote(":(exclude)benchmarks/results"))) > 0
   paste0(sha[1], if (dirty) "-dirty")
 }
 

@@ -19,6 +19,17 @@ out <- commandArgs(TRUE)[1]
 if (is.na(out)) out <- file.path(bench, "results", "listing1")
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 
+# The commit, recorded before the run writes into the (tracked) results
+# folder; "-dirty" if other tracked files differ from it.
+git_commit <- tryCatch({
+  git <- function(...) suppressWarnings(system2("git", c("-C", shQuote(bench), ...),
+                                                stdout = TRUE, stderr = FALSE))
+  sha <- git("rev-parse", "HEAD")
+  dirty <- length(git("status", "--porcelain", "--untracked-files=no", "--", ".",
+                      shQuote(":(exclude)benchmarks/results"))) > 0
+  paste0(sha[1], if (dirty) "-dirty")
+}, error = function(e) NA_character_)
+
 env <- new.env()
 con <- file(file.path(out, "listing1_output.txt"), open = "wt")
 sink(con, split = TRUE)
@@ -40,13 +51,7 @@ info <- list(
   draws = nrow(env$fit$mcmc_eta),
   fields_dim = lapply(env$fields, dim),
   spdbl_version = as.character(utils::packageVersion("spDBL")),
-  git_commit = tryCatch({
-    sha <- suppressWarnings(system2("git", c("-C", shQuote(bench), "rev-parse", "HEAD"),
-                                    stdout = TRUE, stderr = FALSE))
-    dirty <- length(suppressWarnings(system2("git", c("-C", shQuote(bench), "status",
-      "--porcelain", "--untracked-files=no"), stdout = TRUE, stderr = FALSE))) > 0
-    paste0(sha[1], if (dirty) "-dirty")
-  }, error = function(e) NA_character_),
+  git_commit = git_commit,
   r_version = R.version.string, cpu = cpu_model,
   sys = Sys.info()[c("sysname", "release", "machine")],
   slurm = Sys.getenv(c("SLURM_JOB_ID", "SLURM_CPUS_ON_NODE")),
