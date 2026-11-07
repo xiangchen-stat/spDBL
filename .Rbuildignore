@@ -19,3 +19,5 @@
 ^codecov\.yml$
 ^material$
 ^IMPROVEMENTS\.md$
+^CITATION\.cff$
+^cran-comments\.md$
