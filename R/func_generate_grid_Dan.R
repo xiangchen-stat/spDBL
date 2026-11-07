@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Generate block indices for big data grid traversal
 #'
 #' Partitions a matrix or file into rectangular blocks and returns a data frame
@@ -71,6 +74,11 @@ generate_grid <- function(fnrow, fncol, bnrow, bncol, traversal.mode = "rowsnake
 #' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.rowsnake}},
 #'   \code{\link{generate.grid.lr}}
 #'
+#' @examples
+#' # Block sizes divide the grid exactly
+#' generate.grid.exact(4, 6, 2, 3, traversal.mode = "rowsnake")
+#' generate.grid.exact(4, 6, 2, 3, traversal.mode = "lr")
+#'
 #' @export
 generate.grid.exact <- function(fnrow, fncol, bnrow, bncol, traversal.mode) {
     Kr <- fnrow/bnrow
@@ -106,56 +114,13 @@ generate.grid.exact <- function(fnrow, fncol, bnrow, bncol, traversal.mode) {
 #' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
 #'   \code{\link{generate.grid.lr}}
 #'
+#' @examples
+#' # Last block row and column are smaller; even block rows run right to left
+#' generate.grid.rowsnake(5, 7, 2, 3)
+#'
 #' @export
 generate.grid.rowsnake <- function(fnrow, fncol, bnrow, bncol) {
-    Kr <- ceiling(fnrow/bnrow)
-    Kc <- ceiling(fncol/bncol)
-
-    K <- Kr * Kc
-
-    U <- 1
-    D <- U + bnrow - 1
-    L <- 1
-    R <- L + bncol - 1
-
-    out <- data.frame(block_no = c(1), U = c(U), D = c(D), L = c(L), R = c(R))
-    # the direction to traverse
-    #TODO: toggle in an option in the future on where to start.
-    traversal <- "right"
-    traversal.last <- "right"
-
-    #TODO: There should be a way to analytically calculate each partition of the grid without
-    #		regenerating the dataframe each time or throwing this in a for loop.
-    # 	Check by running testthat.
-    for (k in 2:K) {
-        if (traversal == "right") {
-            L <- min(L + bncol, fncol)
-            R <- min(R + bncol, fncol)
-            # cannot go further
-            if (R == fncol) {
-	        traversal <- "down"
-                traversal.last <- "right"
-	    }
-        } else if (traversal == "down") {
-            # update columns
-            U <- min(U + bnrow, fnrow)
-            D <- min(D + bnrow, fnrow)
-            if (traversal.last == "right") traversal <- "left"
-	    if (traversal.last == "left")  traversal <- "right"
-
-        } else if (traversal == "left") {
-            R <- ceiling((R - bncol)/bncol) * bncol
-            L <- R - bncol + 1
-
-            # cannot go further
-            if (L == 1) {
-	        traversal <- "down"
-                traversal.last <- "left"
-	    }
-        }
-        out <- rbind(out, data.frame(block_no = c(k), U = c(U), D = c(D), L = c(L), R = c(R)))
-    }
-    return(out)
+    .grid_blocks(fnrow, fncol, bnrow, bncol, snake = TRUE)
 }
 
 #' Generate a flexible block grid with left-to-right traversal
@@ -176,30 +141,31 @@ generate.grid.rowsnake <- function(fnrow, fncol, bnrow, bncol) {
 #' @seealso \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
 #'   \code{\link{generate.grid.rowsnake}}
 #'
+#' @examples
+#' # Last block row and column are smaller; every block row runs left to right
+#' generate.grid.lr(5, 7, 2, 3)
+#'
 #' @export
 generate.grid.lr <- function(fnrow, fncol, bnrow, bncol) {
-    Kr <- ceiling(fnrow/bnrow)
-    Kc <- ceiling(fncol/bncol)
+    .grid_blocks(fnrow, fncol, bnrow, bncol, snake = FALSE)
+}
 
-    K <- Kr * Kc
-
-    U <- 1
-    D <- U + bnrow - 1
-    L <- 1
-    R <- L + bncol - 1
-
-    out <- data.frame(block_no = c(1), U = c(U), D = c(D), L = c(L), R = c(R))
-    for (k in 2:K) {
-	if (R == fncol) {
-            U <- min(U + bnrow, fnrow)
-            D <- min(D + bnrow, fnrow)
-            L <- 1
-	    R <- L + bncol - 1
-	} else {
-            L <- min(L + bncol, fncol)
-            R <- min(R + bncol, fncol)
-	}
-        out <- rbind(out, data.frame(block_no = c(k), U = c(U), D = c(D), L = c(L), R = c(R)))
-    }
-    return(out)
+# Block r (top to bottom) and block column c cover rows (r - 1) * bnrow + 1 to
+# r * bnrow and columns (c - 1) * bncol + 1 to c * bncol, truncated at the edge.
+# Snake order reverses the block columns in every second block row.
+.grid_blocks <- function(fnrow, fncol, bnrow, bncol, snake) {
+    sizes <- c(fnrow, fncol, bnrow, bncol)
+    if (length(sizes) != 4L || any(!is.finite(sizes)) || any(sizes < 1) ||
+        any(sizes != round(sizes)))
+        stop("Grid and block dimensions must be positive whole numbers")
+    Kr <- ceiling(fnrow / bnrow)
+    Kc <- ceiling(fncol / bncol)
+    r <- rep(seq_len(Kr), each = Kc)
+    c <- rep(seq_len(Kc), times = Kr)
+    if (snake) c <- ifelse(r %% 2 == 0, Kc + 1 - c, c)
+    blocks <- data.frame(block_no = seq_len(Kr * Kc),
+                         U = (r - 1) * bnrow + 1, D = pmin(r * bnrow, fnrow),
+                         L = (c - 1) * bncol + 1, R = pmin(c * bncol, fncol))
+    blocks[] <- lapply(blocks, as.numeric)
+    blocks
 }

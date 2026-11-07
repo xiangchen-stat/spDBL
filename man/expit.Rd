@@ -15,3 +15,15 @@ Numeric vector or matrix with values in \eqn{(0, 1)}.
 \description{
 Computes the logistic sigmoid \eqn{1 / (1 + e^{-x})}.
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+expit(c(-2, 0, 2))
+all.equal(expit(1.5), stats::plogis(1.5))
+
+}

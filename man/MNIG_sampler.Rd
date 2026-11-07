@@ -40,6 +40,15 @@ Draws \code{nsam} posterior samples of the regression coefficient matrix
 the right covariance of \eqn{B | \sigma^2} is \eqn{\sigma^2 R}:
 \deqn{\sigma^2 \sim IG(v, S), \quad B | \sigma^2 \sim MN(C, V_b, \sigma^2 R).}
 }
+\examples{
+set.seed(1)
+draws <- MNIG_sampler(nsam = 2000, X = matrix(1, 5, 1), v = 5, S = 2,
+                      C = matrix(c(1, -1), nrow = 1), Vb = matrix(1), R = diag(2))
+dim(draws$B)
+mean(draws$sigma2)  # close to S / (v - 1) = 0.5
+round(rowMeans(draws$B[1, , ]), 2)  # close to C
+
+}
 \seealso{
 \code{\link{MNIW_sampler}}, \code{\link{FFBS_sampling_sigma2R}}
 }

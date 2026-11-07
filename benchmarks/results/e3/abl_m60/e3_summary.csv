@@ -1,0 +1,2 @@
+"method","n_rep","rmse_rel_error","coverage95","mean_rel_width","max_rhat","share_rhat_over_1.01","min_ess_bulk","divergences","mean_wall_s","mean_cpu_s","mean_ess_per_s","mean_ess_per_cpu_s"
+"spdbl",10,0.0858368714944884,0.533333333333333,0.124956736280896,1.53145910096568,0.6,7.14155240686868,0,30342.4012,108301.8317,7.50898928092592,2.02111767769848

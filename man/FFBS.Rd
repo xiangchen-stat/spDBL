@@ -29,8 +29,8 @@ data matrix at the corresponding time step.}
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
-\code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -48,6 +48,17 @@ and left-covariances (\code{St}).}
 Runs the complete FFBS algorithm under the Matrix Normal Inverse Wishart
 (MNIW) model: first applies the forward filter (\code{\link{FF}}) and then
 the backward sampler (\code{\link{BS}}).
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+res$bs$st[, , 1]  # smoothed state mean at time 1
+# The forward part equals a separate call of FF
+all.equal(res$ff, FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0,
+                     par$M0, par$n0, par$D0, nT = 4))
 }
 \seealso{
 \code{\link{FF}}, \code{\link{BS}}, \code{\link{FFBS_sampling}}

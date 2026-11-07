@@ -15,3 +15,13 @@ bibentry(
   year = "2025",
   url = "https://jmlr.org/papers/v26/22-0896.html"
 )
+
+bibentry(
+  bibtype = "Manual",
+  key = "spDBL",
+  title = "{spDBL}: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models",
+  author = c(person("Xiang", "Chen"), person("Sudipto", "Banerjee")),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/xiangchen-stat/spDBL"
+)

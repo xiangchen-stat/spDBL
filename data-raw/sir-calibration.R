@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Maintainer script: run from the package directory.
 # Rscript data-raw/sir-calibration.R /path/to/saved/simulations
 # Input files: pde_para.csv and pde_solution_1.csv,...,pde_solution_50.csv.

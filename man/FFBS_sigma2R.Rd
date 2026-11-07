@@ -44,7 +44,8 @@ FFBS_sigma2R(
 
 \item{R}{Numeric matrix. Fixed spatial correlation matrix.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -56,6 +57,17 @@ A named list with \code{ff} (output of \code{\link{FF_sigma2R}}) and
 \description{
 Runs the complete FFBS algorithm under the model where the right covariance
 is \eqn{\sigma^2 R} with \eqn{\sigma^2 \sim IG(n_0, d_0)}.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+R <- 0.5^abs(outer(1:3, 1:3, "-"))
+res <- FFBS_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+                    n0 = 3, D0 = 1, nT = 4, R = R)
+res$bs$st[, , 1]
+all.equal(res$ff, FF_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0,
+                             par$m0, par$M0, 3, 1, nT = 4, R = R))
 }
 \seealso{
 \code{\link{FF_sigma2R}}, \code{\link{BS}},

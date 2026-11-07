@@ -26,6 +26,15 @@ Generates a flattened covariate list for the episode-partition (EP) model
 with AR(1) lags. The output list is indexed by \eqn{(t-1) \times n_b + j},
 where \eqn{j} is the block index and \eqn{t} is the time index.
 }
+\examples{
+# Three time steps on six sites, split into three blocks of two sites
+Y <- lapply(1:3, function(t) matrix(10 * t + 1:6, nrow = 1))
+ind <- generate_grid(1, 6, 1, 2)
+F_ep <- gen_F_ls_AR1_EP(Y, nT = 3, n_b = 3, ind = ind)
+length(F_ep)  # nT * n_b
+F_ep[[5]]     # time 2, block 2: sites 3-4 at time 1
+
+}
 \seealso{
 \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}
 }

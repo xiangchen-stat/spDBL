@@ -12,7 +12,7 @@ calibration_fit(
   backend = "rstan",
   draws = seq_len(object$M),
   chains = 1L,
-  iter = 1L,
+  iter,
   warmup = iter\%/\%2L,
   draws_per_emulator = min(200L, chains * (iter - warmup)),
   n0 = 30,
@@ -31,7 +31,9 @@ calibration_fit(
   checkpoint_dir = NULL,
   cache = TRUE,
   cache_dir = NULL,
-  compiled_model = NULL
+  compiled_model = NULL,
+  init = "mode",
+  mode_starts = 20L
 )
 }
 \arguments{
@@ -51,8 +53,11 @@ retain covariance tau2\link{t} * I.}
 \item{draws}{Emulator draw indices to use, without duplicates.}
 
 \item{chains, iter, warmup}{Number of chains, total iterations per chain, and
-warmup iterations for each emulator-conditional fit. Defaults are one
-chain and one iteration; warmup defaults to floor(iter / 2).}
+warmup iterations for each emulator-conditional fit. \code{iter} has no
+default and must be given. For inference use several chains and enough
+iterations, for example \verb{chains = 4, iter = 2000}; \code{iter = 1} (with no
+warmup) is a quick execution check, not inference. \code{chains} defaults to
+one and \code{warmup} to \code{floor(iter / 2)}.}
 
 \item{draws_per_emulator}{Equal number of retained samples per conditional.
 Defaults to the smaller of 200 and the available post-warmup samples.}
@@ -78,12 +83,34 @@ use adapt_delta = 0.95. Both use max_treedepth = 12.}
 
 \item{refresh}{Stan progress reporting interval.}
 
-\item{checkpoint_dir}{Optional directory for completed conditional fits.}
+\item{checkpoint_dir}{Optional directory for completed conditional fits.
+Each fit is saved as it completes; a fit already saved there with the same
+data, settings, seed and Stan program is reused instead of refitted, so an
+interrupted calibration resumes where it stopped.}
 
 \item{cache, cache_dir}{Whether to reuse compiled models and optional user
 cache directory. Installed package files are never modified.}
 
 \item{compiled_model}{Optional compatible compiled Stan model for advanced use.}
+
+\item{init}{Starting values of the free parameters for every chain.
+\code{"mode"} (the default) runs L-BFGS (\code{rstan::optimizing()}) from
+\code{mode_starts} random starts in each conditional fit and starts every chain,
+slightly jittered, at the optimum with the highest log posterior density,
+with the precisions of that optimum. Chains started far from the main mode
+can settle in local modes of negligible posterior mass, which this avoids;
+the optima found are recorded in \code{diagnostics[[j]]$mode_search}.
+\code{"random"} draws each chain's start uniformly within the bounds,
+reproducibly from \code{seed}, so that \eqn{\hat R} can reveal chains that
+settle in different modes; \code{"midpoint"} starts every chain at the centre of
+the bounds; or give a numeric vector of parameter values in training-column
+order (named vectors are matched by name), strictly inside the bounds of
+the free parameters. Values given for fixed parameters are ignored. Each
+conditional fit starts afresh; except for \code{"mode"}, precisions start at
+n0 / d0.}
+
+\item{mode_starts}{Number of random starts of the mode search for
+\code{init = "mode"}.}
 }
 \value{
 An ordinary serializable list of class spDBL_calibration containing
@@ -99,8 +126,24 @@ are also integrated out using a Kalman filter.
 \details{
 Requires the suggested package rstan and a C++ toolchain on first
 compilation. One iteration per emulator draw is an execution experiment,
-not converged posterior inference. Missing observations and new time/grid
+not converged posterior inference; its samples stay near \code{init}. When the
+midpoint of the bounds is close to the true value, as in \code{dt_calibration},
+use \code{init = "random"} to check that results do not depend on the start. Missing observations and new time/grid
 locations are not supported in this initial interface.
+}
+\examples{
+\dontshow{if (interactive() && requireNamespace("rstan", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+data("dt_calibration")
+d <- dt_calibration
+em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+                     covariance = "sigma2R", episode_window = 2, nsam = 3,
+                     seed = 1)
+cal <- calibration_prepare(em, d$lower, d$upper)
+fit <- calibration_fit(cal, d$field$z, d$field$U,
+                       locations = d$field$locations, draws = 1:2,
+                       chains = 1, iter = 200, seed = 1)
+summary(fit)
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=calibration_predict]{calibration_predict()}}, \code{\link[=calibration_validate]{calibration_validate()}}

@@ -28,6 +28,16 @@ Numerically integrates the spatial SIR ODE (\code{\link{SIR}}) on a
 two-dimensional grid using \code{deSolve::ode.2D} and returns the log(1 + I)
 values of the infected compartment.
 }
+\examples{
+if (requireNamespace("deSolve", quietly = TRUE) &&
+    requireNamespace("ReacTran", quietly = TRUE)) {
+y <- gen_pde(eta = c(0.5, 0.1, 0.05, 0.05, 0.05), Nx = 4, Ny = 4, N = 100,
+             nT_ori = 3)
+dim(y)  # nT_ori x (Nx * Ny)
+round(rowSums(y), 3)  # total log(1 + I) grows over time
+}
+
+}
 \seealso{
 \code{\link{SIR}}, \code{\link{update_y_eta}}
 }

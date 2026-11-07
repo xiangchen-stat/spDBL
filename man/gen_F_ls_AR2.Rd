@@ -19,7 +19,19 @@ A list of length \code{nT} where element \eqn{t} is the
 \description{
 Constructs the time-varying covariate list \eqn{F_t} for a second-order
 autoregressive model by column-binding the two most recent lags:
-\eqn{F_t = [Y_{t-2}, Y_{t-1}]} (with special handling for \eqn{t = 1, 2}).
+\eqn{F_t = [Y_{t-2}, Y_{t-1}]}. A lag that does not exist yet is replaced
+by a matrix of ones (a per-site intercept): \eqn{F_1 = [1, 1]} and
+\eqn{F_2 = [1, Y_1]}. The design is causal and deterministic. (Versions up
+to 1.1.1 used \eqn{Y_1} plus random noise at \eqn{t = 1}, and the future
+value \eqn{Y_3} at \eqn{t = 2}.)
+}
+\examples{
+Y <- lapply(1:4, function(t) matrix(t, 2, 3))
+F_ls <- gen_F_ls_AR2(Y, nT = 4)
+dim(F_ls[[4]])
+F_ls[[2]][1, ]  # ones (no lag 2 yet), then lag 1
+F_ls[[4]][1, ]  # lags 2 and 3
+
 }
 \seealso{
 \code{\link{gen_F_ls_AR1}}, \code{\link{gen_F_ls_AR2_EP}}

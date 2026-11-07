@@ -11,13 +11,10 @@ FFBS_sampling_I(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1, verbose = FALSE)
 
 \item{para_ffbs}{List. Output of \code{\link{FFBS_I}}.}
 
-\item{F_ls}{Covariate matrix or list (see \code{\link{FF}}).}
-
-\item{G_ls}{State transition matrix or list (see \code{\link{FF}}).}
+\item{F_ls, G_ls, delta}{Not used: each draw comes from the smoothed marginal
+at its own time. Kept for compatibility with the other samplers.}
 
 \item{nT}{Integer. Number of time steps.}
-
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -31,6 +28,16 @@ state at time \eqn{t}.
 Draws \code{nsam} posterior samples of the state \eqn{\Theta_t} from the
 smoothed distributions produced by \code{\link{FFBS_I}}, assuming an
 identity right-covariance matrix.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+              nT = 4)
+sam <- FFBS_sampling_I(500, res, par$F0, par$G0, nT = 4)
+dim(sam$T2)
+round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 }
 \seealso{
 \code{\link{FFBS_I}}

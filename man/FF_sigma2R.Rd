@@ -46,8 +46,8 @@ data matrix at the corresponding time step.}
 \item{R}{Numeric matrix. Fixed spatial correlation matrix (\eqn{S \times S}).
 Its Cholesky inverse is used internally.}
 
-\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
-\code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -60,6 +60,15 @@ A named list of length \code{nT + 1} (same structure as
 Runs the full forward filtering pass over \code{nT} time steps under the
 model where the right covariance of \eqn{Y} is \eqn{\sigma^2 R} with
 \eqn{\sigma^2 \sim IG(n_0, d_0)}.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+R <- 0.5^abs(outer(1:3, 1:3, "-"))
+res_ff <- FF_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+                     n0 = 3, D0 = 1, nT = 4, R = R)
+c(nt = res_ff$T4$nt, Dt = res_ff$T4$Dt)  # IG posterior of sigma^2
 }
 \seealso{
 \code{\link{FF_1step_R_sigma2R}}, \code{\link{FFBS_sigma2R}}

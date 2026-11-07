@@ -36,8 +36,8 @@ matrix or a list of \code{nT} such matrices.}
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Discount factor for the right-variance matrix.
-Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -54,6 +54,15 @@ Runs the full forward filtering pass over \code{nT} time steps under the
 Matrix Normal Inverse Wishart (MNIW) model. At each step, calls
 \code{FF_1step_cpp} to update the state mean and covariance as well as the
 inverse-Wishart parameters for the right-covariance matrix \eqn{\Sigma}.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res_ff <- FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+             par$n0, par$D0, nT = 4)
+names(res_ff)
+res_ff$T4$mt  # filtered state mean at the last time (p x S)
 }
 \seealso{
 \code{\link{BS}}, \code{\link{FFBS}}

@@ -52,8 +52,12 @@ simulator runs in rows and original-grid locations in columns.}
 
 \item{covariance}{"iw" (default) or "sigma2R".}
 
-\item{R_episode, R_field}{Optional spatial covariance matrices for the block
-and full grid, respectively. Defaults use the same exponential kernel.}
+\item{R_episode, R_field}{Optional spatial covariance matrices for one block
+and for the full grid. \code{R_episode} defaults to the exponential kernel over
+the sites of a block. \code{R_field} is used only by calibration. Unless it is
+supplied it is not formed here, since an S x S matrix costs
+\eqn{O(S^2)} memory and its check \eqn{O(S^3)} time; calibration builds
+the same exponential kernel at the observed sites when it needs it.}
 
 \item{seed}{Optional local RNG seed. NULL follows the session RNG.}
 
@@ -72,6 +76,14 @@ Fits an episode-based emulator to saved simulator runs. The default
 inverse-Wishart model is retained for compatibility. Use
 covariance = "sigma2R" for scalar-variance coefficient samples that can
 be passed to \code{\link[=calibration_prepare]{calibration_prepare()}}.
+}
+\examples{
+data("dt_emulation")
+d <- dt_emulation
+em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+                     nsam = 5, seed = 1)
+class(em)
+c(n_train = em$setup$n_train, episodes = em$setup$nT, locations = em$setup$N_sp)
 }
 \seealso{
 \code{\link[=emulator_predict]{emulator_predict()}}, \code{\link[=calibration_prepare]{calibration_prepare()}}

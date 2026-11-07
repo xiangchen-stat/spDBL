@@ -32,3 +32,10 @@ Numeric scalar. Log density (or density if \code{log = FALSE}).
 Evaluates the log (or raw) density of the matrix-T distribution that arises
 when the right covariance is \eqn{\sigma^2 R} and \eqn{\sigma^2 \sim IG(\nu, d)}.
 }
+\examples{
+set.seed(1)
+Y <- matrix(rnorm(6), 2, 3)
+R <- 0.5^abs(outer(1:3, 1:3, "-"))
+dMTig(Y, m = matrix(0, 2, 3), M = diag(2), nu = 3, d = 2, R = R)
+dMTig(Y, m = matrix(0, 2, 3), M = diag(2), nu = 3, d = 2, R = R, log = FALSE)
+}
