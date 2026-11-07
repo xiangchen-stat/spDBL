@@ -160,6 +160,9 @@ manuscript. The manuscript uses `results/e1/paper`, `results/e2/fixed`,
   * spDBL's chains mixed better (median smallest bulk ESS 949 against 106 and
     40; rank-normalised Rhat above 1.01 in 13 replicates against 30 and 30);
   * every method's 95% intervals under-covered, spDBL's most (54% against
-    60% and 67%);
+    60% and 67%). Ablations on 10 replicates trace this to the emulator's
+    systematic error, not the inference: with field data drawn from the
+    emulator's own model, spDBL's intervals covered 93%, while joint
+    coefficient paths and 60 emulator draws changed nothing;
   * no simulator runs were needed, whereas the research code solves the PDE
     at every proposal.

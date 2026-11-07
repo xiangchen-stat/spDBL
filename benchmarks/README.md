@@ -102,6 +102,8 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 | `results/e3/mode/` | `mode` | E3, Figure 2(d), Table A4 |
 | `results/e3_diagnostic/rep011_draw01_c24/` | `paper` | the local modes in E3 |
 | `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
+| `results/e3_ablation/emulator_error/` | `mode` | the emulator's error at the true parameters (`e3_emulator_error.R`, no MCMC) |
+| `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A5 |
 
 Superseded runs, kept for the record and cited in the manuscript's appendix
 where they bear on a result:
@@ -363,10 +365,8 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
   that paper reports 59 min for the 6 x 6 SIR on an Apple M3 Max.
 * SEPIA (Python) calibration baseline.
 * duqling `pollutant` space-time function as a neutral E2 problem.
-* E4 ablations of E3's under-coverage: marginal vs joint emulator sampling,
-  design uncertainty on and off, number of emulator draws M, and design rows
-  from the simulator (oracle); also marginal vs explicit discrepancy Stan
-  program.
+* Marginal vs explicit discrepancy Stan program (the E3 under-coverage
+  ablations are done: profiles `abl_*`, results in `results/e3/abl_*`).
 * 200² grid via out-of-core filtering (`FF_bigdata_R`): no wrapper or
   backward pass exists yet, so E1 stops at what fits in memory.
 * An E3 variant with a stationary-GP discrepancy generator, where
