@@ -17,6 +17,10 @@ calibration quality. The scripts live outside the package build
 | E3 MLE check | `e3_rc_mle_check.R` | Where RobustCalibration stores its maximum-likelihood estimate and how long a multi-start fit takes (used to start its chains in profile `mode`). |
 | Listing 1 | `listing1.R`, `listing1_run.R` | The manuscript's Listing 1, run exactly as printed, with its output, run time, git commit and session. |
 
+`paper/` holds the scripts that draw the manuscript's Figures 1 and 2 and
+write its appendix tables from the committed results; run them from the
+paper's folder, e.g. `Rscript <spDBL>/benchmarks/paper/tables.R`.
+
 Shared code is in `R/`: `config.R` (profiles), `common.R` (CLI parsing,
 provenance, per-process peak memory, scoring rules), `sir_data.R` (designs
 and simulations), and `spdbl_predictive.R` (spDBL predictive distributions).
@@ -367,8 +371,9 @@ reference BLAS, one thread; spDBL 1.1.1 before the `R_field` fix):
 * duqling `pollutant` space-time function as a neutral E2 problem.
 * Marginal vs explicit discrepancy Stan program (the E3 under-coverage
   ablations are done: profiles `abl_*`, results in `results/e3/abl_*`).
-* 200² grid via out-of-core filtering (`FF_bigdata_R`): no wrapper or
-  backward pass exists yet, so E1 stops at what fits in memory.
+* 200² grid via the out-of-core functions (`FF_bigdata_R()`,
+  `BS_bigdata_R()`, `FFBS_predict_bigdata_R()`): the workflow functions do
+  not call them yet, so E1 stops at what fits in memory.
 * An E3 variant with a stationary-GP discrepancy generator, where
   RobustCalibration rather than spDBL is correctly specified.
 * The E1 validation numbers predate the 1.2.0 `R_field` change
