@@ -119,17 +119,13 @@ model {
   for (t in 1:T) precision[t + 1] ~ gamma(pow(discount, t) * n0, pow(discount, t) * d0);
   for (t in 1:T) {
     matrix[S, S] prior_covariance = filtered_covariance + tau2[t + 1] * U;
-    matrix[S, S] observation_covariance = prior_covariance + Sigma
-      + design_variance[t] * design_covariance[t];
-    matrix[S, S] L;
-    matrix[S, S] whitened_prior;
-    vector[S] residual = z[t] - mu[t] - filtered_mean;
-    for (s in 1:S) observation_covariance[s, s] += tau2[t + 1];
-    L = cholesky_decompose(observation_covariance);
+    // crossprod() is symmetric by construction, so the filtered covariance
+    // needs no re-symmetrising.
+    matrix[S, S] L = cholesky_decompose(add_diag(prior_covariance + Sigma
+      + design_variance[t] * design_covariance[t], tau2[t + 1]));
+    matrix[S, S] whitened_prior = mdivide_left_tri_low(L, prior_covariance);
     z[t] ~ multi_normal_cholesky(mu[t] + filtered_mean, L);
-    whitened_prior = mdivide_left_tri_low(L, prior_covariance);
-    filtered_mean += whitened_prior' * mdivide_left_tri_low(L, residual);
-    filtered_covariance = prior_covariance - whitened_prior' * whitened_prior;
-    filtered_covariance = 0.5 * (filtered_covariance + filtered_covariance');
+    filtered_mean += whitened_prior' * mdivide_left_tri_low(L, z[t] - mu[t] - filtered_mean);
+    filtered_covariance = prior_covariance - crossprod(whitened_prior);
   }
 }

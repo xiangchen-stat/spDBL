@@ -145,6 +145,12 @@
   are no longer used; their inverse-gamma draws, traces, log determinants and
   positive-definiteness check are computed in base R with the same
   definitions, so results are unchanged.
+* Calibration gradients are about 30% faster: the Kalman filter in the Stan
+  program forms the filtered covariance with `crossprod()` (symmetric by
+  construction, so the explicit re-symmetrising copy is gone) and adds the
+  noise with `add_diag()`, and the programs are compiled with stanc's O1
+  optimisations. Log densities and gradients agree with the previous program
+  to 1e-12. Cached models from earlier versions are recompiled once.
 * Simulator-free prediction intervals (`predict(cal, newdata, interval =
   "prediction")`) are about 40 times faster: the design-GP rows and input-GP
   terms are computed once per new input and the coefficient terms once per

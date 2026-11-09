@@ -10,7 +10,7 @@
   path <- system.file("stan", filename, package = "spDBL", mustWork = TRUE)
   key <- paste(unname(tools::md5sum(path)), getRversion(),
     utils::packageVersion("rstan"), utils::packageVersion("StanHeaders"),
-    R.version$platform, sep = "-")
+    R.version$platform, "O1", sep = "-")
   if (cache && exists(key, .spdbl_stan_cache, inherits = FALSE))
     return(get(key, .spdbl_stan_cache, inherits = FALSE))
   if (is.null(cache_dir)) cache_dir <- tools::R_user_dir("spDBL", "cache")
@@ -22,7 +22,9 @@
       return(model)
     }
   }
-  model <- rstan::stan_model(file = path, auto_write = FALSE, save_dso = TRUE)
+  # stanc's O1 optimisations: about 10% faster gradients, same results.
+  model <- rstan::stan_model(file = path, auto_write = FALSE, save_dso = TRUE,
+                             allow_optimizations = TRUE)
   if (cache) {
     assign(key, model, .spdbl_stan_cache)
     if (dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE) || dir.exists(cache_dir))

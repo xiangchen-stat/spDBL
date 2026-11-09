@@ -119,8 +119,7 @@ model {
   for (t in 1:T) precision[t + 1] ~ gamma(pow(discount, t) * n0, pow(discount, t) * d0);
   for (t in 1:(T + 1)) u_std[t] ~ std_normal();
   for (t in 1:T) {
-    matrix[S, S] observation_covariance = Sigma + design_variance[t] * design_covariance[t];
-    for (s in 1:S) observation_covariance[s, s] += tau2[t + 1];
-    z[t] ~ multi_normal_cholesky(mu[t] + u[t + 1], cholesky_decompose(observation_covariance));
+    z[t] ~ multi_normal_cholesky(mu[t] + u[t + 1], cholesky_decompose(
+      add_diag(Sigma + design_variance[t] * design_covariance[t], tau2[t + 1])));
   }
 }
