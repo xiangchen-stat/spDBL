@@ -93,6 +93,15 @@
   saved there with the same data, settings, seed and Stan program is reused
   instead of refitted, so an interrupted calibration continues where it
   stopped. Fits saved with other settings are refitted.
+* `emulator_learn(keep_draws = FALSE)` (and the same argument of
+  `FFBS_sampling()` and `FFBS_sampling_sigma2R()`) stores, instead of every
+  episode's coefficient draws, where each episode's draws start in the
+  random-number stream, and regenerates identical draws when prediction or
+  calibration needs them. On a 20 x 20 grid with 20 draws the emulator
+  shrinks from 197 to 71 MB, the prepared calibration input from 152 to 45 MB,
+  and the peak memory of fitting halves; simulator-free prediction takes
+  3.1 s instead of 1.9 s for 50 inputs. All results are identical to stored
+  draws. Marginal sampling only; joint draws are always stored.
 * `calibration_fit(parallel_draws = )` runs that many conditional fits (one
   per emulator draw) at the same time in forked processes (Linux and macOS),
   so wall time falls roughly in proportion on machines with spare cores.

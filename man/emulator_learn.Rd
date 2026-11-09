@@ -23,7 +23,8 @@ emulator_learn(
   R_field = NULL,
   seed = NULL,
   verbose = FALSE,
-  sampling = c("marginal", "joint")
+  sampling = c("marginal", "joint"),
+  keep_draws = TRUE
 )
 }
 \arguments{
@@ -66,6 +67,14 @@ the same exponential kernel at the observed sites when it needs it.}
 \item{sampling}{"marginal" (default) uses smoothed episode marginals
 conditional on a shared covariance draw, following Eq. (9) and Algorithm 4.
 "joint" uses backward conditionals to preserve dependence across episodes.}
+
+\item{keep_draws}{If TRUE (default), store every coefficient draw. If FALSE
+(marginal sampling only), store only where each episode's draws start in
+the random-number stream and regenerate identical draws when prediction or
+calibration needs them. This removes the largest part of a large
+emulator's memory at the cost of re-drawing (about the original sampling
+time per full pass over the draws). Each episode then costs about 2.5 KB
+instead of its draws, so it pays off once an episode's draws exceed that.}
 }
 \value{
 An object of class spDBL_emulator, retaining para_ffbs,

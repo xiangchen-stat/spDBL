@@ -106,22 +106,36 @@
   if (any(conditional <= 0)) stop("Nonpositive emulator conditional variance")
   R_diag <- .cal_R_field_diag(cal, seq_len(S))
   first <- second <- array(0, c(n, S, T))
-  mu <- matrix(0, n, S)
-  for (m in seq_len(M)) {
-    # Work that depends only on the draw, done once per draw.
-    weights <- .cal_residual_weights(cal, m)
-    factors <- .cal_design_factors(cal, m)
-    base_variance <- outer(cal$posterior$sigma2[m] * conditional, R_diag)
-    for (t in seq_len(T)) {
-      for (b in seq_len(cal$B)) {
-        e <- (t - 1L) * cal$B + b
-        theta <- matrix(cal$posterior$theta[[e]][, , m], cal$p, cal$C)
-        mu[, cal$block_cols[b, ]] <- F_new[[e]] %*% theta + crossprod(J, weights[[e]])
+  design_uncertainty <- isTRUE(cal$design_uncertainty)
+  if (design_uncertainty) {
+    W <- cal$design_whitened
+    if (is.null(W)) W <- .cal_design_whitened(cal$predictor)
+  }
+  # Time by time, episode by episode, so that each episode's draws are read
+  # (or regenerated) once; per draw the arithmetic is that of
+  # .cal_residual_weights(), .cal_design_factors() and predict_calibration().
+  for (t in seq_len(T)) {
+    mu <- array(0, c(n, S, M))
+    design_sq <- matrix(0, M, S)
+    for (b in seq_len(cal$B)) {
+      e <- (t - 1L) * cal$B + b
+      cols <- cal$block_cols[b, ]
+      draws <- .cal_theta(cal, e)
+      for (m in seq_len(M)) {
+        theta <- matrix(draws[, , m], cal$p, cal$C)
+        weights <- if (!is.null(cal$residual_weights)) cal$residual_weights[[m]][[e]] else
+          backsolve(cal$V_chol, forwardsolve(t(cal$V_chol), cal$Y[[e]] - cal$F_ls[[e]] %*% theta))
+        mu[, cols, m] <- F_new[[e]] %*% theta + crossprod(J, weights)
+        if (design_uncertainty)
+          design_sq[m, cols] <- colSums((W[, (e - 1L) * cal$p + seq_len(cal$p)] %*% theta /
+                                         sqrt(N))^2)
       }
-      variance <- if (length(factors))
-        base_variance + outer(time_factor[, t], colSums(factors[[t]]^2)) else base_variance
-      first[, , t] <- first[, , t] + mu / M
-      second[, , t] <- second[, , t] + (variance + mu^2) / M
+    }
+    for (m in seq_len(M)) {
+      variance <- outer(cal$posterior$sigma2[m] * conditional, R_diag)
+      if (design_uncertainty) variance <- variance + outer(time_factor[, t], design_sq[m, ])
+      first[, , t] <- first[, , t] + mu[, , m] / M
+      second[, , t] <- second[, , t] + (variance + mu[, , m]^2) / M
     }
   }
   sd <- sqrt(pmax(second - first^2, 0))

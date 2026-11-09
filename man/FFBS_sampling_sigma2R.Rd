@@ -14,7 +14,8 @@ FFBS_sampling_sigma2R(
   delta = 1,
   verbose = FALSE,
   seed = NULL,
-  sampling = c("marginal", "joint")
+  sampling = c("marginal", "joint"),
+  keep_draws = TRUE
 )
 }
 \arguments{
@@ -41,6 +42,13 @@ to \code{FALSE}.}
 \item{sampling}{"marginal" (default) draws smoothed episode marginals
 conditional on a shared variance. "joint" preserves cross-episode
 dependence by sampling backward conditionals.}
+
+\item{keep_draws}{If TRUE (default), store every episode's coefficient
+draws. If FALSE (marginal sampling only), store the random-number state
+at the start of each episode's draws instead; spDBL's prediction and
+calibration functions then regenerate identical draws on demand, which
+cuts the memory of large emulators. Indexing the returned draws by episode
+(\code{[[e]]}) then fails.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through

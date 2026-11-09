@@ -16,7 +16,7 @@ make_stan_calibration_data <- function(emulator, draw, z, U,
   residual <- array(0, c(emulator$E, nrow(emulator$input), emulator$C))
   weights <- .cal_residual_weights(emulator, draw)
   for (e in seq_len(emulator$E)) {
-    theta[e, , ] <- emulator$posterior$theta[[e]][, , draw]
+    theta[e, , ] <- .cal_theta(emulator, e)[, , draw]
     residual[e, , ] <- weights[[e]]
   }
   f <- emulator$predictor

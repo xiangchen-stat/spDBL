@@ -83,6 +83,12 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #'   Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
+#' @param keep_draws If TRUE (default), store every episode's coefficient
+#'   draws. If FALSE (marginal sampling only), store the random-number state
+#'   at the start of each episode's draws instead; spDBL's prediction and
+#'   calibration functions then regenerate identical draws on demand, which
+#'   cuts the memory of large emulators. Indexing the returned draws by episode
+#'   (\code{[[e]]}) then fails.
 #' @param sampling "marginal" (default) samples the smoothed marginal at each
 #'   episode conditional on the same covariance draw. "joint" samples backward
 #'   conditionals to obtain coherent trajectories.
@@ -109,8 +115,11 @@ FFBS <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #' round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 #' @export
 FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
-    verbose = FALSE, sampling = c("marginal", "joint"), seed = NULL) {
+    verbose = FALSE, sampling = c("marginal", "joint"), seed = NULL,
+    keep_draws = TRUE) {
   sampling <- match.arg(sampling)
+  if (!isTRUE(keep_draws) && sampling != "marginal")
+    stop("keep_draws = FALSE needs marginal sampling", call. = FALSE)
   restore_seed <- .cal_seed(seed)
   on.exit(restore_seed(), add = TRUE)
   ff <- para_ffbs$ff
@@ -124,6 +133,17 @@ FFBS_sampling <- function(nsam, para_ffbs, F_ls, G_ls, nT, delta = 1,
   Sigma <- matrixsampling::rinvwishart(nsam, nu = ff[[E]]$nt,
     Omega = check_pds(ff[[E]]$Dt), epsilon = 0, checkSymmetry = FALSE)
   Sigma <- array(Sigma, c(C, C, nsam))
+  if (!isTRUE(keep_draws)) {
+    # As in sample_calibration_emulator(): keep each episode's starting
+    # random-number state and draw the same normals, without storing draws.
+    states <- vector("list", E)
+    for (e in seq.int(E, 1L)) {
+      states[[e]] <- .rng_state()
+      for (m in seq_len(nsam)) stats::rnorm(p * C)
+    }
+    if (verbose) message("Sampled ", nsam, " marginal coefficient sets (regenerated on demand)")
+    return(.lazy_draws("iw", Sigma, states, p, C, nsam))
+  }
   L_Sigma <- lapply(seq_len(nsam), function(m)
     t(.cal_spd(matrix(Sigma[, , m], C, C))))
   theta <- lapply(seq_len(E), function(e) array(NA_real_, c(p, C, nsam)))
@@ -425,6 +445,12 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #'
 #' @seealso \code{\link{FFBS_sigma2R}}, \code{\link{MNIG_sampler}}
 #' @param seed Optional local seed. NULL uses the session RNG.
+#' @param keep_draws If TRUE (default), store every episode's coefficient
+#'   draws. If FALSE (marginal sampling only), store the random-number state
+#'   at the start of each episode's draws instead; spDBL's prediction and
+#'   calibration functions then regenerate identical draws on demand, which
+#'   cuts the memory of large emulators. Indexing the returned draws by episode
+#'   (\code{[[e]]}) then fails.
 #' @param sampling "marginal" (default) draws smoothed episode marginals
 #'   conditional on a shared variance. "joint" preserves cross-episode
 #'   dependence by sampling backward conditionals.
@@ -442,12 +468,18 @@ FFBS_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #' round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 #' @export
 FFBS_sampling_sigma2R <- function(nsam, para_ffbs, F_ls, G_ls, nT, R,
-    delta = 1, verbose = FALSE, seed = NULL, sampling = c("marginal", "joint")) {
+    delta = 1, verbose = FALSE, seed = NULL, sampling = c("marginal", "joint"),
+    keep_draws = TRUE) {
   sampling <- match.arg(sampling)
   if (delta != 1) stop("The sigma2R samplers currently require delta = 1")
   if (nT != length(para_ffbs$ff) - as.integer(!is.null(para_ffbs$ff$prior)))
     stop("nT does not match the filtering results")
-  sampled <- sample_calibration_emulator(para_ffbs, R, G_ls, nsam, seed, sampling)
+  sampled <- sample_calibration_emulator(para_ffbs, R, G_ls, nsam, seed, sampling,
+                                         keep_draws = keep_draws)
+  if (inherits(sampled$theta, "spDBL_lazy_draws")) {
+    if (verbose) message("Sampled ", nsam, " marginal coefficient sets (regenerated on demand)")
+    return(sampled$theta)
+  }
   out <- sampled$theta
   names(out) <- paste0("T", seq_len(nT))
   out$Sigma <- sampled$sigma2

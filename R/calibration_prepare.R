@@ -213,8 +213,10 @@ predict_offline_ar2 <- function(object, eta) {
 # Both methods share the variance draw and the terminal coefficient draw.
 # Marginal sampling uses Eq. (9); joint sampling conditions on each successor.
 sample_calibration_emulator <- function(para_ffbs, R_episode, G_ls, nsam,
-    seed = NULL, sampling = c("marginal", "joint")) {
+    seed = NULL, sampling = c("marginal", "joint"), keep_draws = TRUE) {
   sampling <- match.arg(sampling)
+  if (!isTRUE(keep_draws) && sampling != "marginal")
+    stop("keep_draws = FALSE needs marginal sampling", call. = FALSE)
   ff <- para_ffbs$ff
   E <- length(ff) - as.integer(!is.null(ff$prior))
   if (E < 1 || length(nsam) != 1L || !is.finite(nsam) || nsam < 1 ||
@@ -226,6 +228,18 @@ sample_calibration_emulator <- function(para_ffbs, R_episode, G_ls, nsam,
   C <- ncol(ff[[E]]$mt)
   if (nrow(L_R) != C) stop("R_episode has the wrong size")
   sigma2 <- 1 / stats::rgamma(nsam, shape = ff[[E]]$nt, rate = ff[[E]]$Dt)
+  if (!isTRUE(keep_draws)) {
+    # Record where each episode's draws start in the random-number stream and
+    # draw the same normals, so later episodes keep their positions; the
+    # draws themselves are regenerated on demand (.regenerate_episode()).
+    states <- vector("list", E)
+    for (e in seq.int(E, 1)) {
+      states[[e]] <- .rng_state()
+      for (m in seq_len(nsam)) stats::rnorm(p * C)
+    }
+    return(list(theta = .lazy_draws("sigma2R", sigma2, states, p, C, nsam, L_R),
+                sigma2 = sigma2, joint_trajectories = FALSE, sampling_method = "marginal"))
+  }
   theta <- lapply(seq_len(E), function(e) array(NA_real_, c(p, C, nsam)))
   matrix_normal <- function(mean, L, variance)
     mean + sqrt(variance) * L %*% matrix(stats::rnorm(p * C), p, C) %*% t(L_R)
@@ -296,9 +310,13 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
   if (!isTRUE(design_uncertainty) && !isFALSE(design_uncertainty))
     stop("design_uncertainty must be TRUE or FALSE")
   if (!is.null(R_field)) .cal_spd(R_field, "R_field")
+  regenerated <- inherits(posterior$theta, "spDBL_lazy_draws")
+  if (regenerated && (!identical(as.integer(c(posterior$theta$draws$p, posterior$theta$draws$C,
+      posterior$theta$draws$nsam)), as.integer(c(p, C, M))) || is.null(posterior$moments)))
+    stop("Incompatible episode arrays")
   for (e in seq_len(E)) {
-    if (!identical(dim(posterior$theta[[e]]), c(p, C, M)) ||
-        any(!is.finite(posterior$theta[[e]])) ||
+    if ((!regenerated && (!identical(dim(posterior$theta[[e]]), c(p, C, M)) ||
+        any(!is.finite(posterior$theta[[e]])))) ||
         !identical(dim(Y[[e]]), c(nrow(input), C)) ||
         !identical(dim(F_ls[[e]]), c(nrow(input), p)))
       stop("Incompatible episode arrays")
@@ -347,7 +365,7 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
     position <- match(emulator$block_cols[b, ], locations)
     observed <- !is.na(position)
     if (!any(observed)) next
-    theta <- matrix(emulator$posterior$theta[[e]][, , draw], emulator$p, emulator$C)
+    theta <- matrix(.cal_theta(emulator, e)[, , draw], emulator$p, emulator$C)
     factors[[t]][, position[observed]] <- W[, (e - 1L) * emulator$p + seq_len(emulator$p)] %*%
       theta[, observed, drop = FALSE] / sqrt(N)
   }
@@ -399,8 +417,7 @@ predict_calibration <- function(eta, emulator_draw, emulator,
       any(!locations %in% seq_len(emulator$S))) stop("Invalid draw or locations")
   design <- predict_offline_ar2(emulator$predictor, eta)
   F_new_ls <- lapply(design$F, function(f) matrix(f, nrow = 1))
-  theta <- lapply(emulator$posterior$theta, function(th)
-    matrix(th[, , m], emulator$p, emulator$C))
+  theta <- .cal_theta_draw(emulator, m)
   prediction <- FFBS_predict_exact(Y = emulator$Y, F_ls = emulator$F_ls,
     F_new_ls = F_new_ls, input = emulator$input, input_new = eta,
     nT = emulator$E, phi_para = emulator$phi_para,
@@ -459,7 +476,7 @@ validate_offline_ar2 <- function(emulator, input_new, F_new_ls) {
   cache <- emulator$residual_cache
   if (!is.null(cache) && identical(cache$draw, draw)) return(cache$weights)
   weights <- lapply(seq_len(emulator$E), function(e) {
-    theta <- matrix(emulator$posterior$theta[[e]][, , draw], emulator$p, emulator$C)
+    theta <- matrix(.cal_theta(emulator, e)[, , draw], emulator$p, emulator$C)
     residual <- emulator$Y[[e]] - emulator$F_ls[[e]] %*% theta
     backsolve(emulator$V_chol, forwardsolve(t(emulator$V_chol), residual))
   })
@@ -577,17 +594,25 @@ calibration_prepare <- function(emulator, lower, upper, n_draws = NULL,
   if (is.null(sampling)) sampling <- existing_method
   sampling <- match.arg(sampling, c("marginal", "joint"))
   reuse_draws <- is.null(n_draws) && sampling == existing_method
+  regenerated <- inherits(emulator$res_ffbs, "spDBL_lazy_draws")
   if (reuse_draws) {
-    posterior <- list(theta = emulator$res_ffbs[seq_len(s$nT)],
+    posterior <- list(theta = if (regenerated) emulator$res_ffbs else
+      emulator$res_ffbs[seq_len(s$nT)],
       sigma2 = emulator$res_ffbs$Sigma, joint_trajectories = sampling == "joint",
       sampling_method = sampling)
   } else {
     if (is.null(n_draws)) n_draws <- length(emulator$res_ffbs$Sigma)
     if (length(n_draws) != 1L || !is.finite(n_draws) || n_draws < 1 ||
         n_draws != as.integer(n_draws)) stop("n_draws must be a positive integer")
+    # An emulator that regenerates its draws gets fresh marginal draws the
+    # same way; joint draws are always stored.
     posterior <- sample_calibration_emulator(emulator$para_ffbs,
-      s$R_episode, s$G_ls, n_draws, seed, sampling)
+      s$R_episode, s$G_ls, n_draws, seed, sampling,
+      keep_draws = !(regenerated && sampling == "marginal"))
   }
+  # Regenerated draws need the smoother moments they are drawn from.
+  if (inherits(posterior$theta, "spDBL_lazy_draws"))
+    posterior$moments <- .draw_moments(emulator$para_ffbs)
   out <- make_offline_calibration_input(s$pde_para_train, s$Y, s$F_ls,
     posterior, s$block_cols, s$R_field, s$phi_para, lower, upper,
     s$gp_sigma2, s$gp_tau2, design_uncertainty,
@@ -652,17 +677,20 @@ calibration_validate <- function(object, input_new, responses, seed = 1234) {
     predict_offline_ar2(object$predictor, input_new[i, ])$F)
   offline <- known <- rep(list(matrix(0, object$T, object$S)), n)
   # Draw-outer order reuses the cached residual weights of each draw.
-  for (m in seq_len(object$M)) for (i in seq_len(n)) {
+  for (m in seq_len(object$M)) {
+   theta_m <- .cal_theta_draw(object, m)
+   for (i in seq_len(n)) {
     pred <- predict_calibration(input_new[i, ], m, object, covariance = "none")$mu
     correction <- matrix(0, object$T, object$S)
     for (e in seq_len(object$E)) {
       t <- (e - 1L) %/% object$B + 1L
       b <- (e - 1L) %% object$B + 1L
-      th <- matrix(object$posterior$theta[[e]][, , m], object$p, object$C)
+      th <- theta_m[[e]]
       correction[t, object$block_cols[b, ]] <- (F_new[[e]][i, ] - F_hat[[i]][[e]]) %*% th
     }
     offline[[i]] <- offline[[i]] + pred / object$M
     known[[i]] <- known[[i]] + (pred + correction) / object$M
+   }
   }
   field <- do.call(rbind, lapply(seq_len(n), function(i) {
     truth <- do.call(rbind, lapply(responses, function(y) y[i, , drop = FALSE]))

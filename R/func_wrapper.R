@@ -127,6 +127,13 @@ prepare_data <- function(file_para, file_data, prop_train = 0.8){
 #'   the same exponential kernel at the observed sites when it needs it.
 #' @param seed Optional local RNG seed. NULL follows the session RNG.
 #' @param verbose Whether to report progress.
+#' @param keep_draws If TRUE (default), store every coefficient draw. If FALSE
+#'   (marginal sampling only), store only where each episode's draws start in
+#'   the random-number stream and regenerate identical draws when prediction or
+#'   calibration needs them. This removes the largest part of a large
+#'   emulator's memory at the cost of re-drawing (about the original sampling
+#'   time per full pass over the draws). Each episode then costs about 2.5 KB
+#'   instead of its draws, so it pays off once an episode's draws exceed that.
 #' @param sampling "marginal" (default) uses smoothed episode marginals
 #'   conditional on a shared covariance draw, following Eq. (9) and Algorithm 4.
 #'   "joint" uses backward conditionals to preserve dependence across episodes.
@@ -146,9 +153,13 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
     nsam = 10, AR_choice = 2, episode_window = 1, gp_tune = 0.5,
     gp_sigma2 = 1.1, gp_tau2 = 1e-4, covariance = c("iw", "sigma2R"),
     R_episode = NULL, R_field = NULL, seed = NULL, verbose = FALSE,
-    sampling = c("marginal", "joint")) {
+    sampling = c("marginal", "joint"), keep_draws = TRUE) {
   covariance <- match.arg(covariance)
   sampling <- match.arg(sampling)
+  if (!isTRUE(keep_draws) && !isFALSE(keep_draws))
+    stop("keep_draws must be TRUE or FALSE")
+  if (!keep_draws && sampling != "marginal")
+    stop("keep_draws = FALSE needs sampling = \"marginal\"")
   restore_seed <- .cal_seed(seed)
   on.exit(restore_seed(), add = TRUE)
   pde_para_train <- as.matrix(pde_para_train)
@@ -210,9 +221,9 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
     do.call(FFBS_sigma2R, c(args, list(R = R_episode)))
   res_ffbs <- if (covariance == "iw")
     FFBS_sampling(nsam, para_ffbs, F_ls_train, G, E, verbose = verbose,
-                  sampling = sampling) else
+                  sampling = sampling, keep_draws = keep_draws) else
     FFBS_sampling_sigma2R(nsam, para_ffbs, F_ls_train, G, E, R_episode,
-                          verbose = verbose, sampling = sampling)
+                          verbose = verbose, sampling = sampling, keep_draws = keep_draws)
   structure(list(para_ffbs = para_ffbs, res_ffbs = res_ffbs,
     setup = list(version = 1L, covariance = covariance, sampling_method = sampling,
       Nx = Nx, Ny = Ny,
@@ -279,8 +290,9 @@ emulator_predict <- function(emulator, input_new, dt_pde_test = NULL,
     input = s$pde_para_train, input_new = input_new, nT = s$nT,
     phi_para = s$phi_para, gp_sigma2 = s$gp_sigma2, gp_tau2 = s$gp_tau2)
   if (MC) {
-    episodic <- do.call(FFBS_predict_MC,
-      c(args, list(nsam = s$nsam, res_ffbs = emulator$res_ffbs)))
+    episodic <- if (inherits(emulator$res_ffbs, "spDBL_lazy_draws"))
+      do.call(.predict_mc_regenerated, c(list(emulator = emulator), args)) else
+      do.call(FFBS_predict_MC, c(args, list(nsam = s$nsam, res_ffbs = emulator$res_ffbs)))
     recover_from_EP_MC(episodic, nT_ori, s$nT, s$nsam)
   } else {
     episodic <- do.call(FFBS_predict_exact, c(args, list(para_ffbs = emulator$para_ffbs)))

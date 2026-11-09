@@ -13,7 +13,8 @@ FFBS_sampling(
   delta = 1,
   verbose = FALSE,
   sampling = c("marginal", "joint"),
-  seed = NULL
+  seed = NULL,
+  keep_draws = TRUE
 )
 }
 \arguments{
@@ -39,6 +40,13 @@ episode conditional on the same covariance draw. "joint" samples backward
 conditionals to obtain coherent trajectories.}
 
 \item{seed}{Optional local RNG seed; NULL follows the session RNG.}
+
+\item{keep_draws}{If TRUE (default), store every episode's coefficient
+draws. If FALSE (marginal sampling only), store the random-number state
+at the start of each episode's draws instead; spDBL's prediction and
+calibration functions then regenerate identical draws on demand, which
+cuts the memory of large emulators. Indexing the returned draws by episode
+(\code{[[e]]}) then fails.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through
