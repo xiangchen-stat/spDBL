@@ -286,6 +286,25 @@ test_that("conditional fits keep chain, iteration and state bookkeeping", {
   expect_error(calibration_predict(list()), "Supply a calibration_fit")
 })
 
+test_that("conditional fits run in parallel give the same result", {
+  skip_without_fake_rstan()
+  skip_on_os("windows")
+  f <- calibration_fit_fixture()
+  e <- f$emulator
+  local_fake_rstan()
+  fit_with <- function(parallel_draws) suppressMessages(calibration_fit(e, f$z,
+    f$U, chains = 3L, iter = 4L, warmup = 2L, draws_per_emulator = 2L,
+    refresh = 0L, compiled_model = "fake-model", seed = 7L, init = "random",
+    parallel_draws = parallel_draws))
+  serial <- fit_with(1L)
+  parallel <- fit_with(2L)
+  expect_identical(parallel$mcmc_eta, serial$mcmc_eta)
+  expect_identical(parallel$mcmc_tau2, serial$mcmc_tau2)
+  expect_identical(parallel$diagnostics, serial$diagnostics)
+  expect_identical(parallel$settings$parallel_draws, 2L)
+  expect_error(fit_with(0L), "Invalid calibration sampling settings")
+})
+
 test_that("chains start at the midpoint, at random, or at given values", {
   skip_without_fake_rstan()
   f <- calibration_fit_fixture()

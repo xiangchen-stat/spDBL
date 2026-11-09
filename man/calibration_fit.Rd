@@ -33,7 +33,8 @@ calibration_fit(
   cache_dir = NULL,
   compiled_model = NULL,
   init = "mode",
-  mode_starts = 20L
+  mode_starts = 20L,
+  parallel_draws = 1L
 )
 }
 \arguments{
@@ -111,6 +112,13 @@ n0 / d0.}
 
 \item{mode_starts}{Number of random starts of the mode search for
 \code{init = "mode"}.}
+
+\item{parallel_draws}{Number of conditional fits (one per emulator draw)
+run at the same time, in forked processes; each uses \code{cores} processes
+for its chains, so up to \code{parallel_draws * cores} run at once. Results do
+not depend on it: every fit draws its random numbers from its own seeds.
+Forking is unavailable on Windows, where fits run one after another.
+Defaults to one.}
 }
 \value{
 An ordinary serializable list of class spDBL_calibration containing

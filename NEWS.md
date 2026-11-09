@@ -93,6 +93,12 @@
   saved there with the same data, settings, seed and Stan program is reused
   instead of refitted, so an interrupted calibration continues where it
   stopped. Fits saved with other settings are refitted.
+* `calibration_fit(parallel_draws = )` runs that many conditional fits (one
+  per emulator draw) at the same time in forked processes (Linux and macOS),
+  so wall time falls roughly in proportion on machines with spare cores.
+  Results are identical to running the fits one after another: each fit
+  draws all its random numbers from its own seeds. Convergence warnings are
+  raised after all fits finish.
 * `calibration_fit(init = )` sets the chains' starting values: `"mode"` (the
   new default, see above), `"random"` (uniform within the bounds, reproducible
   from `seed`), `"midpoint"`, or a vector of parameter values.

@@ -83,6 +83,12 @@
 #' @param m0,M0 Initial discrepancy mean and covariance scale at observed sites.
 #' @param seed Nonnegative integer RNG seed, local to the function call.
 #' @param cores Positive number of parallel chains. Defaults to one.
+#' @param parallel_draws Number of conditional fits (one per emulator draw)
+#'   run at the same time, in forked processes; each uses `cores` processes
+#'   for its chains, so up to `parallel_draws * cores` run at once. Results do
+#'   not depend on it: every fit draws its random numbers from its own seeds.
+#'   Forking is unavailable on Windows, where fits run one after another.
+#'   Defaults to one.
 #' @param marginal_discrepancy Whether to integrate out discrepancy states.
 #' @param keep_predictions,keep_discrepancy Whether to recover and retain latent
 #'   fields, replicated observations, and discrepancy states.
@@ -148,7 +154,7 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
       list(adapt_engaged = FALSE, stepsize = 0.001, max_treedepth = 12L) else
       list(adapt_delta = 0.95, max_treedepth = 12L), refresh = 100L,
     checkpoint_dir = NULL, cache = TRUE, cache_dir = NULL, compiled_model = NULL,
-    init = "mode", mode_starts = 20L) {
+    init = "mode", mode_starts = 20L, parallel_draws = 1L) {
   if (missing(iter))
     stop("Set iter, the number of iterations per chain: for example ",
          "chains = 4, iter = 2000 for inference, or iter = 1 for a quick execution check")
@@ -157,9 +163,9 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
   on.exit(restore_seed(), add = TRUE)
   if (!inherits(object, "spDBL_calibration_input")) stop("Use calibration_prepare() first")
   if (!identical(backend, "rstan")) stop("Only the rstan backend is currently supported")
-  counts <- c(chains, iter, warmup, draws_per_emulator, cores)
-  if (any(!is.finite(counts)) || any(counts != as.integer(counts)) ||
-      min(chains, iter, draws_per_emulator, cores) < 1 || warmup < 0 || warmup >= iter ||
+  counts <- c(chains, iter, warmup, draws_per_emulator, cores, parallel_draws)
+  if (length(parallel_draws) != 1L || any(!is.finite(counts)) || any(counts != as.integer(counts)) ||
+      min(chains, iter, draws_per_emulator, cores, parallel_draws) < 1 || warmup < 0 || warmup >= iter ||
       draws_per_emulator > chains * (iter - warmup) || !length(draws) ||
       anyDuplicated(draws) || any(!draws %in% seq_len(object$M)))
     stop("Invalid calibration sampling settings")
@@ -183,12 +189,14 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
     m0 = m0, M0 = M0, control = control, compiled_model = compiled_model,
     marginal_discrepancy = marginal_discrepancy, refresh = refresh,
     checkpoint_dir = checkpoint_dir, keep_discrepancy = keep_discrepancy,
-    init = init_unit, mode_starts = as.integer(mode_starts))
+    init = init_unit, mode_starts = as.integer(mode_starts),
+    parallel_draws = as.integer(parallel_draws))
   colnames(result$mcmc_eta) <- object$parameter_names
   result$execution_only <- warmup == 0L || iter - warmup < 2L
   result$settings <- list(backend = backend, draws = draws, chains = chains,
     iter = iter, warmup = warmup, draws_per_emulator = draws_per_emulator,
     seed = seed, control = control, init = init, mode_starts = mode_starts,
+    parallel_draws = parallel_draws,
     emulator_sampling = .cal_sampling_method(object$posterior$sampling_method,
                                              object$posterior$joint_trajectories),
     spDBL_version = .spdbl_version())

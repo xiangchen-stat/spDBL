@@ -199,7 +199,8 @@ fit_calibration_rstan <- function(emulator, z, U,
     m0 = rep(0, length(locations)), M0 = diag(length(locations)),
     control = list(adapt_delta = 0.95, max_treedepth = 12), compiled_model = NULL,
     marginal_discrepancy = TRUE, refresh = 100, checkpoint_dir = NULL,
-    keep_discrepancy = TRUE, init = "midpoint", mode_starts = 20L) {
+    keep_discrepancy = TRUE, init = "midpoint", mode_starts = 20L,
+    parallel_draws = 1L) {
   if (!requireNamespace("rstan", quietly = TRUE)) stop("Install rstan first")
   if (warmup >= iter || chains < 1 || draws_per_emulator < 1 ||
       draws_per_emulator > chains * (iter - warmup) || !length(draws) ||
@@ -207,9 +208,10 @@ fit_calibration_rstan <- function(emulator, z, U,
   if (!is.null(checkpoint_dir)) dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
   model <- if (is.null(compiled_model))
     .cal_stan_model(marginal_discrepancy, cache = FALSE) else compiled_model
-  out <- vector("list", length(draws))
-  diagnostics <- vector("list", length(draws))
-  for (j in seq_along(draws)) {
+  # One conditional fit per emulator draw. Every random number a fit uses comes
+  # from seeds derived from seed and j, so fits are independent and can run
+  # in any order or at the same time.
+  fit_one <- function(j) {
     m <- draws[j]
     message("Calibration conditional on emulator draw ", m, " (", j, "/", length(draws), ")")
     data <- make_stan_calibration_data(emulator, m, z, U, locations, n0, d0,
@@ -238,9 +240,7 @@ fit_calibration_rstan <- function(emulator, z, U,
       saved <- tryCatch(readRDS(checkpoint), error = function(e) NULL)
       if (identical(saved$fingerprint, fingerprint)) {
         message("  reusing the saved fit ", basename(checkpoint))
-        out[[j]] <- saved$samples
-        diagnostics[[j]] <- saved$diagnostics
-        next
+        return(list(samples = saved$samples, diagnostics = saved$diagnostics))
       }
       message("  ", basename(checkpoint), " was saved with other data or settings; refitting")
     }
@@ -324,28 +324,47 @@ fit_calibration_rstan <- function(emulator, z, U,
         .cal_convergence(raw[, , rownames(summary), drop = FALSE]))
     }
     sampler <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
-    diagnostics[[j]] <- list(emulator_draw = m, summary = summary, mode_search = mode_search,
+    diagnostics_j <- list(emulator_draw = m, summary = summary, mode_search = mode_search,
       divergences = sum(vapply(sampler, function(x) sum(x[, "divergent__"]), numeric(1))),
       max_treedepth_hits = sum(vapply(sampler, function(x)
         sum(x[, "treedepth__"] >= if (is.null(control$max_treedepth)) 10 else control$max_treedepth), numeric(1))),
       max_rhat = .cal_extreme(summary[, "Rhat"], max),
       min_n_eff = .cal_extreme(summary[, "ess_bulk"], min),
       min_ess_tail = .cal_extreme(summary[, "ess_tail"], min))
-    if (diagnostics[[j]]$divergences > 0 ||
-        (!is.na(diagnostics[[j]]$max_rhat) && diagnostics[[j]]$max_rhat > 1.01))
-      warning("Emulator draw ", m, " needs additional convergence checks; inspect diagnostics")
-    out[[j]] <- list(eta = eta, tau2 = tau[, -1, drop = FALSE], tau2_0 = tau[, 1],
+    samples_j <- list(eta = eta, tau2 = tau[, -1, drop = FALSE], tau2_0 = tau[, 1],
       chain = rep(seq_len(dim(raw)[2]), each = dim(raw)[1])[selected],
       iteration = rep(seq_len(dim(raw)[1]), dim(raw)[2])[selected], emulator_draw = rep(m, length(selected)))
     if (!marginal_discrepancy) {
-      out[[j]]$u <- array(states[, -1, , drop = FALSE], c(length(selected), data$T, data$S))
-      out[[j]]$u0 <- matrix(states[, 1, ], length(selected), data$S)
+      samples_j$u <- array(states[, -1, , drop = FALSE], c(length(selected), data$T, data$S))
+      samples_j$u0 <- matrix(states[, 1, ], length(selected), data$S)
     }
-    if (!is.null(checkpoint)) saveRDS(list(samples = out[[j]],
-      diagnostics = diagnostics[[j]], marginal_discrepancy = marginal_discrepancy,
+    if (!is.null(checkpoint)) saveRDS(list(samples = samples_j,
+      diagnostics = diagnostics_j, marginal_discrepancy = marginal_discrepancy,
       chains = chains, iter = iter, warmup = warmup, init = init,
       fingerprint = fingerprint), checkpoint)
+    list(samples = samples_j, diagnostics = diagnostics_j)
   }
+  # parallel_draws > 1 runs that many fits at once in forked processes (not
+  # on Windows, where fits run one after another); each fit's chains use
+  # `cores` processes of their own.
+  fits <- if (parallel_draws > 1L && .Platform$OS.type != "windows" && length(draws) > 1L) {
+    parallel::mclapply(seq_along(draws), fit_one, mc.cores = parallel_draws,
+                       mc.preschedule = FALSE)
+  } else lapply(seq_along(draws), fit_one)
+  failed <- vapply(fits, function(f) inherits(f, "try-error") || is.null(f), logical(1))
+  if (any(failed)) {
+    reason <- fits[[which(failed)[1]]]
+    stop("Calibration failed for emulator draw ", draws[which(failed)[1]], ": ",
+         if (inherits(reason, "try-error")) conditionMessage(attr(reason, "condition")) else
+           "the worker process returned nothing (out of memory?)", call. = FALSE)
+  }
+  out <- lapply(fits, `[[`, "samples")
+  diagnostics <- lapply(fits, `[[`, "diagnostics")
+  # Warnings are raised here, so they also reach the caller from forked fits.
+  for (d in diagnostics)
+    if (isTRUE(d$divergences > 0) || (!is.na(d$max_rhat) && d$max_rhat > 1.01))
+      warning("Emulator draw ", d$emulator_draw,
+              " needs additional convergence checks; inspect diagnostics")
   bind_arrays <- function(name, dims) {
     # rbind flattened trajectories to keep the first dimension as posterior draws.
     flat <- do.call(rbind, lapply(out, function(o) matrix(o[[name]], nrow(o$eta))))
