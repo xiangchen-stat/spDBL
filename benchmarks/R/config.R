@@ -148,3 +148,14 @@ local({
                                      train_add = 40, stage1_draws = 10, stage1_chains = 2,
                                      stage1_iter = 1000, cores = 4)
 })
+
+# Timing reruns after the 1.2.0 speed-ups (batched simulator-free prediction,
+# keep_draws = FALSE): E1 with regenerated draws, and E2 design 1 with every
+# method, plus spDBL with regenerated draws, on the same node.
+local({
+  bench_profiles$e1$paper_lazy <<- utils::modifyList(bench_profiles$e1$paper,
+    list(label = "paper, keep_draws = FALSE", keep_draws = FALSE))
+  bench_profiles$e2$fixed_timing <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, design 1, timing after the 1.2.0 speed-ups",
+         methods = c(bench_profiles$e2$fixed$methods, "spdbl_s2r_designgp_lazy")))
+})

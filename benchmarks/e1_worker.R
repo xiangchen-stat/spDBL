@@ -23,7 +23,8 @@ bench_worker_main(function(task) {
 
   fit <- timed(emulator_learn(d$input_train, d$train, Nx = g, Ny = g,
     nsam = cfg$nsam, AR_choice = cfg$ar_choice, episode_window = w,
-    covariance = cfg$covariance, seed = task$seed))
+    covariance = cfg$covariance, seed = task$seed,
+    keep_draws = if (is.null(cfg$keep_draws)) TRUE else isTRUE(cfg$keep_draws)))
   heap_fit <- gc_peak_mb()
   rss_after_fit <- rss_now_mb()
   em <- fit$value

@@ -8,6 +8,7 @@
 #   spdbl_iw_known          spDBL IW emulator, held-out AR rows built from the
 #                           true held-out trajectories (conditional/oracle).
 #   spdbl_s2r_known         as above with covariance = "sigma2R".
+#   spdbl_s2r_designgp_lazy the same with emulator_learn(keep_draws = FALSE)
 #   spdbl_s2r_designgp      sigma2R emulator + calibration_prepare(); AR rows
 #                           predicted from eta by the offline design GP
 #                           (PDE-free, comparable to ppgasp). Package defaults.
@@ -33,7 +34,7 @@ source(file.path(getOption("spdbl_bench_dir"), "R", "spdbl_predictive.R"))
 # Runs x (S * T) matrix, column (t - 1) * S + s, from a time-indexed list.
 flatten_runs <- function(x) do.call(cbind, lapply(x, as.matrix))
 
-fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE) {
+fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE, keep_draws = TRUE) {
   suppressPackageStartupMessages(library(spDBL))
   X_train <- d$input_train
   X_test <- d$input_test
@@ -49,7 +50,7 @@ fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE) {
     em <- emulator_learn(X_train, d$train, Nx = d$grid, Ny = d$grid,
       nsam = cfg$nsam, AR_choice = cfg$ar_choice,
       episode_window = cfg$episode_window, covariance = covariance,
-      seed = task$seed)
+      seed = task$seed, keep_draws = keep_draws)
     if (design == "designgp") list(em = em, cal = calibration_prepare(em, lower, upper)) else
       list(em = em)
   })
@@ -232,6 +233,7 @@ bench_worker_main(function(task) {
     spdbl_s2r_known = fit_spdbl(d, cfg, task, "sigma2R", "known"),
     spdbl_s2r_designgp = fit_spdbl(d, cfg, task, "sigma2R", "designgp"),
     spdbl_s2r_designgp_unit = fit_spdbl(d, cfg, task, "sigma2R", "designgp", unit = TRUE),
+    spdbl_s2r_designgp_lazy = fit_spdbl(d, cfg, task, "sigma2R", "designgp", keep_draws = FALSE),
     ppgasp_default = fit_ppgasp(d, cfg, task, tuned = FALSE),
     ppgasp_tuned = fit_ppgasp(d, cfg, task, tuned = TRUE),
     mlegp_pca = fit_mlegp(d, cfg, task),

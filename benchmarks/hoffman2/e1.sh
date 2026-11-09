@@ -17,4 +17,13 @@
 #SBATCH --output=spdbl-%x.%j.log
 set -eo pipefail
 . benchmarks/hoffman2/env.sh
-Rscript benchmarks/e1_scaling.R --profile=paper --resume
+# Install this checkout from a clean copy in job-local storage, so the run
+# times exactly the checked-out package. SPDBL_E1_PROFILE selects the profile
+# (default paper; paper_lazy uses emulator_learn(keep_draws = FALSE)).
+WORK_TMP=$(mktemp -d "${TMPDIR:-/tmp}/spdbl-e1.XXXXXX")
+trap 'rm -rf "$WORK_TMP"' EXIT
+mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
+git archive HEAD | tar -x -C "$WORK_TMP/src"
+R CMD INSTALL --no-test-load --library="$WORK_TMP/lib" "$WORK_TMP/src"
+export SPDBL_BENCH_LIB=$WORK_TMP/lib
+Rscript benchmarks/e1_scaling.R --profile=${SPDBL_E1_PROFILE:-paper} --resume

@@ -32,5 +32,5 @@ git archive HEAD | tar -x -C "$WORK_TMP/src"
 LIB=$WORK_TMP/lib
 R CMD INSTALL --no-test-load --library="$LIB" "$WORK_TMP/src"
 export SPDBL_BENCH_LIB=$LIB
-Rscript benchmarks/e2_accuracy.R --profile=fixed --resume --jobs=${SPDBL_E2_JOBS:-1} \
+Rscript benchmarks/e2_accuracy.R --profile=${SPDBL_E2_PROFILE:-fixed} --resume --jobs=${SPDBL_E2_JOBS:-1} \
   ${SPDBL_E2_REPS:+--reps=$SPDBL_E2_REPS}
