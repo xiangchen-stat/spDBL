@@ -117,6 +117,7 @@ bench_profiles <- list(
 #              rather than per-episode marginals
 #   abl_nodu   design-GP uncertainty not propagated (design_uncertainty = FALSE)
 #   abl_m60    60 emulator draws instead of 20 (4 cores per task)
+#   abl_n40, abl_n80, abl_n160, abl_two  training runs (see below)
 #   abl_self   field data with y drawn from the emulator's own model at the
 #              true parameters (one random emulator draw, Gaussian across
 #              sites with the design-GP term, independent across times), the
@@ -132,4 +133,18 @@ local({
   bench_profiles$e3$abl_m60 <<- abl("ablation: 60 emulator draws", n_draws = 60, cores = 4)
   bench_profiles$e3$abl_self <<- abl("ablation: field data from the emulator's model",
                                       field_source = "emulator")
+  # Training-size ablations: new Latin-hypercube designs over the whole box
+  # (the same design for every replicate), and a two-stage design that adds
+  # 40 runs where a short first-stage calibration puts the posterior
+  # (widened threefold), chosen by greedy maximin.
+  lhs_seed <- base$seed + 3000L
+  bench_profiles$e3$abl_n40 <<- abl("ablation: 40 new Latin-hypercube training runs",
+                                     train_n = 40, train_seed = lhs_seed)
+  bench_profiles$e3$abl_n80 <<- abl("ablation: 80 Latin-hypercube training runs",
+                                     train_n = 80, train_seed = lhs_seed, cores = 4)
+  bench_profiles$e3$abl_n160 <<- abl("ablation: 160 Latin-hypercube training runs",
+                                      train_n = 160, train_seed = lhs_seed, cores = 4)
+  bench_profiles$e3$abl_two <<- abl("ablation: two-stage design, 40 bundled + 40 targeted runs",
+                                     train_add = 40, stage1_draws = 10, stage1_chains = 2,
+                                     stage1_iter = 1000, cores = 4)
 })

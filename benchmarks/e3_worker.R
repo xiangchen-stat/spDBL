@@ -16,6 +16,7 @@ local({
   options(spdbl_bench_dir = dirname(normalizePath(sub("^--file=", "", file_arg[1]))))
 })
 source(file.path(getOption("spdbl_bench_dir"), "R", "common.R"))
+source(file.path(getOption("spdbl_bench_dir"), "R", "sir_data.R"))
 
 # Rank-normalised split R-hat and bulk/tail ESS (rstan implementations, as in
 # Vehtari et al. 2021), applied identically to both packages' draws.
@@ -53,10 +54,68 @@ self_consistent_field <- function(rep, cal, seed) {
   rep$z - rep$y + y
 }
 
+# Training runs for the training-size ablations: the bundled 40 runs by
+# default; cfg$train_n new Latin-hypercube runs over the whole box
+# (abl_n*); or, with cfg$train_add, the bundled runs plus that many runs
+# placed in a widened first-stage posterior (abl_two).
+simulate_runs <- function(X, d, n_people) {
+  runs <- lapply(seq_len(nrow(X)), function(i)
+    spDBL::gen_pde(X[i, ], d$Nx, d$Ny, n_people, length(d$time)))
+  lapply(seq_along(d$time), function(t)
+    do.call(rbind, lapply(runs, function(y) y[t, , drop = FALSE])))
+}
+
+spdbl_training <- function(d, rep, cfg, task) {
+  if (!is.null(cfg$train_n)) {
+    X <- sir_lhs(as.integer(cfg$train_n), d$lower, d$upper, cfg$train_seed)
+    return(list(input = X, responses = simulate_runs(X, d, cfg$box$n_people)))
+  }
+  if (is.null(cfg$train_add)) return(c(d$training, list(stage1 = NULL)))
+  # Stage 1: a short calibration on the bundled runs.
+  active <- which(d$upper > d$lower)
+  range <- (d$upper - d$lower)[active]
+  t1 <- proc.time()
+  em1 <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+    covariance = "sigma2R", episode_window = cfg$episode_window,
+    nsam = cfg$stage1_draws, seed = cfg$seed)
+  cal1 <- calibration_prepare(em1, d$lower, d$upper)
+  fit1 <- calibration_fit(cal1, rep$z, d$U, chains = cfg$stage1_chains,
+    iter = cfg$stage1_iter, warmup = cfg$stage1_iter %/% 2L, n0 = d$prior$n0,
+    d0 = d$prior$d0, seed = task$seed + 9000L, cores = cfg$cores, refresh = 0L,
+    init = cfg$init, keep_discrepancy = FALSE, cache_dir = cfg$stan_cache)
+  stage1_cpu <- sum((proc.time() - t1)[c("user.self", "sys.self", "user.child", "sys.child")], na.rm = TRUE)
+  # Candidates from the stage-1 posterior with its spread tripled, inside the
+  # box; then greedy maximin on the unit scale, away from the bundled runs.
+  draws <- sweep(sweep(fit1$mcmc_eta[, active, drop = FALSE], 2, d$lower[active]), 2, range, "/")
+  centre <- colMeans(draws)
+  L <- t(chol(stats::cov(draws) + diag(1e-10, length(active))))
+  set.seed(task$seed + 700000L)
+  cand <- t(centre + 3 * L %*% matrix(stats::rnorm(length(active) * 20000L), length(active)))
+  cand <- cand[apply(cand >= 0 & cand <= 1, 1, all), , drop = FALSE]
+  if (nrow(cand) < 4L * cfg$train_add) stop("Too few stage-2 candidates inside the box")
+  old <- sweep(sweep(d$training$input[, active, drop = FALSE], 2, d$lower[active]), 2, range, "/")
+  dmin <- apply(cand, 1, function(x) min(colSums((t(old) - x)^2)))
+  chosen <- integer()
+  for (k in seq_len(cfg$train_add)) {
+    j <- which.max(dmin); chosen <- c(chosen, j)
+    dmin <- pmin(dmin, colSums((t(cand) - cand[j, ])^2))
+  }
+  X <- matrix(rep(d$lower, each = cfg$train_add), cfg$train_add, length(d$lower),
+              dimnames = list(NULL, names(d$lower)))
+  X[, active] <- sweep(sweep(cand[chosen, , drop = FALSE], 2, range, "*"), 2, d$lower[active], "+")
+  added <- simulate_runs(X, d, cfg$box$n_people)
+  list(input = rbind(d$training$input, X),
+       responses = Map(rbind, d$training$responses, added),
+       stage1 = list(cpu_s = stage1_cpu, mean = d$lower[active] + centre * range,
+                     sd = apply(fit1$mcmc_eta[, active, drop = FALSE], 2, stats::sd)))
+}
+
 run_spdbl <- function(d, rep, cfg, task) {
   suppressPackageStartupMessages(library(spDBL))
   active <- which(d$upper > d$lower)
-  em <- timed(emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+  tr <- timed(spdbl_training(d, rep, cfg, task))
+  training <- tr$value
+  em <- timed(emulator_learn(training$input, training$responses, d$Nx, d$Ny,
     covariance = "sigma2R", episode_window = cfg$episode_window,
     nsam = cfg$n_draws, seed = cfg$seed))
   prep <- timed(calibration_prepare(em$value, d$lower, d$upper,
@@ -100,6 +159,9 @@ run_spdbl <- function(d, rep, cfg, task) {
   out$mode_near_best_min <- if (all(is.na(near))) NA_real_ else min(near, na.rm = TRUE)
   out$pkg_min_neff_all <- min(pkg_diag$neff)
   out$emulator_s <- em$elapsed + prep$elapsed
+  out$n_train <- nrow(training$input)
+  out$training_s <- tr$elapsed
+  out$stage1_cpu_s <- if (is.null(training$stage1)) NA_real_ else training$stage1$cpu_s
   out$sampling_s <- fit$elapsed
   out$sampling_cpu_s <- fit$cpu
   out$wall_total_s <- em$elapsed + prep$elapsed + fit$elapsed
