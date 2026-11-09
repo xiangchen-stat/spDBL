@@ -88,12 +88,41 @@
 .predictive_design_gp <- function(cal, input_new, level) {
   n <- nrow(input_new)
   M <- cal$M
-  first <- second <- array(0, c(n, cal$S, cal$T))
-  # Draw-outer order reuses each draw's cached residual weights.
-  for (m in seq_len(M)) for (i in seq_len(n)) {
-    p <- predict_calibration(input_new[i, ], m, cal, covariance = "marginal")
-    first[i, , ] <- first[i, , ] + t(p$mu) / M
-    second[i, , ] <- second[i, , ] + t(p$variance + p$mu^2) / M
+  S <- cal$S
+  T <- cal$T
+  # Work that depends only on the new inputs, done once: the design GP's rows
+  # and variance factors, and the input GP's cross-covariance J and
+  # conditional variance (as in FFBS_predict_exact() and predict_calibration()).
+  designs <- lapply(seq_len(n), function(i) predict_offline_ar2(cal$predictor, input_new[i, ]))
+  F_new <- lapply(seq_len(cal$E), function(e)
+    do.call(rbind, lapply(designs, function(z) z$F[[e]])))
+  time_factor <- matrix(vapply(designs, function(z) .cal_time_factor(z, cal), numeric(T)),
+                        n, T, byrow = TRUE)
+  input <- as.matrix(cal$input)
+  N <- nrow(input)
+  distances <- as.matrix(stats::dist(rbind(input, input_new)))
+  J <- cal$gp_sigma2 * exp(-cal$phi_para * distances[seq_len(N), N + seq_len(n), drop = FALSE])
+  conditional <- cal$gp_sigma2 + cal$gp_tau2 - colSums(forwardsolve(t(cal$V_chol), J)^2)
+  if (any(conditional <= 0)) stop("Nonpositive emulator conditional variance")
+  R_diag <- .cal_R_field_diag(cal, seq_len(S))
+  first <- second <- array(0, c(n, S, T))
+  mu <- matrix(0, n, S)
+  for (m in seq_len(M)) {
+    # Work that depends only on the draw, done once per draw.
+    weights <- .cal_residual_weights(cal, m)
+    factors <- .cal_design_factors(cal, m)
+    base_variance <- outer(cal$posterior$sigma2[m] * conditional, R_diag)
+    for (t in seq_len(T)) {
+      for (b in seq_len(cal$B)) {
+        e <- (t - 1L) * cal$B + b
+        theta <- matrix(cal$posterior$theta[[e]][, , m], cal$p, cal$C)
+        mu[, cal$block_cols[b, ]] <- F_new[[e]] %*% theta + crossprod(J, weights[[e]])
+      }
+      variance <- if (length(factors))
+        base_variance + outer(time_factor[, t], colSums(factors[[t]]^2)) else base_variance
+      first[, , t] <- first[, , t] + mu / M
+      second[, , t] <- second[, , t] + (variance + mu^2) / M
+    }
   }
   sd <- sqrt(pmax(second - first^2, 0))
   half <- stats::qnorm((1 + level) / 2) * sd

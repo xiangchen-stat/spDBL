@@ -592,10 +592,15 @@ recover_from_EP_exact <- function(dat_EP, nT_ori, nT, block_cols = NULL){
 
   # cbind n_block of EP blocks to recover season
   for (i in seq_len(nT_ori)) {
-    out[[i]] <- as.matrix(as.data.frame(dat_EP[(1+(i-1)*n_block):(i*n_block)]))
-    if (!is.null(block_cols)) {
-      field <- matrix(NA_real_, nrow(out[[i]]), length(block_cols))
-      field[, as.vector(t(block_cols))] <- out[[i]]
+    blocks <- dat_EP[(1+(i-1)*n_block):(i*n_block)]
+    if (is.null(block_cols)) {
+      out[[i]] <- as.matrix(as.data.frame(blocks))
+    } else {
+      # Bind the blocks directly; going through a data frame was most of the
+      # cost of simulator-free prediction.
+      bound <- do.call(cbind, lapply(blocks, as.matrix))
+      field <- matrix(NA_real_, nrow(bound), length(block_cols))
+      field[, as.vector(t(block_cols))] <- bound
       out[[i]] <- field
     }
   }

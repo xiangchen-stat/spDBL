@@ -145,6 +145,14 @@
   are no longer used; their inverse-gamma draws, traces, log determinants and
   positive-definiteness check are computed in base R with the same
   definitions, so results are unchanged.
+* Simulator-free prediction intervals (`predict(cal, newdata, interval =
+  "prediction")`) are about 40 times faster: the design-GP rows and input-GP
+  terms are computed once per new input and the coefficient terms once per
+  emulator draw, instead of once per input and draw. On a 20 x 20 grid with
+  20 emulator draws, 50 new inputs take 1.9 s instead of 74 s. Results are
+  unchanged (to 1e-14). `recover_from_EP_exact()` with `block_cols` binds
+  episode blocks directly instead of through a data frame, which also speeds
+  up `predict_calibration()` and `calibration_validate()`.
 * `emulator_predict()` on a prepared calibration object and
   `calibration_validate()` loop over coefficient draws first, which reuses
   each draw's cached residual weights. Results are identical.
