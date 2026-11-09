@@ -30,7 +30,7 @@ ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e4e3df"
 
 dir.create("figures", showWarnings = FALSE)
 out <- file.path("figures", "benchmarks.pdf")
-cairo_pdf(out, width = 6.0, height = 1.78, family = "Helvetica", pointsize = 9)
+cairo_pdf(out, width = 6.0, height = 1.68, family = "Helvetica", pointsize = 9)
 par(mfrow = c(1, 4), mar = c(2.5, 2.7, 1.5, 0.5), mgp = c(1.45, 0.35, 0),
     tcl = -0.2, las = 1, cex.axis = 0.8, cex.lab = 0.85, col.axis = ink2,
     col.lab = ink, fg = ink2, bty = "n", lwd = 0.8)

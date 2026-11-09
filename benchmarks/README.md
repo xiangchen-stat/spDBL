@@ -108,6 +108,9 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 | `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
 | `results/e3_ablation/emulator_error/` | `mode` | the emulator's error at the true parameters (`e3_emulator_error.R`, no MCMC) |
 | `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A5 |
+| `results/e3/abl_n40/`, `abl_n80/`, `abl_n160/`, `abl_two/` | `abl_*` | E3 with other training designs, Table A5 |
+| `results/e1/paper_lazy/` | `paper_lazy` | E1 with `keep_draws = FALSE`, Table A1 |
+| `results/e2/fixed_timing/` | `fixed_timing` | E2 design 1 retimed with the 1.2.0 code: times and memory of Table A2 |
 
 Superseded runs, kept for the record and cited in the manuscript's appendix
 where they bear on a result:

@@ -15,9 +15,12 @@ script_dir <- local({
 res <- if (length(args)) args[1] else file.path(script_dir, "..", "results")
 rd <- function(...) { x <- utils::read.csv(file.path(res, ...)); if ("status" %in% names(x)) x[x$status == "OK", ] else x }
 e1 <- rd("e1", "paper", "e1_results.csv")
+e1_lazy <- rd("e1", "paper_lazy", "e1_results.csv")
 e2 <- rd("e2", "fixed", "e2_results.csv")
 e2_summary <- rd("e2", "fixed", "e2_summary.csv")
 e2_paired <- rd("e2", "fixed", "e2_paired.csv")
+# Times and memory: design 1 rerun after the 1.2.0 speed-ups (same accuracy).
+e2_timing <- rd("e2", "fixed_timing", "e2_results.csv")
 e3 <- rd("e3", "mode", "e3_results.csv")
 gib <- function(mb) mb / 1024
 # round() then + 0 so that tiny negatives print as 0, not -0; negatives get a
@@ -39,28 +42,35 @@ add("\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{4pt
 for (S in sort(unique(e1$S))) {
   cells <- unlist(lapply(c(1, 2, 5), function(w) {
     r <- e1[e1$S == S & e1$episode_window == w, ]
-    c(sig(r$fit_s), sig(r$predict_s), f(gib(r$peak_rss_mb), 1))
+    l <- e1_lazy[e1_lazy$S == S & e1_lazy$episode_window == w, ]
+    c(sig(r$fit_s), sig(r$predict_s),
+      sprintf("%s/%s", f(gib(r$peak_rss_mb), 1), f(gib(l$peak_rss_mb), 1)))
   }))
   add(sprintf("$%d^2$ & %s & %s \\\\", sqrt(S), format(S, big.mark = ","), paste(cells, collapse = " & ")))
 }
 add("\\bottomrule", "\\end{tabular}",
     "\\caption{E1: inverse-Wishart emulator with 10 posterior draws, 40 training runs and 26 time",
     "steps; fit and prediction (10 held-out runs) time in seconds and peak memory of the",
-    "whole task in GiB, one task per node.}", "\\label{tab:e1}", "\\end{table}", "")
+    "whole task in GiB, one task per node, with stored coefficient draws and, after the slash,",
+    "with draws regenerated on demand (\\code{emulator\\_learn(keep\\_draws = FALSE)}; same",
+    "accuracy). Times are with stored draws.}", "\\label{tab:e1}", "\\end{table}", "")
 
 # Table A2: E2 (fixed domain) accuracy over 10 designs, cost from design 1
 lab2 <- c(spdbl_s2r_designgp = "\\pkg{spDBL}, design GP", designgp_only = "design GP alone$^{a}$",
   spdbl_s2r_known = "\\pkg{spDBL}, known AR rows$^{b}$", ppgasp_default = "\\code{ppgasp}, default",
   ppgasp_tuned = "\\code{ppgasp}, tuned", ppgasp_per_time = "\\code{ppgasp} per time step",
-  mlegp_pca = "PCA-GP (\\pkg{mlegp})")
+  mlegp_pca = "PCA-GP (\\pkg{mlegp})",
+  spdbl_s2r_designgp_lazy = "\\pkg{spDBL}, design GP$^{c}$")
 add("\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{4pt}",
     "\\begin{tabular}{@{}llrrrrrrr@{}}", "\\toprule",
     "Grid & Method & RMSE & CRPS & Cov. & Width & Fit (s) & Predict (s) & Peak (GiB) \\\\", "\\midrule")
 for (g in sort(unique(e2$grid))) {
   first <- TRUE
   for (m in names(lab2)) {
-    sm <- e2_summary[e2_summary$grid == g & e2_summary$method == m, ]
-    t1 <- e2[e2$grid == g & e2$method == m & e2$design == 1, ]
+    # Regenerated draws give the same predictions: accuracy of stored draws.
+    sm <- e2_summary[e2_summary$grid == g & e2_summary$method ==
+                     sub("_lazy$", "", m), ]
+    t1 <- e2_timing[e2_timing$grid == g & e2_timing$method == m, ]
     if (!nrow(sm)) next
     add(sprintf("%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\", if (first) sprintf("$%d^2$", g) else "",
       lab2[[m]], f(sm$rmse, 3), f(sm$crps, 3), f(sm$coverage95, 3), f(sm$width95, 2),
@@ -73,11 +83,12 @@ add("\\bottomrule", "\\end{tabular}",
     "\\caption{E2 on the fixed $10\\times 10$ domain: held-out prediction on 50 runs at times",
     "\\mbox{$t \\ge 3$}, means over 10 independent training/test designs; Cov.\\ and Width are the coverage",
     "and mean width of central 95\\% intervals (\\pkg{spDBL}'s from \\code{predict(..., interval",
-    "= \"prediction\")}). Fit and prediction time and peak memory are from design 1, one task per",
-    "node; \\code{ppgasp} per time step fits one \\code{ppgasp} per time, and its fit time includes",
+    "= \"prediction\")}). Fit and prediction time and peak memory are from design 1, rerun with",
+    "spDBL 1.2.0's batched prediction, one task per node; \\code{ppgasp} per time step fits one \\code{ppgasp} per time, and its fit time includes",
     "prediction. $^{a}$Times $3 \\le t \\le 25$; it has no prediction for the last time. $^{b}$Uses the",
     "simulator's outputs at the test inputs to build the autoregressive rows (one-step prediction), so",
-    "it is not simulator-free.}",
+    "it is not simulator-free. $^{c}$With coefficient draws regenerated on demand",
+    "(\\code{emulator\\_learn(keep\\_draws = FALSE)}); its predictions are identical.}",
     "\\label{tab:e2}", "\\end{table}", "")
 
 # Table A3: E2 paired differences from spDBL over the 10 designs, common times
@@ -159,7 +170,9 @@ add("\\bottomrule", "\\end{tabular}",
 # Table A5: E3 ablations on replicates 1-10, against the mode run on the same
 # replicates, with paired replicate-bootstrap 95% intervals of the differences.
 abl <- c(abl_joint = "Joint paths", abl_m60 = "60 draws",
-         abl_nodu = "No design uncertainty", abl_self = "Data from emulator model")
+         abl_nodu = "No design uncertainty", abl_self = "Data from emulator model",
+         abl_n40 = "New 40-run design", abl_n80 = "80 training runs",
+         abl_n160 = "160 training runs", abl_two = "40 + 40 targeted runs")
 abl <- abl[file.exists(file.path(res, "e3", names(abl), "e3_results.csv"))]
 if (length(abl)) {
   ab_reps <- 1:10
@@ -188,7 +201,7 @@ if (length(abl)) {
       f(t1[["width"]], 3), f(t1[["rmse"]], 3), ci("rmse", 3), sum(pa["rh", ] > 1.01)))
   }
   add("\\bottomrule", "\\end{tabular}",
-      "\\caption{E3 ablations: \\pkg{spDBL} on replicates 1--10 with one change each from the setting of Table~\\ref{tab:e3}, against that run on the same replicates and seeds, with paired replicate-bootstrap 95\\% intervals of the differences. Joint paths: \\code{calibration\\_prepare(sampling = \"joint\")}. 60 draws: 60 emulator draws instead of 20. No design uncertainty: \\code{design\\_uncertainty = FALSE}. Data from emulator model: the simulator output in each replicate's field data replaced by a draw from the emulator's own predictive model at the true parameters (one random emulator draw; the same discrepancy and noise), so that \\pkg{spDBL} is exactly specified.}",
+      "\\caption{E3 ablations: \\pkg{spDBL} on replicates 1--10 with one change each from the setting of Table~\\ref{tab:e3}, against that run on the same replicates and seeds, with paired replicate-bootstrap 95\\% intervals of the differences. Joint paths: \\code{calibration\\_prepare(sampling = \"joint\")}. 60 draws: 60 emulator draws instead of 20. No design uncertainty: \\code{design\\_uncertainty = FALSE}. New 40-run design, 80 and 160 training runs: new Latin-hypercube designs over the prior box instead of the 40 bundled runs. 40 + 40 targeted runs: the bundled runs plus 40 placed by greedy maximin where a short first-stage calibration puts the posterior, its spread tripled. Data from emulator model: the simulator output in each replicate's field data replaced by a draw from the emulator's own predictive model at the true parameters (one random emulator draw; the same discrepancy and noise), so that \\pkg{spDBL} is exactly specified.}",
       "\\label{tab:ablation-e3}", "\\end{table}")
 }
 dir.create("tables", showWarnings = FALSE)

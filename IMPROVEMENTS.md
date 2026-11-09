@@ -135,7 +135,9 @@ manuscript. The manuscript uses `results/e1/paper`, `results/e2/fixed`,
 
 * **Emulator scaling (E1).** Training is closed form. With 10⁴ sites, fitting
   the inverse-Wishart emulator with 10 posterior draws takes 1.4 minutes and
-  13 GiB with episode window 1, and 15.5 minutes and 62 GiB with window 5.
+  13 GiB with episode window 1, and 15.5 minutes and 62 GiB with window 5;
+  with `emulator_learn(keep_draws = FALSE)` peak memory falls to 9 and 33 GiB
+  with identical results.
 * **Emulator accuracy (E2).** On a fixed 10 × 10 domain at three resolutions
   (10², 20², 50²), with 10 designs of 40 training and 50 held-out runs per
   grid, predictions at untried inputs made without simulator runs were
@@ -150,8 +152,9 @@ manuscript. The manuscript uses `results/e1/paper`, `results/e2/fixed`,
     per-time-step Matérn design GP: used alone it covers 94.6–94.9%,
     while `ppgasp` fitted per time step covers 85.5–87.6%. The dynamic model
     lowers the design GP's RMSE by 1–1.5%.
-  * Prediction is slower and uses more memory than the competitors': 43 s to
-    15 minutes for 50 runs, and 5.7 GiB against 0.6 GiB at 50².
+  * Prediction takes 1 to 16 s for 50 runs (43 s to 15 minutes before the
+    batched prediction of 1.2.0), against under a second for the competitors,
+    and 5.3 GiB (2.4 GiB with regenerated draws) against 0.6-0.7 GiB at 50².
 * **Calibration (E3).** In 30 replicate calibrations against
   RobustCalibration (S-GaSP and GaSP discrepancies), every method's chains
   started at its own optimum:
@@ -163,6 +166,9 @@ manuscript. The manuscript uses `results/e1/paper`, `results/e2/fixed`,
     60% and 67%). Ablations on 10 replicates trace this to the emulator's
     systematic error, not the inference: with field data drawn from the
     emulator's own model, spDBL's intervals covered 93%, while joint
-    coefficient paths and 60 emulator draws changed nothing;
+    coefficient paths and 60 emulator draws changed nothing. More training
+    runs remove it: new designs of 40, 80 and 160 runs covered 77%, 83% and
+    93%, and the bundled 40 runs plus 40 placed near a first-stage posterior
+    covered 100%;
   * no simulator runs were needed, whereas the research code solves the PDE
     at every proposal.
