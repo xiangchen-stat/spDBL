@@ -208,6 +208,14 @@ fit_calibration_rstan <- function(emulator, z, U,
   if (!is.null(checkpoint_dir)) dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
   model <- if (is.null(compiled_model))
     .cal_stan_model(marginal_discrepancy, cache = FALSE) else compiled_model
+  # Fits run at the same time (forked) run their chains one after another:
+  # rstan's parallel chains inside a forked process can deadlock. rstan's
+  # draws do not depend on the number of cores, so results are unchanged.
+  forked <- parallel_draws > 1L && .Platform$OS.type != "windows" && length(draws) > 1L
+  chain_cores <- if (forked) 1L else cores
+  if (forked && cores > 1L)
+    message("parallel_draws > 1: each conditional fit runs its chains in sequence ",
+            "(cores = ", cores, " is not used); ", parallel_draws, " fits run at once")
   # One conditional fit per emulator draw. Every random number a fit uses comes
   # from seeds derived from seed and j, so fits are independent and can run
   # in any order or at the same time.
@@ -292,7 +300,7 @@ fit_calibration_rstan <- function(emulator, z, U,
       }
     })
     fit <- rstan::sampling(model, data = data, init = start, chains = chains,
-      iter = iter, warmup = warmup, seed = seed + j, cores = cores, refresh = refresh,
+      iter = iter, warmup = warmup, seed = seed + j, cores = chain_cores, refresh = refresh,
       pars = c("eta", "tau2", if (!marginal_discrepancy) "u"), control = control)
     raw <- rstan::extract(fit, permuted = FALSE, inc_warmup = FALSE)
     if (length(dim(raw)) != 3L || !length(raw))
@@ -347,7 +355,7 @@ fit_calibration_rstan <- function(emulator, z, U,
   # parallel_draws > 1 runs that many fits at once in forked processes (not
   # on Windows, where fits run one after another); each fit's chains use
   # `cores` processes of their own.
-  fits <- if (parallel_draws > 1L && .Platform$OS.type != "windows" && length(draws) > 1L) {
+  fits <- if (forked) {
     parallel::mclapply(seq_along(draws), fit_one, mc.cores = parallel_draws,
                        mc.preschedule = FALSE)
   } else lapply(seq_along(draws), fit_one)

@@ -84,11 +84,13 @@
 #' @param seed Nonnegative integer RNG seed, local to the function call.
 #' @param cores Positive number of parallel chains. Defaults to one.
 #' @param parallel_draws Number of conditional fits (one per emulator draw)
-#'   run at the same time, in forked processes; each uses `cores` processes
-#'   for its chains, so up to `parallel_draws * cores` run at once. Results do
-#'   not depend on it: every fit draws its random numbers from its own seeds.
-#'   Forking is unavailable on Windows, where fits run one after another.
-#'   Defaults to one.
+#'   run at the same time, in forked processes. Each forked fit runs its
+#'   chains one after another (rstan's parallel chains can deadlock inside a
+#'   forked process), so `cores` is then not used and `parallel_draws`
+#'   processes run at once. Results do not depend on it: every fit draws its
+#'   random numbers from its own seeds, and rstan's draws do not depend on the
+#'   number of cores. Forking is unavailable on Windows, where fits run one
+#'   after another. Defaults to one.
 #' @param marginal_discrepancy Whether to integrate out discrepancy states.
 #' @param keep_predictions,keep_discrepancy Whether to recover and retain latent
 #'   fields, replicated observations, and discrepancy states.
@@ -197,6 +199,8 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
     iter = iter, warmup = warmup, draws_per_emulator = draws_per_emulator,
     seed = seed, control = control, init = init, mode_starts = mode_starts,
     parallel_draws = parallel_draws,
+    chain_cores = if (parallel_draws > 1L && .Platform$OS.type != "windows" &&
+                      length(draws) > 1L) 1L else as.integer(cores),
     emulator_sampling = .cal_sampling_method(object$posterior$sampling_method,
                                              object$posterior$joint_trajectories),
     spDBL_version = .spdbl_version())

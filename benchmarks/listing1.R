@@ -12,6 +12,6 @@ em  <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
 cal <- calibration_prepare(em, d$lower, d$upper)        # design GP
 calibration_validate(cal, d$validation$input, d$validation$responses)$field
 fit <- calibration_fit(cal, d$field$z, d$field$U, chains = 4, iter = 2000,
-  cores = 4, parallel_draws = 5, seed = 1)              # NUTS, 20 cores
+  parallel_draws = 20, seed = 1)                        # NUTS, 20 cores
 summary(fit)                                            # eta, R-hat, ESS
 fields <- calibration_predict(fit)                      # y, u and z draws

@@ -295,9 +295,12 @@ test_that("conditional fits run in parallel give the same result", {
   fit_with <- function(parallel_draws) suppressMessages(calibration_fit(e, f$z,
     f$U, chains = 3L, iter = 4L, warmup = 2L, draws_per_emulator = 2L,
     refresh = 0L, compiled_model = "fake-model", seed = 7L, init = "random",
-    parallel_draws = parallel_draws))
+    cores = 2L, parallel_draws = parallel_draws))
   serial <- fit_with(1L)
   parallel <- fit_with(2L)
+  # Forked fits run their chains in sequence; rstan's draws do not depend on it.
+  expect_identical(serial$settings$chain_cores, 2L)
+  expect_identical(parallel$settings$chain_cores, 1L)
   expect_identical(parallel$mcmc_eta, serial$mcmc_eta)
   expect_identical(parallel$mcmc_tau2, serial$mcmc_tau2)
   expect_identical(parallel$diagnostics, serial$diagnostics)
