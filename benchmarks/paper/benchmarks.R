@@ -18,6 +18,10 @@ read <- function(e, f) {
   x[x$status == "OK", ]
 }
 e1 <- read("e1", "e1_results.csv")
+# Coefficient draws regenerated on demand (emulator_learn(keep_draws = FALSE)):
+# faster fits and less memory, identical results.
+e1_lazy <- utils::read.csv(file.path(res, "e1", "paper_lazy", "e1_results.csv"))
+e1_lazy <- e1_lazy[e1_lazy$status == "OK", ]
 e2 <- utils::read.csv(file.path(res, "e2", "fixed", "e2_per_design.csv"))
 e2$S <- e2$grid^2
 e3 <- utils::read.csv(file.path(res, "e3", "mode", "e3_results.csv")); e3 <- e3[e3$status == "OK", ]
@@ -45,7 +49,9 @@ yt <- 10^(-1:3); hgrid(yt)
 axis(1, at = c(1e2, 1e3, 1e4), labels = c("10\u00b2", "10\u00b3", "10\u2074"))
 axis(2, at = yt, labels = c("0.1", "1", "10", "100", "1000"))
 for (w in names(win_col)) {
-  d <- e1[e1$episode_window == as.numeric(w), ]; d <- d[order(d$S), ]
+  stored <- e1[e1$episode_window == as.numeric(w), ]; stored <- stored[order(stored$S), ]
+  lines(stored$S, stored$fit_s, col = adjustcolor(win_col[w], 0.45), lwd = 1, lty = 2)
+  d <- e1_lazy[e1_lazy$episode_window == as.numeric(w), ]; d <- d[order(d$S), ]
   lines(d$S, d$fit_s, col = win_col[w], lwd = 1.6)
   points(d$S, d$fit_s, col = win_col[w], pch = c("1" = 16, "2" = 17, "5" = 15)[w], cex = 0.75)
   last <- d[nrow(d), ]
