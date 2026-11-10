@@ -182,14 +182,21 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   active <- which(d$upper > d$lower)
   S <- d$Nx * d$Ny
   T <- length(d$time)
-  Y <- do.call(cbind, lapply(d$training$responses, as.matrix))  # column (t-1)S+s
+  # The same training runs as spDBL: the bundled 40 or, with train_n, the
+  # profile's Latin-hypercube design (the two-stage design is spDBL's own).
+  if (!is.null(cfg$train_add)) stop("The two-stage training design is spDBL-only")
+  training <- if (is.null(cfg$train_n)) d$training else {
+    suppressPackageStartupMessages(library(spDBL))
+    spdbl_training(d, rep, cfg, task)
+  }
+  Y <- do.call(cbind, lapply(training$responses, as.matrix))  # column (t-1)S+s
   # ppgasp rejects constant columns: all runs share the t = 0 field, so the
   # t = 0 observations are dropped for RobustCalibration (spDBL uses them).
   keep <- apply(Y, 2, function(v) max(v) - min(v) > 1e-10)
   obs <- as.vector(t(rep$z))[keep]
   x <- cbind(time = rep(d$time, each = S), row = rep(d$grid$row, T),
              col = rep(d$grid$col, T))[keep, , drop = FALSE]
-  X_sim <- d$training$input[, active, drop = FALSE]
+  X_sim <- training$input[, active, drop = FALSE]
   theta_range <- cbind(d$lower[active], d$upper[active])
   emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep])))
   # init = "mode": RobustCalibration's own maximum-likelihood estimate from
@@ -208,9 +215,9 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
     theta_mode <- fit_mle@param_est[seq_along(active)]
     mode_s <- mle$elapsed
   }
-  chains <- vector("list", cfg$rc_chains)
-  times <- accept <- numeric(cfg$rc_chains)
-  for (c in seq_len(cfg$rc_chains)) {
+  # Each chain seeds itself, so running chains at the same time (rc_cores > 1,
+  # forked) gives the same draws as running them one after another.
+  run_chain <- function(c) {
     set.seed(task$seed + 100L * c)
     # Same starting rules as spDBL: the default (centre of the box) for
     # init = "midpoint", a uniform draw in the box for init = "random", and
@@ -227,10 +234,17 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
       theta_range = theta_range, S = cfg$rc_S, S_0 = cfg$rc_S0,
       discrepancy_type = discrepancy, initial_values = start))
-    chains[[c]] <- run$value@post_sample[, seq_along(active), drop = FALSE]
-    times[c] <- run$elapsed
-    accept[c] <- run$value@accept_S[1] / cfg$rc_S
+    list(sample = run$value@post_sample[, seq_along(active), drop = FALSE],
+         time = run$elapsed, accept = run$value@accept_S[1] / cfg$rc_S)
   }
+  rc_cores <- if (is.null(cfg$rc_cores)) 1L else as.integer(cfg$rc_cores)
+  runs <- if (rc_cores > 1L) parallel::mclapply(seq_len(cfg$rc_chains), run_chain,
+    mc.cores = rc_cores, mc.preschedule = FALSE) else lapply(seq_len(cfg$rc_chains), run_chain)
+  failed <- vapply(runs, function(r) inherits(r, "try-error") || is.null(r), logical(1))
+  if (any(failed)) stop("RobustCalibration chain failed: ", as.character(runs[[which(failed)[1]]]))
+  chains <- lapply(runs, `[[`, "sample")
+  times <- vapply(runs, `[[`, numeric(1), "time")
+  accept <- vapply(runs, `[[`, numeric(1), "accept")
   n_keep <- min(vapply(chains, nrow, integer(1)))
   out <- lapply(seq_along(active), function(k) {
     j <- active[k]
@@ -247,11 +261,15 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$n_obs_used <- length(obs)
   out$emulator_s <- emu$elapsed
   out$mode_search_s <- mode_s
-  out$sampling_s <- sum(times) + mode_s
+  # Each chain is single-threaded: CPU time is the sum over chains, wall time
+  # the slowest chain when they run at the same time.
+  wall <- (if (rc_cores > 1L) max(times) else sum(times)) + mode_s
+  out$n_train <- nrow(training$input)
+  out$sampling_s <- wall
   out$sampling_cpu_s <- sum(times) + mode_s
-  out$wall_total_s <- sum(times) + mode_s
-  out$ess_per_s <- min(out$ess_bulk_total) / (sum(times) + mode_s)
-  out$ess_per_cpu_s <- out$ess_per_s  # chains run one after another, one core
+  out$wall_total_s <- wall
+  out$ess_per_s <- min(out$ess_bulk_total) / wall
+  out$ess_per_cpu_s <- min(out$ess_bulk_total) / (sum(times) + mode_s)
   out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s", discrepancy,
     cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","))
   out

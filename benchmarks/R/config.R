@@ -159,3 +159,14 @@ local({
     list(label = "fixed domain, design 1, timing after the 1.2.0 speed-ups",
          methods = c(bench_profiles$e2$fixed$methods, "spdbl_s2r_designgp_lazy")))
 })
+
+# E3 with a larger training design for every method: 100 Latin-hypercube runs
+# (the same design for all methods and replicates) instead of the bundled 40,
+# all 30 replicates, otherwise the mode profile. RobustCalibration's four
+# chains run at the same time (rc_cores = 4) to stay within a 24-hour job.
+local({
+  bench_profiles$e3$n100 <<- utils::modifyList(bench_profiles$e3$mode,
+    list(label = "100 Latin-hypercube training runs, all methods",
+         train_n = 100, train_seed = bench_profiles$e3$mode$seed + 3000L,
+         rc_cores = 4))
+})

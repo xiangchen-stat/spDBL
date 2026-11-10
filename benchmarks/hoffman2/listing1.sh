@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: MIT
 
 # Listing 1 of the MLOSS manuscript, run exactly as printed (its
-# calibration_fit() call uses cores = 4): 20 emulator draws x 4 chains x 2000
-# iterations, 2 to 2.5 hours on 4 cores. This checkout is installed into a
+# calibration_fit() call uses cores = 4 and parallel_draws = 5, so up to 20
+# processes): 20 emulator draws x 4 chains x 2000 iterations. This checkout is installed into a
 # job-local library first, so the run uses exactly the checked-out package;
 # dependencies come from the benchmark library.
 # Submit with:   bash benchmarks/hoffman2/submit.sh listing1
 #SBATCH --job-name=spdbl-listing1
 #SBATCH --constraint=intel-gold-6240
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=32G
 #SBATCH --time=4:00:00
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=spdbl-%x.%j.log
