@@ -213,10 +213,11 @@ bench_parse_time_log <- function(lines) {
 }
 
 # Settings that may change between a run and its resumption without
-# changing any result. `reps` only selects which replicates a job runs, so
-# jobs that split E3 over nodes and the final collecting run agree.
+# changing any result. `reps` and `methods` only select which tasks a job
+# runs (each task records its own replicate and method), so jobs that split
+# E3 over nodes by replicate or method and the final collecting run agree.
 bench_volatile <- c("jobs", "timeout_sec", "resume", "out", "cache", "stan_cache",
-                    "reps")
+                    "reps", "methods")
 
 # With --resume: the earlier result of this task if it succeeded under the
 # same task definition and the same settings (volatile ones aside), else NULL.
@@ -255,7 +256,17 @@ bench_run_tasks <- function(tasks, worker, cfg) {
     task_file <- file.path(cfg$out, "tasks", paste0(task$id, ".rds"))
     log_file <- file.path(cfg$out, "logs", paste0(task$id, ".log"))
     saveRDS(task, task_file)
-    unlink(task$result_file)
+    # An earlier result that is not reused is moved aside, not deleted (and
+    # must not stay where a failed run would be read as having produced it).
+    if (file.exists(task$result_file)) {
+      kept <- file.path(cfg$out, "superseded", sprintf("%s_%s.rds", task$id,
+        format(Sys.time(), "%Y%m%d-%H%M%S")))
+      dir.create(dirname(kept), recursive = TRUE, showWarnings = FALSE)
+      if (!file.rename(task$result_file, kept))
+        stop("could not move the earlier result ", task$result_file, " aside")
+      message(sprintf("[%s] %s: earlier result not reusable, moved to %s",
+        format(Sys.time(), "%H:%M:%S"), task$id, kept))
+    }
     cmd <- c(time_cmd, rscript, shQuote(worker), shQuote(task_file))
     started <- Sys.time()
     status <- suppressWarnings(system2(cmd[1], cmd[-1], stdout = log_file,
