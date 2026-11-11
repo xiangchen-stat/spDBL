@@ -105,9 +105,10 @@
 * `calibration_fit(parallel_draws = )` runs that many conditional fits (one
   per emulator draw) at the same time in forked processes (Linux and macOS),
   so wall time falls roughly in proportion on machines with spare cores.
-  Each forked fit runs its chains one after another, because rstan's
-  parallel chains can deadlock inside a forked process, so `parallel_draws`
-  processes run at once. Results are identical to running the fits one
+  Each forked fit runs its chains one after another, so `parallel_draws`
+  processes run at once. With a multithreaded BLAS (oneMKL, OpenBLAS), start R
+  with `OMP_NUM_THREADS=1`: forked processes can otherwise hang on the BLAS
+  thread pool, and `calibration_fit()` warns when it detects this setup. Results are identical to running the fits one
   after another: each fit draws all its random numbers from its own seeds,
   and rstan's draws do not depend on the number of cores. Convergence
   warnings are raised after all fits finish.

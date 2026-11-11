@@ -286,6 +286,13 @@ test_that("conditional fits keep chain, iteration and state bookkeeping", {
   expect_error(calibration_predict(list()), "Supply a calibration_fit")
 })
 
+test_that("forking with a multithreaded BLAS is flagged", {
+  expect_warning(spDBL:::.warn_threaded_blas("/opt/lib/libmkl_rt.so", ""), "OMP_NUM_THREADS=1")
+  expect_warning(spDBL:::.warn_threaded_blas("libopenblas.so OpenBLAS", "4"), "multithreaded BLAS")
+  expect_silent(spDBL:::.warn_threaded_blas("/opt/lib/libmkl_rt.so", "1"))
+  expect_silent(spDBL:::.warn_threaded_blas("libRblas.so", ""))
+})
+
 test_that("conditional fits run in parallel give the same result", {
   skip_without_fake_rstan()
   skip_on_os("windows")

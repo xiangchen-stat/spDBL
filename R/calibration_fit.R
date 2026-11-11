@@ -85,9 +85,11 @@
 #' @param cores Positive number of parallel chains. Defaults to one.
 #' @param parallel_draws Number of conditional fits (one per emulator draw)
 #'   run at the same time, in forked processes. Each forked fit runs its
-#'   chains one after another (rstan's parallel chains can deadlock inside a
-#'   forked process), so `cores` is then not used and `parallel_draws`
-#'   processes run at once. Results do not depend on it: every fit draws its
+#'   chains one after another, so `cores` is then not used and
+#'   `parallel_draws` processes run at once. With a multithreaded BLAS (for
+#'   example oneMKL or OpenBLAS), start R with `OMP_NUM_THREADS=1`: forking
+#'   after the BLAS has used several threads can leave the forked fits hung,
+#'   and `calibration_fit()` warns when it detects that setup. Results do not depend on it: every fit draws its
 #'   random numbers from its own seeds, and rstan's draws do not depend on the
 #'   number of cores. Forking is unavailable on Windows, where fits run one
 #'   after another. Defaults to one.

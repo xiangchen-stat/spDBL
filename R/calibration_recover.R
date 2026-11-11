@@ -208,14 +208,15 @@ fit_calibration_rstan <- function(emulator, z, U,
   if (!is.null(checkpoint_dir)) dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
   model <- if (is.null(compiled_model))
     .cal_stan_model(marginal_discrepancy, cache = FALSE) else compiled_model
-  # Fits run at the same time (forked) run their chains one after another:
-  # rstan's parallel chains inside a forked process can deadlock. rstan's
-  # draws do not depend on the number of cores, so results are unchanged.
+  # Fits run at the same time (forked) run their chains one after another, so
+  # that no process pool is started inside a forked process. rstan's draws do
+  # not depend on the number of cores, so results are unchanged.
   forked <- parallel_draws > 1L && .Platform$OS.type != "windows" && length(draws) > 1L
   chain_cores <- if (forked) 1L else cores
   if (forked && cores > 1L)
     message("parallel_draws > 1: each conditional fit runs its chains in sequence ",
             "(cores = ", cores, " is not used); ", parallel_draws, " fits run at once")
+  if (forked) .warn_threaded_blas()
   # One conditional fit per emulator draw. Every random number a fit uses comes
   # from seeds derived from seed and j, so fits are independent and can run
   # in any order or at the same time.
@@ -419,3 +420,16 @@ fit_calibration_rstan <- function(emulator, z, U,
 }
 
 .cal_extreme <- function(x, f) if (any(is.finite(x))) f(x[is.finite(x)]) else NA_real_
+
+
+# Forking after an OpenMP-threaded BLAS (oneMKL, OpenBLAS, BLIS) has run can
+# leave the forked processes waiting forever on the thread pool's lock.
+.warn_threaded_blas <- function(blas = paste(La_library(), extSoftVersion()[["BLAS"]]),
+                                omp_threads = Sys.getenv("OMP_NUM_THREADS")) {
+  if (grepl("mkl|openblas|blis", blas, ignore.case = TRUE) && !identical(omp_threads, "1"))
+    warning("parallel_draws forks R, and this R uses a multithreaded BLAS (",
+            basename(strsplit(blas, " ")[[1]][1]), "); forked fits can hang. Start R with ",
+            "OMP_NUM_THREADS=1 (and MKL_NUM_THREADS=1 or OPENBLAS_NUM_THREADS=1).",
+            call. = FALSE)
+  invisible(NULL)
+}

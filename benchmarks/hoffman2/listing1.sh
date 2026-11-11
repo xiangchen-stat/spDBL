@@ -25,4 +25,7 @@ mkdir -p "$WORK_TMP/src" "$WORK_TMP/lib"
 git archive HEAD | tar -x -C "$WORK_TMP/src"
 LIB=$WORK_TMP/lib
 R CMD INSTALL --no-test-load --library="$LIB" "$WORK_TMP/src"
+# One BLAS thread: parallel_draws forks R, and forking after a multithreaded
+# BLAS (oneMKL with OpenMP here) leaves the forked processes hung.
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 R_LIBS="$LIB" Rscript benchmarks/listing1_run.R
