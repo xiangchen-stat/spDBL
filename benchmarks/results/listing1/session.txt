@@ -1,4 +1,4 @@
-Commit: 348b837ff29a32fd679a5efbb53a6968e871176d (recorded as -dirty only because the run rewrote its own committed results)
+Commit: b4cfd328df770d32fcfdbd5ba2d694007ee2119c
 
 R version 4.6.1 (2026-06-24)
 Platform: x86_64-pc-linux-gnu
