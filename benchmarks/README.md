@@ -67,8 +67,10 @@ above are not in the validation profile; request them explicitly or use
 
 Add `--resume` to continue an interrupted run: a task is skipped, and its
 earlier result reused, when its result file holds a successful run of the
-same task under the same settings (`jobs`, `timeout_sec` and the output and
-cache paths may differ). Anything else is rerun.
+same task under the same settings (`jobs`, `timeout_sec`, the output and
+cache paths, and the `--reps` and `--methods` selections may differ, so a run
+without them collects the results of jobs split by replicate or method).
+Anything else is rerun, and the earlier result is moved to `superseded/`.
 
 The runs behind the manuscript (E1 needs an otherwise idle machine; on
 Hoffman2 use the job scripts in `hoffman2/`):
