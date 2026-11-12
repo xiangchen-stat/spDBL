@@ -80,6 +80,7 @@ Rscript benchmarks/e1_scaling.R     --profile=paper
 Rscript benchmarks/e2_accuracy.R    --profile=fixed
 Rscript benchmarks/e2_summary.R     --profile=fixed
 Rscript benchmarks/e2_ablation.R
+Rscript benchmarks/e3_calibration.R --profile=n100 --jobs=14
 Rscript benchmarks/e3_calibration.R --profile=mode --jobs=14
 Rscript benchmarks/listing1_run.R
 ```
@@ -105,12 +106,13 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 |---|---|---|
 | `results/e1/paper/` | `paper` | E1, Figure 2(a), Table A1 |
 | `results/e2/fixed/` | `fixed` | E2, Figure 2(b, c), Tables A2 and A3 |
-| `results/e3/mode/` | `mode` | E3, Figure 2(d), Table A4 |
+| `results/e3/n100/` | `n100` | E3 with 100 training runs: Figure 2(d), Table A4, and its replicates 1-10 in Table A6 |
+| `results/e3/mode/` | `mode` | E3 with the 40 bundled runs: Table A5, and the baseline of Table A6 |
 | `results/e3_diagnostic/rep011_draw01_c24/` | `paper` | the local modes in E3 |
 | `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
 | `results/e3_ablation/emulator_error/` | `mode` | the emulator's error at the true parameters (`e3_emulator_error.R`, no MCMC) |
-| `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A5 |
-| `results/e3/abl_n40/`, `abl_n80/`, `abl_n160/`, `abl_two/` | `abl_*` | E3 with other training designs, Table A5 |
+| `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A6 |
+| `results/e3/abl_n40/`, `abl_n80/`, `abl_n160/`, `abl_two/` | `abl_*` | E3 with other training designs, Table A6 |
 | `results/e1/paper_lazy/` | `paper_lazy` | E1 with `keep_draws = FALSE`, Table A1 |
 | `results/e2/fixed_timing/` | `fixed_timing` | E2 design 1 retimed with the 1.2.0 code: times and memory of Table A2 |
 

@@ -21,7 +21,9 @@ e2_summary <- rd("e2", "fixed", "e2_summary.csv")
 e2_paired <- rd("e2", "fixed", "e2_paired.csv")
 # Times and memory: design 1 rerun after the 1.2.0 speed-ups (same accuracy).
 e2_timing <- rd("e2", "fixed_timing", "e2_results.csv")
-e3 <- rd("e3", "mode", "e3_results.csv")
+# E3: 100 Latin-hypercube training runs (main text) and the 40 bundled runs.
+e3_100 <- rd("e3", "n100", "e3_results.csv")
+e3_40 <- rd("e3", "mode", "e3_results.csv")
 gib <- function(mb) mb / 1024
 # round() then + 0 so that tiny negatives print as 0, not -0; negatives get a
 # true minus sign.
@@ -120,11 +122,13 @@ add("\\bottomrule", "\\end{tabular}",
     "cover 94.5--95.8\\%.}",
     "\\label{tab:ablation}", "\\end{table}", "")
 
-# Table A4: E3 per parameter, replicate-bootstrap 95% intervals
-set.seed(1); B <- 4000
-reps <- sort(unique(e3$rep))
+# Tables A4 and A5: E3 per parameter, replicate-bootstrap 95% intervals, for
+# 100 training runs and for the 40 bundled runs.
 labm <- c(spdbl = "\\pkg{spDBL}", rc_sgasp = "S-GaSP", rc_gasp = "GaSP")
 labp <- c(eta1 = "$\\eta_1$", eta2 = "$\\eta_2$", alpha2 = "$\\alpha_2$", all = "all")
+e3_table <- function(e3, label, caption, cpu_note) {
+set.seed(1); B <- 4000
+reps <- sort(unique(e3$rep))
 idx <- replicate(B, sample(seq_along(reps), replace = TRUE))
 # Per-replicate sums for one method and parameter (or all parameters).
 e3_sums <- function(m, p) {
@@ -135,7 +139,7 @@ e3_sums <- function(m, p) {
 }
 boot_rmse <- function(x) sqrt(colSums(matrix(x$se[idx], nrow(idx))) / colSums(matrix(x$nn[idx], nrow(idx))))
 boot_cov <- function(x) colSums(matrix(x$cv[idx], nrow(idx))) / colSums(matrix(x$nn[idx], nrow(idx)))
-add("\\begin{table}[ht]", "\\centering\\scriptsize\\setlength{\\tabcolsep}{3pt}",
+add("", "\\begin{table}[ht]", "\\centering\\scriptsize\\setlength{\\tabcolsep}{3pt}",
     "\\begin{tabular}{@{}llrrrrr@{}}", "\\toprule",
     "& & & & & \\multicolumn{2}{c}{Method minus \\pkg{spDBL}} \\\\ \\cmidrule(l){6-7}",
     "Method & Parameter & Relative RMSE & Coverage & Rel.\\ width & Relative RMSE & Coverage \\\\", "\\midrule")
@@ -163,20 +167,31 @@ for (m in names(labm)) {
 conv <- sapply(names(labm), function(m) { r <- tapply(e3$rhat_max[e3$method == m], e3$rep[e3$method == m], max); c(sum(r > 1.01), sum(r > 1.1)) })
 cpu <- sapply(names(labm), function(m) mean(tapply(e3$sampling_cpu_s[e3$method == m], e3$rep[e3$method == m], `[`, 1)) / 3600)
 add("\\bottomrule", "\\end{tabular}",
-    sprintf("\\caption{E3: 30 replicate calibrations of the three free inputs $\\eta = (\\eta_1, \\eta_2, \\alpha_2)$ by \\pkg{spDBL} and by \\pkg{RobustCalibration} with its S-GaSP and GaSP discrepancies, every chain started at its package's optimum (\\pkg{spDBL}: conditional posterior mode, \\code{init = \"mode\"}; \\pkg{RobustCalibration}: its 10-start maximum-likelihood estimate, 4 chains of 20{,}000 iterations); errors and widths relative to the prior range, with replicate-bootstrap 95\\%% intervals, paired over replicates for the differences. Replicates with rank-normalised $\\hat R$ above 1.01 and above 1.1 for some $\\eta$ component (for \\pkg{spDBL} the worst of its 20 conditional fits, for \\pkg{RobustCalibration} its four chains): %s. Mean CPU hours per calibration, with 18 one-core tasks per 36-core node: %s.}",
+    sprintf("\\caption{%s Replicates with rank-normalised $\\hat R$ above 1.01 and above 1.1 for some $\\eta$ component (for \\pkg{spDBL} the worst of its 20 conditional fits, for \\pkg{RobustCalibration} its four chains): %s. Mean CPU hours per calibration, %s: %s.}",
+      caption,
       paste(sprintf("%s %d and %d of 30", c("\\pkg{spDBL}", "S-GaSP", "GaSP"), conv[1, ], conv[2, ]), collapse = ", "),
-      paste(sprintf("%s %.1f", c("\\pkg{spDBL}", "S-GaSP", "GaSP"), cpu), collapse = ", ")),
-    "\\label{tab:e3}", "\\end{table}")
-# Table A5: E3 ablations on replicates 1-10, against the mode run on the same
-# replicates, with paired replicate-bootstrap 95% intervals of the differences.
+      cpu_note, paste(sprintf("%s %.1f", c("\\pkg{spDBL}", "S-GaSP", "GaSP"), cpu), collapse = ", ")),
+    sprintf("\\label{%s}", label), "\\end{table}")
+}
+e3_setting <- "every chain started at its package's optimum (\\pkg{spDBL}: conditional posterior mode, \\code{init = \"mode\"}, 20 emulator draws with 4 NUTS chains of 2{,}000 iterations each; \\pkg{RobustCalibration}: its 10-start maximum-likelihood estimate, 4 chains of 20{,}000 iterations); errors and widths relative to the prior range, with replicate-bootstrap 95\\% intervals, paired over replicates for the differences."
+e3_table(e3_100, "tab:e3",
+  paste("E3 with 100 Latin-hypercube training runs (one design for every replicate and method): 30 replicate calibrations of the three free inputs $\\eta = (\\eta_1, \\eta_2, \\alpha_2)$ by \\pkg{spDBL} and by \\pkg{RobustCalibration} with its S-GaSP and GaSP discrepancies,", e3_setting),
+  "one Slurm job per calibration (\\pkg{spDBL} on one core; \\pkg{RobustCalibration} running its four chains on four cores, CPU time summed over them)")
+e3_table(e3_40, "tab:e3-40",
+  paste("E3 with the 40 training runs bundled with the package (\\code{dt\\_calibration}), otherwise as Table~\\ref{tab:e3}:", e3_setting),
+  "with 18 one-core tasks per 36-core node")
+# Table A6: E3 ablations on replicates 1-10, against the 40-run (mode) run on
+# the same replicates, with paired replicate-bootstrap 95% intervals of the
+# differences.
 abl <- c(abl_joint = "Joint paths", abl_m60 = "60 draws",
          abl_nodu = "No design uncertainty", abl_self = "Data from emulator model",
          abl_n40 = "New 40-run design", abl_n80 = "80 training runs",
+         n100 = "100 training runs",
          abl_n160 = "160 training runs", abl_two = "40 + 40 targeted runs")
 abl <- abl[file.exists(file.path(res, "e3", names(abl), "e3_results.csv"))]
 if (length(abl)) {
   ab_reps <- 1:10
-  ref <- e3[e3$method == "spdbl" & e3$rep %in% ab_reps, ]
+  ref <- e3_40[e3_40$method == "spdbl" & e3_40$rep %in% ab_reps, ]
   per_rep <- function(x) sapply(ab_reps, function(r) { y <- x[x$rep == r, ]
     c(cv = sum(y$covered), w = sum(y$rel_width), se = sum(y$rel_error^2), n = nrow(y),
       rh = max(y$rhat_max)) })
@@ -189,7 +204,7 @@ if (length(abl)) {
       "& \\multicolumn{2}{c}{Coverage} & Relative & \\multicolumn{2}{c}{Relative RMSE} & $\\hat R > 1.01$ \\\\",
       "\\cmidrule(lr){2-3}\\cmidrule(lr){5-6}",
       "Variant & value & minus baseline & width & value & minus baseline & replicates \\\\", "\\midrule",
-      sprintf("Baseline (Table~\\ref{tab:e3}) & %s & -- & %s & %s & -- & %d \\\\", f(t0[["cov"]]), f(t0[["width"]], 3),
+      sprintf("Baseline (Table~\\ref{tab:e3-40}) & %s & -- & %s & %s & -- & %d \\\\", f(t0[["cov"]]), f(t0[["width"]], 3),
               f(t0[["rmse"]], 3), sum(pr["rh", ] > 1.01)))
   for (v in names(abl)) {
     a <- rd("e3", v, "e3_results.csv"); a <- a[a$method == "spdbl" & a$rep %in% ab_reps, ]
@@ -201,7 +216,7 @@ if (length(abl)) {
       f(t1[["width"]], 3), f(t1[["rmse"]], 3), ci("rmse", 3), sum(pa["rh", ] > 1.01)))
   }
   add("\\bottomrule", "\\end{tabular}",
-      "\\caption{E3 ablations: \\pkg{spDBL} on replicates 1--10 with one change each from the setting of Table~\\ref{tab:e3}, against that run on the same replicates and seeds, with paired replicate-bootstrap 95\\% intervals of the differences. Joint paths: \\code{calibration\\_prepare(sampling = \"joint\")}. 60 draws: 60 emulator draws instead of 20. No design uncertainty: \\code{design\\_uncertainty = FALSE}. New 40-run design, 80 and 160 training runs: new Latin-hypercube designs over the prior box instead of the 40 bundled runs. 40 + 40 targeted runs: the bundled runs plus 40 placed by greedy maximin where a short first-stage calibration puts the posterior, its spread tripled. Data from emulator model: the simulator output in each replicate's field data replaced by a draw from the emulator's own predictive model at the true parameters (one random emulator draw; the same discrepancy and noise), so that \\pkg{spDBL} is exactly specified.}",
+      "\\caption{E3 ablations: \\pkg{spDBL} on replicates 1--10 with one change each from the setting of Table~\\ref{tab:e3-40}, against that run on the same replicates and seeds, with paired replicate-bootstrap 95\\% intervals of the differences. Joint paths: \\code{calibration\\_prepare(sampling = \"joint\")}. 60 draws: 60 emulator draws instead of 20. No design uncertainty: \\code{design\\_uncertainty = FALSE}. New 40-run design, 80, 100 and 160 training runs: new Latin-hypercube designs over the prior box instead of the 40 bundled runs (100 runs: replicates 1--10 of Table~\\ref{tab:e3}). 40 + 40 targeted runs: the bundled runs plus 40 placed by greedy maximin where a short first-stage calibration puts the posterior, its spread tripled. Data from emulator model: the simulator output in each replicate's field data replaced by a draw from the emulator's own predictive model at the true parameters (one random emulator draw; the same discrepancy and noise), so that \\pkg{spDBL} is exactly specified.}",
       "\\label{tab:ablation-e3}", "\\end{table}")
 }
 dir.create("tables", showWarnings = FALSE)

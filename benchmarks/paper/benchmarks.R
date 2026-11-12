@@ -24,7 +24,8 @@ e1_lazy <- utils::read.csv(file.path(res, "e1", "paper_lazy", "e1_results.csv"))
 e1_lazy <- e1_lazy[e1_lazy$status == "OK", ]
 e2 <- utils::read.csv(file.path(res, "e2", "fixed", "e2_per_design.csv"))
 e2$S <- e2$grid^2
-e3 <- utils::read.csv(file.path(res, "e3", "mode", "e3_results.csv")); e3 <- e3[e3$status == "OK", ]
+# E3 with 100 training runs (the 40 bundled runs are in the appendix tables).
+e3 <- utils::read.csv(file.path(res, "e3", "n100", "e3_results.csv")); e3 <- e3[e3$status == "OK", ]
 
 # Colour follows the package: spDBL blue, Gu's RobustGaSP/RobustCalibration
 # orange, mlegp aqua; shapes repeat the encoding for greyscale print.
