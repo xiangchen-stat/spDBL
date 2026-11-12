@@ -16,8 +16,8 @@ constant over time) or a list of \code{nT} matrices (time-varying).}
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
-\code{1}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -36,6 +36,17 @@ Performs the backward sampling pass of the FFBS algorithm using the filtered
 distributions produced by \code{\link{FF}}. Iterates from time \eqn{T} back
 to \eqn{1}, drawing smoothed state samples at each step via
 \code{BS_1step_cpp}.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res_ff <- FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+             par$n0, par$D0, nT = 4)
+res_bs <- BS(res_ff, par$G0, nT = 4)
+dim(res_bs$st)
+# At the last time the smoothed and filtered means agree
+all.equal(res_bs$st[, , 4], res_ff$T4$mt)
 }
 \seealso{
 \code{\link{FF}}, \code{\link{FFBS}}

@@ -27,6 +27,13 @@ Responses and observations are on the log(I + 1) scale.
 This is a different simulation design from dt_emulation: eta1 bounds are
 2 to 4 here, whereas dt_emulation uses inputs near 1 to 2.
 }
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+rbind(lower = d$lower, upper = d$upper, truth = d$truth$eta)
+dim(d$field$z)
+length(d$training$responses)
+}
 \seealso{
 \code{\link[=calibration_prepare]{calibration_prepare()}}, \code{\link[=calibration_fit]{calibration_fit()}}
 }

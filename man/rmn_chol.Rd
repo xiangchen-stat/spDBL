@@ -24,6 +24,15 @@ Cholesky factors \code{RM} and \code{RSigma} of \eqn{U} and \eqn{\Sigma}
 respectively: \eqn{\Theta = m + \text{RM}^\top Z \, \text{RSigma}}, where
 \eqn{Z} has i.i.d. standard normal entries.
 }
+\examples{
+set.seed(1)
+U <- matrix(c(1, 0.5, 0.5, 1), 2)
+Sigma <- diag(c(1, 2, 3))
+draw <- rmn_chol(m = matrix(0, 2, 3), RM = chol(U), RSigma = chol(Sigma))
+dim(draw)
+draw
+
+}
 \seealso{
 \code{\link{rmn_chol_more}}
 }

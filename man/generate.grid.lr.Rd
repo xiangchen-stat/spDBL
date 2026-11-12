@@ -25,6 +25,11 @@ order across all rows. Handles cases where block dimensions do not evenly
 divide file dimensions by allowing the last block in each row or column to
 be smaller.
 }
+\examples{
+# Last block row and column are smaller; every block row runs left to right
+generate.grid.lr(5, 7, 2, 3)
+
+}
 \seealso{
 \code{\link{generate_grid}}, \code{\link{generate.grid.exact}},
 \code{\link{generate.grid.rowsnake}}

@@ -23,6 +23,13 @@ Evaluates the isotropic GP exponential kernel
 \eqn{k(s, s') = \sigma^2 \exp(-\phi \|s - s'\|) + \tau^2 \mathbf{1}_{s=s'}}
 for all pairs of rows in \code{loc}.
 }
+\examples{
+loc <- matrix(c(0, 1, 3), ncol = 1)
+K <- gen_gp_kernel(loc, phi = 1, sigma2 = 2, tau2 = 0.1)
+K
+all.equal(K[1, 2], 2 * exp(-1))
+
+}
 \seealso{
 \code{\link{gen_exp_kernel}}, \code{\link{gen_expsq_kernel}}
 }

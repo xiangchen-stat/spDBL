@@ -32,8 +32,8 @@ FF_1step_R_sigma2R(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv, delta = 1)
 \item{Rinv}{Numeric matrix. Precomputed inverse of the spatial correlation
 matrix \eqn{R} (\eqn{S \times S}).}
 
-\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
-\code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 }
 \value{
 A named list with updated filtering parameters:
@@ -44,13 +44,24 @@ A named list with updated filtering parameters:
 \item{At}{One-step-ahead state left-covariance (\eqn{p \times p}).}
 \item{mt}{Filtered state mean (\eqn{p \times S}).}
 \item{Mt}{Filtered state left-covariance (\eqn{p \times p}).}
-\item{delta}{The discount factor passed in.}
+\item{delta}{Always 1; discounting is not implemented.}
 }
 }
 \description{
 Performs one step of the forward filter under the model where the right
 covariance of \eqn{Y} is \eqn{\sigma^2 R} with \eqn{\sigma^2 \sim IG(n, d)}.
 The inverse of \eqn{R} (\code{Rinv}) must be precomputed and passed in.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 1)
+par <- dat$para
+R <- 0.5^abs(outer(1:3, 1:3, "-"))
+one <- FF_1step_R_sigma2R(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+                          par$m0, par$M0, nt_1 = 3, Dt_1 = 1,
+                          Rinv = solve(R))
+c(nt = one$nt, Dt = one$Dt)
+one$mt
 }
 \seealso{
 \code{\link{FF_sigma2R}}

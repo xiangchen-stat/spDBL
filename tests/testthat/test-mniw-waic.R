@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 waic_fixture <- function() {
   list(
     X = cbind(1, c(-0.5, 0.2, 0.7, 1.2)),

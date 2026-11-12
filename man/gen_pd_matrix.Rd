@@ -18,3 +18,11 @@ Constructs a positive definite matrix of dimension \code{dim} by forming
 \eqn{A^\top A} from a random normal matrix \eqn{A} and then rescaling so the
 maximum entry is 1.
 }
+\examples{
+set.seed(1)
+S <- gen_pd_matrix(4)
+isSymmetric(S)
+max(S)
+all(eigen(S, symmetric = TRUE)$values > 0)
+
+}

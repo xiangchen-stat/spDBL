@@ -1,3 +1,14 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
+# Discounting is not implemented. Values other than 1 have always been
+# ignored; warn instead of ignoring them silently, then continue with 1.
+.check_delta <- function(delta) {
+  if (length(delta) != 1L || is.na(delta) || delta != 1)
+    warning("delta (discounting) is not implemented; using delta = 1", call. = FALSE)
+  1
+}
+
 #' Read a rectangular block from a large CSV file
 #'
 #' Efficiently reads a contiguous rectangular block of rows and columns from a
@@ -16,6 +27,11 @@
 #'
 #' @return A \code{tibble} (from \code{readr}) containing the requested block.
 #'
+#' @examples
+#' f <- file.path(tempdir(), "big.csv")
+#' write.csv(matrix(1:20, 5, 4), f, row.names = FALSE)
+#' read_big_csv_quick(f, rows = c(2, 4), cols = c(2, 3))
+#' unlink(f)
 #' @export
 read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), header=TRUE) {
 
@@ -68,8 +84,8 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 #' @param D0 Numeric matrix. Prior scale matrix of the inverse-Wishart on
 #'   \eqn{\Sigma | D_0} (\eqn{q \times q}).
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Discount factor for the right-variance matrix.
-#'   Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -80,9 +96,18 @@ read_big_csv_quick <- function(filename, rows = c(1,Inf), cols = c(1,Inf), heade
 #'   \code{n0}, \code{D0}.
 #'
 #' @seealso \code{\link{BS}}, \code{\link{FFBS}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res_ff <- FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'              par$n0, par$D0, nT = 4)
+#' names(res_ff)
+#' res_ff$T4$mt  # filtered state mean at the last time (p x S)
 #' @export
 FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
                verbose = FALSE){
+  delta <- .check_delta(delta)
   out <- list()
   out_name <- c()
   # initialize matirces
@@ -92,7 +117,7 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
   Vt <- V_ls
 
   for (i in 1:nT) {
-    if(verbose && i %% round(0.5*nT) == 0){
+    if(verbose && i %% max(1, round(0.5*nT)) == 0){
       message("FF: ", i, "/", nT)
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
@@ -154,6 +179,9 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #' @param F_ls Either a single file path (constant \eqn{F_t}) or a character
 #'   vector of length \code{nT} (time-varying). Can also contain a second set
 #'   of columns (AR2 lags) for the same file at offset \code{fncol}.
+#'   Each design block is read with the same rows and columns as the
+#'   response block, so the design must have as many columns as a block
+#'   (\code{bncol}), as with the autoregressive designs.
 #' @param G_ls Either a single file path (constant \eqn{G_t}) or a character
 #'   vector of length \code{nT} (time-varying).
 #' @param W_ls Either a single file path (constant \eqn{W_t}) or a character
@@ -171,8 +199,8 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #' @param bnrow Integer. Number of rows per spatial block.
 #' @param bncol Integer. Number of columns per spatial block.
 #' @param path_out Character. Directory path where output CSV files are written.
-#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
-#'   \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -189,11 +217,33 @@ FF <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, delta = 1.0,
 #'   }
 #'
 #' @seealso \code{\link{FF}}, \code{\link{generate.grid.rowsnake}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 2, p = 2, nT = 3)
+#' par <- dat$para
+#' dir <- file.path(tempdir(), "ff_big")
+#' dir.create(dir, showWarnings = FALSE)
+#' csv <- function(x, name) {
+#'   f <- file.path(dir, name)
+#'   write.csv(x, f, row.names = FALSE)
+#'   f
+#' }
+#' Y_files <- mapply(csv, dat$Y, paste0("Y", 1:3, ".csv"))
+#' files <- FF_bigdata_R(Y_files, csv(par$F0, "F.csv"), csv(par$G0, "G.csv"),
+#'                       csv(par$W0, "W.csv"), csv(par$V0, "V.csv"), par$m0,
+#'                       par$M0, par$n0, par$D0, nT = 3, fnrow = 5, fncol = 2,
+#'                       bnrow = 5, bncol = 2, path_out = dir)
+#' # With a single block this matches the in-memory filter
+#' res_ff <- FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'              par$n0, par$D0, nT = 3)
+#' all.equal(unname(as.matrix(read.csv(files$mt_ls[3]))), unname(res_ff$T3$mt))
+#' unlink(dir, recursive = TRUE)
 #' @export
 FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
                                 m0, M0, n0, D0, nT,
                                 fnrow, fncol, bnrow, bncol, path_out,
                                 delta = 1.0, verbose = FALSE){
+  delta <- .check_delta(delta)
   # generate index
   ind <- generate.grid.rowsnake(fnrow = fnrow, fncol = fncol, bnrow = bnrow, bncol = bncol)
   n_b <- dim(ind)[1] # number of blocks
@@ -230,34 +280,11 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
       Yt <- as.matrix(read_big_csv_quick(filename = Y_ls[f],
                                        rows = c(ind[i,2], ind[i,3]),
                                        cols = c(ind[i,4], ind[i,5])))
-      # extract Ft
-      if(length(F_ls) != 1){
-        # read ar1
-        Ft <- as.matrix(read_big_csv_quick(filename = F_ls[f],
-                                           rows = c(ind[i,2], ind[i,3]),
-                                           cols = c(ind[i,4], ind[i,5])))
-        # try read ar2
-        try(expr = {
-            Ft_ar2 <- as.matrix(read_big_csv_quick(filename = F_ls[f],
-                                                   rows = c(ind[i,2], ind[i,3]),
-                                                   cols = c((fncol + ind[i,4]), (fncol + ind[i,5]))));
-            Ft <- cbind(Ft, Ft_ar2);
-          },
-          silent = T)
-      } else{
-        # read ar1
-        Ft <- as.matrix(read_big_csv_quick(filename = F_ls,
-                                           rows = c(ind[i,2], ind[i,3]),
-                                           cols = c(ind[i,4], ind[i,5])))
-        # try read ar2
-        try(expr = {
-          Ft_ar2 <- as.matrix(read_big_csv_quick(filename = F_ls,
-                                                 rows = c(ind[i,2], ind[i,3]),
-                                                 cols = c((fncol + ind[i,4]), (fncol + ind[i,5]))));
-          Ft <- cbind(Ft, Ft_ar2);
-        },
-        silent = T)
-      }
+      # extract Ft: the lag-1 columns and, if the file has them, the lag-2
+      # columns at offset fncol
+      Ft <- .read_design_block(.file_for_time(F_ls, f),
+                               rows = c(ind[i,2], ind[i,3]),
+                               cols = c(ind[i,4], ind[i,5]), fncol = fncol)
 
       # extract Vt
       row_vt_new <- ind[i,2]
@@ -371,8 +398,8 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
 #' @param Dt_1 Numeric scalar. Rate parameter of \eqn{\sigma^2 | D_{t-1}}.
 #' @param Rinv Numeric matrix. Precomputed inverse of the spatial correlation
 #'   matrix \eqn{R} (\eqn{S \times S}).
-#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
-#'   \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #'
 #' @return A named list with updated filtering parameters:
 #'   \describe{
@@ -382,12 +409,23 @@ FF_bigdata_R <- function(Y_ls, F_ls, G_ls, W_ls, V_ls,
 #'     \item{At}{One-step-ahead state left-covariance (\eqn{p \times p}).}
 #'     \item{mt}{Filtered state mean (\eqn{p \times S}).}
 #'     \item{Mt}{Filtered state left-covariance (\eqn{p \times p}).}
-#'     \item{delta}{The discount factor passed in.}
+#'     \item{delta}{Always 1; discounting is not implemented.}
 #'   }
 #'
 #' @seealso \code{\link{FF_sigma2R}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 1)
+#' par <- dat$para
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' one <- FF_1step_R_sigma2R(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+#'                           par$m0, par$M0, nt_1 = 3, Dt_1 = 1,
+#'                           Rinv = solve(R))
+#' c(nt = one$nt, Dt = one$Dt)
+#' one$mt
 #' @export
 FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv, delta = 1.0){
+  delta <- .check_delta(delta)
   N <- dim(Yt)[1]
   S <- dim(Yt)[2]
   at <- Gt %*% mt_1
@@ -401,7 +439,7 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
   mt <- at + AttFtQtinv %*% Yt_qt
   Mt <- At - AttFtQtinv %*% FtAt
   nt <- nt_1 + N * S / 2
-  Dt <- Dt_1 + 1/2 * matrixcalc::matrix.trace(crossprod(Yt_qt, Qtinv) %*% Yt_qt %*% Rinv)
+  Dt <- Dt_1 + 1/2 * sum(diag(crossprod(Yt_qt, Qtinv) %*% Yt_qt %*% Rinv))
 
   out <- list(nt = nt, Dt = Dt, at = at, At = At,
               mt = mt, Mt = Mt, delta = delta)
@@ -430,8 +468,8 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
 #' @param nT Integer. Number of time steps.
 #' @param R Numeric matrix. Fixed spatial correlation matrix (\eqn{S \times S}).
 #'   Its Cholesky inverse is used internally.
-#' @param delta Numeric scalar. Right-variance discount factor. Defaults to
-#'   \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -439,9 +477,18 @@ FF_1step_R_sigma2R <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, nt_1, Dt_1, Rinv,
 #'   \code{\link{FF}}) with an additional scalar \code{Dt} in place of a matrix.
 #'
 #' @seealso \code{\link{FF_1step_R_sigma2R}}, \code{\link{FFBS_sigma2R}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' R <- 0.5^abs(outer(1:3, 1:3, "-"))
+#' res_ff <- FF_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+#'                      n0 = 3, D0 = 1, nT = 4, R = R)
+#' c(nt = res_ff$T4$nt, Dt = res_ff$T4$Dt)  # IG posterior of sigma^2
 #' @export
 FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
                        delta = 1.0, verbose = FALSE){
+  delta <- .check_delta(delta)
   if (!is.null(dim(D0)) || length(D0) != 1) {
     stop("D0 is not a number")
   }
@@ -459,7 +506,7 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
   Rinv <- chol2inv(RR)
 
   for (i in 1:nT) {
-    if(verbose && i %% round(0.1*nT) == 0){
+    if(verbose && i %% max(1, round(0.1*nT)) == 0){
       message("FF: ", i, "/", nT, " at ", Sys.time())
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time
@@ -522,7 +569,8 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #' @param mt_1 Numeric matrix. Filtered state mean at \eqn{t-1} (\eqn{p \times S}).
 #' @param Mt_1 Numeric matrix. Filtered state left-covariance at \eqn{t-1}
 #'   (\eqn{p \times p}).
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #'
 #' @return A named list with:
 #'   \describe{
@@ -530,12 +578,21 @@ FF_sigma2R <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, n0, D0, nT, R,
 #'     \item{At}{One-step-ahead state left-covariance.}
 #'     \item{mt}{Filtered state mean.}
 #'     \item{Mt}{Filtered state left-covariance.}
-#'     \item{delta}{The discount factor passed in.}
+#'     \item{delta}{Always 1; discounting is not implemented.}
 #'   }
 #'
 #' @seealso \code{\link{FF_I}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 1)
+#' par <- dat$para
+#' one <- FF_1step_R_I(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+#'                     par$m0, par$M0)
+#' one$mt
+#' one$Mt
 #' @export
 FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
+  delta <- .check_delta(delta)
   N <- dim(Yt)[1]
   S <- dim(Yt)[2]
   at <- Gt %*% mt_1
@@ -571,7 +628,8 @@ FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
 #' @param m0 Numeric matrix. Prior state mean.
 #' @param M0 Numeric matrix. Prior state left-covariance.
 #' @param nT Integer. Number of time steps.
-#' @param delta Numeric scalar. Discount factor. Defaults to \code{1.0}.
+#' @param delta Discount factor. Not implemented: values other than 1 give a
+#'   warning and are ignored. Defaults to \code{1}.
 #' @param verbose Logical. If \code{TRUE}, emits progress messages. Defaults
 #'   to \code{FALSE}.
 #'
@@ -580,9 +638,19 @@ FF_1step_R_I <- function(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1.0){
 #'   element \code{prior} stores \code{m0} and \code{M0}.
 #'
 #' @seealso \code{\link{FF_1step_R_I}}, \code{\link{FFBS_I}}
+#' @examples
+#' set.seed(1)
+#' dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+#' par <- dat$para
+#' res_ff <- FF_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0, nT = 4)
+#' # The first step equals a single call of FF_1step_R_I
+#' one <- FF_1step_R_I(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+#'                     par$m0, par$M0)
+#' all.equal(res_ff$T1, one)
 #' @export
 FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
                  verbose = FALSE){
+  delta <- .check_delta(delta)
   out <- list()
   out_name <- c()
   # initialize matirces
@@ -592,7 +660,7 @@ FF_I <- function(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1.0,
   Vt <- V_ls
 
   for (i in 1:nT) {
-    if(verbose && i %% round(0.1*nT) == 0){
+    if(verbose && i %% max(1, round(0.1*nT)) == 0){
       message("FF: ", i, "/", nT, " at ", Sys.time())
     }
     # Check if F_ls, G_ls, W_ls, V_ls are changing over time

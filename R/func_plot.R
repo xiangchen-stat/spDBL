@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 spdbl_default_col_bgr <- function() {
   c("#d5edfc", "#a5d9f6", "#7eb4e0", "#588dc8", "#579f8b", "#5bb349",
     "#5bb349", "#f3e35a", "#eda742", "#e36726", "#d64729", "#c52429",
@@ -18,17 +21,29 @@ spdbl_default_col_bgr <- function() {
 #' @return A \code{ggplot} object.
 #'
 #' @seealso \code{\link{quick_save}}
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE) &&
+#'     requireNamespace("ggpubr", quietly = TRUE) &&
+#'     requireNamespace("scales", quietly = TRUE)) {
+#'   data("dt_calibration")
+#'   d <- dt_calibration
+#'   dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+#'   p <- quick_heat(dt, max_y = max(d$field$z))
+#'   class(p)
+#'   p
+#' }
 #' @export
 quick_heat <- function(dt, max_y, col_bgr = spdbl_default_col_bgr()){
-  p <- ggplot(dt, aes(x = .data$x, y = .data$y, fill = .data$fill)) +
-    geom_raster() +
-    scale_fill_gradientn(colours = col_bgr,
+  .need_plot_packages()
+  p <- ggplot2::ggplot(dt, ggplot2::aes(x = .data$x, y = .data$y, fill = .data$fill)) +
+    ggplot2::geom_raster() +
+    ggplot2::scale_fill_gradientn(colours = col_bgr,
                          limits = c(0, max_y),
                          oob = scales::squish) +
-    labs(x = "x", y = "y", fill = "Value")+
-    theme(text = element_text(size=28),
-          legend.text = element_text(size = 28),
-          legend.key.size = unit(1.5, "cm"))
+    ggplot2::labs(x = "x", y = "y", fill = "Value")+
+    ggplot2::theme(text = ggplot2::element_text(size=28),
+          legend.text = ggplot2::element_text(size = 28),
+          legend.key.size = ggplot2::unit(1.5, "cm"))
   return(p)
 }
 
@@ -42,12 +57,28 @@ quick_heat <- function(dt, max_y, col_bgr = spdbl_default_col_bgr()){
 #' @param path_fig Character. Directory path where the file is saved.
 #' @param plot A \code{ggplot} object to save.
 #'
-#' @return Invisibly returns \code{NULL} (called for its side effect).
+#' @return The path of the saved file, invisibly (the value of
+#'   \code{ggplot2::ggsave()}). Called for its side effect.
 #'
 #' @seealso \code{\link{quick_heat}}
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE) &&
+#'     requireNamespace("ggpubr", quietly = TRUE) &&
+#'     requireNamespace("scales", quietly = TRUE)) {
+#'   data("dt_calibration")
+#'   d <- dt_calibration
+#'   dt <- data.frame(x = d$grid$col, y = d$grid$row, fill = d$field$z[10, ])
+#'   p <- quick_heat(dt, max_y = max(d$field$z))
+#'   path_fig <- tempfile("spdbl_fig_")
+#'   dir.create(path_fig)
+#'   quick_save("heat", path_fig, p)
+#'   list.files(path_fig)
+#'   unlink(path_fig, recursive = TRUE)
+#' }
 #' @export
 quick_save <- function(filename, path_fig, plot){
-  ggsave(filename = paste(filename, "_", as.numeric(Sys.time()), ".png", sep = ""),
+  .need_plot_packages()
+  ggplot2::ggsave(filename = paste(filename, "_", as.numeric(Sys.time()), ".png", sep = ""),
          path = path_fig,
          plot = plot,
          device = "png",
@@ -84,9 +115,22 @@ quick_save <- function(filename, path_fig, plot){
 #'
 #' @return A list of nine \code{ggplot} objects (one per panel).
 #'
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE) &&
+#'     requireNamespace("ggpubr", quietly = TRUE) &&
+#'     requireNamespace("scales", quietly = TRUE)) {
+#'   data("dt_emulation")
+#'   d <- dt_emulation
+#'   p <- plot_panel_heatmap_9(d$dt_pde_test, input_num = 1,
+#'                             tstamp = seq(2, 26, by = 3), max_y = 10,
+#'                             Nx = 10, Ny = 10, nT = 26, savei = FALSE)
+#'   length(p)
+#'   p[[9]]
+#' }
 #' @export
 plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, filename = "plot_panel", savei = TRUE,
                                  col_bgr = spdbl_default_col_bgr(), path_fig = "."){
+  .need_plot_packages()
   plot_ls <- list()
   ind_sp <- data.frame(row = rep(1:Ny, times = Nx), col = rep(1:Nx, each = Ny))
   ind_plot <- 1
@@ -95,26 +139,25 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
     temp <- dat[[i]][input_num,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
-    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)%>%
-      as.data.frame()
+    dt <- data.frame(row = ind_sp$row, col = ind_sp$col, sol = temp)
 
-    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
-      geom_raster() +
-      scale_fill_gradientn(colours = col_bgr,
+    p <- ggplot2::ggplot(dt, ggplot2::aes(x = .data$col, y = .data$row, fill = .data$sol)) +
+      ggplot2::geom_raster() +
+      ggplot2::scale_fill_gradientn(colours = col_bgr,
                            limits = c(0, max_y),
                            oob = scales::squish) +
-      labs(x = "x", y = "y", fill = "Value")+
-      theme(text = element_text(size=28),
-            legend.text = element_text(size = 28),
-            legend.key.size = unit(1.5, "cm"))
+      ggplot2::labs(x = "x", y = "y", fill = "Value")+
+      ggplot2::theme(text = ggplot2::element_text(size=28),
+            legend.text = ggplot2::element_text(size = 28),
+            legend.key.size = ggplot2::unit(1.5, "cm"))
 
     plot_ls[[ind_plot]] <- p
     ind_plot <- ind_plot + 1
   }
   if(savei){
-    ggsave(filename = paste(filename, ".png", sep = ""),
+    ggplot2::ggsave(filename = paste(filename, ".png", sep = ""),
            path = path_fig,
-           plot = ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
+           plot = ggpubr::ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
                             plot_ls[[4]], plot_ls[[5]], plot_ls[[6]],
                             plot_ls[[7]], plot_ls[[8]], plot_ls[[9]],
                             ncol = 3, nrow = 3,
@@ -161,6 +204,10 @@ plot_panel_heatmap_9 <- function(dat, input_num, tstamp, max_y, Nx, Ny, nT, file
 #'   }
 #'
 #' @seealso \code{\link{cal_errorbar_mean}}
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(3 * 200, mean = 1:3), nrow = 3)
+#' cal_errorbar(X)
 #' @export
 cal_errorbar <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = median),
@@ -186,6 +233,10 @@ cal_errorbar <- function(X){
 #'   }
 #'
 #' @seealso \code{\link{cal_errorbar}}
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rexp(3 * 200, rate = 1:3), nrow = 3)
+#' cal_errorbar_mean(X)
 #' @export
 cal_errorbar_mean <- function(X){
   out <- data.frame(med = apply(X = X, MARGIN = 1, FUN = mean),
@@ -224,9 +275,22 @@ cal_errorbar_mean <- function(X){
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal_nolab}}
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE) &&
+#'     requireNamespace("ggpubr", quietly = TRUE) &&
+#'     requireNamespace("scales", quietly = TRUE)) {
+#'   data("dt_calibration")
+#'   d <- dt_calibration
+#'   p <- plot_panel_heatmap_9_cal(d$field$z, tstamp = seq(2, 26, by = 3),
+#'                                 max_y = max(d$field$z), loc_cal = d$grid,
+#'                                 Nx = d$Nx, Ny = d$Ny, savei = FALSE)
+#'   length(p)
+#'   p[[1]]
+#' }
 #' @export
 plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
                                      col_bgr = spdbl_default_col_bgr(), path_fig = "."){
+  .need_plot_packages()
   plot_ls <- list()
   ind_plot <- 1 # start counting
 
@@ -234,27 +298,26 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
     temp <- dat[i,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
-    dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)%>%
-      as.data.frame()
+    dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)
 
-    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
-      geom_raster() +
-      scale_fill_gradientn(colours = col_bgr,
+    p <- ggplot2::ggplot(dt, ggplot2::aes(x = .data$col, y = .data$row, fill = .data$sol)) +
+      ggplot2::geom_raster() +
+      ggplot2::scale_fill_gradientn(colours = col_bgr,
                            limits = c(0, max_y),
                            oob = scales::squish) +
-      labs(x = "x", y = "y", fill = "Value")+
-      theme(text = element_text(size=28),
-            legend.text = element_text(size = 28),
-            legend.key.size = unit(1.5, "cm"))
+      ggplot2::labs(x = "x", y = "y", fill = "Value")+
+      ggplot2::theme(text = ggplot2::element_text(size=28),
+            legend.text = ggplot2::element_text(size = 28),
+            legend.key.size = ggplot2::unit(1.5, "cm"))
 
     plot_ls[[ind_plot]] <- p
     ind_plot <- ind_plot + 1
   }
 
   if(savei){
-    ggsave(filename = paste(filename, ".png", sep = ""),
+    ggplot2::ggsave(filename = paste(filename, ".png", sep = ""),
            path = path_fig,
-           plot = ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
+           plot = ggpubr::ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
                             plot_ls[[4]], plot_ls[[5]], plot_ls[[6]],
                             plot_ls[[7]], plot_ls[[8]], plot_ls[[9]],
                             ncol = 3, nrow = 3,
@@ -309,9 +372,24 @@ plot_panel_heatmap_9_cal <- function(dat, tstamp, max_y, loc_cal, Nx, Ny, filena
 #' @return A list of nine \code{ggplot} objects.
 #'
 #' @seealso \code{\link{plot_panel_heatmap_9_cal}}
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE) &&
+#'     requireNamespace("ggpubr", quietly = TRUE) &&
+#'     requireNamespace("scales", quietly = TRUE)) {
+#'   data("dt_calibration")
+#'   d <- dt_calibration
+#'   u <- d$truth$u
+#'   p <- plot_panel_heatmap_9_cal_nolab(u, tstamp = seq(2, 26, by = 3),
+#'                                       min_y = min(u), max_y = max(u),
+#'                                       loc_cal = d$grid, Nx = d$Nx, Ny = d$Ny,
+#'                                       savei = FALSE)
+#'   length(p)
+#'   p[[1]]
+#' }
 #' @export
 plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_cal, Nx, Ny, filename = "plot_panel", savei = TRUE,
                                            col_bgr = spdbl_default_col_bgr(), path_fig = "."){
+  .need_plot_packages()
   plot_ls <- list()
   ind_plot <- 1 # start counting
 
@@ -319,27 +397,26 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
     temp <- dat[i,]
     rownames(temp) <- NULL
     colnames(temp) <- NULL
-    dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)%>%
-      as.data.frame()
+    dt <- data.frame(row = loc_cal$row, col = loc_cal$col, sol = temp)
 
-    p <- ggplot(dt, aes(x = .data$col, y = .data$row, fill = .data$sol)) +
-      geom_raster() +
-      scale_fill_gradientn(colours = col_bgr,
+    p <- ggplot2::ggplot(dt, ggplot2::aes(x = .data$col, y = .data$row, fill = .data$sol)) +
+      ggplot2::geom_raster() +
+      ggplot2::scale_fill_gradientn(colours = col_bgr,
                            limits = c(min_y, max_y),
                            oob = scales::squish) +
-      labs(x = NULL, y = NULL, fill = "Value")+
-      theme(text = element_text(size=28),
-            legend.text = element_text(size = 28),
-            legend.key.size = unit(1.5, "cm"))
+      ggplot2::labs(x = NULL, y = NULL, fill = "Value")+
+      ggplot2::theme(text = ggplot2::element_text(size=28),
+            legend.text = ggplot2::element_text(size = 28),
+            legend.key.size = ggplot2::unit(1.5, "cm"))
 
     plot_ls[[ind_plot]] <- p
     ind_plot <- ind_plot + 1
   }
 
   if(savei){
-    ggsave(filename = paste(filename, ".png", sep = ""),
+    ggplot2::ggsave(filename = paste(filename, ".png", sep = ""),
            path = path_fig,
-           plot = ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
+           plot = ggpubr::ggarrange(plot_ls[[1]], plot_ls[[2]], plot_ls[[3]],
                             plot_ls[[4]], plot_ls[[5]], plot_ls[[6]],
                             plot_ls[[7]], plot_ls[[8]], plot_ls[[9]],
                             ncol = 3, nrow = 3,
@@ -368,4 +445,13 @@ plot_panel_heatmap_9_cal_nolab <- function(dat, tstamp, min_y = 0, max_y, loc_ca
   }
 
   return(plot_ls)
+}
+
+# The plotting helpers need the suggested packages ggplot2, ggpubr and scales.
+.need_plot_packages <- function() {
+  pkgs <- c("ggplot2", "ggpubr", "scales")
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing)) stop("Install ", paste(missing, collapse = ", "),
+    " to use the spDBL plotting helpers", call. = FALSE)
+  invisible(TRUE)
 }

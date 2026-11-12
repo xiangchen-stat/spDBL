@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/xiangchen-stat/spDBL/discussions
+    about: Ask how to use spDBL, or share what you use it for.

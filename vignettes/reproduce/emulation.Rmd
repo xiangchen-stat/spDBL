@@ -1,4 +1,6 @@
 ---
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
 title: "Reproducing the 100 × 100 emulation experiment with spDBL"
 output:
   html_document:

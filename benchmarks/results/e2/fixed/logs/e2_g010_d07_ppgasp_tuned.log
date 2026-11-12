@@ -1,0 +1,38 @@
+The upper bounds of the range parameters are 155.6875 15.77896 15.4634 Inf 
+The initial values of range parameters are 3.11375 0.3155793 0.309268 
+Start of the optimization  1  : 
+The number of iterations is  
+ The value of the  marginal posterior  function is  53615.73 
+ Optimized range parameters are 3.417139 1.047375 0.2442441 
+ Optimized nugget parameter is 3.828485e-12 
+ Convergence:  FALSE 
+The initial values of range parameters are 0.07349845 0.007449084 0.00730011 
+Start of the optimization  2  : 
+The number of iterations is  
+ The value of the  marginal posterior  function is  53615.72 
+ Optimized range parameters are 3.418142 1.047641 0.2442788 
+ Optimized nugget parameter is 8.620991e-11 
+ Convergence:  TRUE 
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL-e2fixed/benchmarks/e2_worker.R ~/spDBL-e2fixed/benchmarks/results/e2/fixed/tasks/e2_g010_d07_ppgasp_tuned.rds"
+	User time (seconds): 4.07
+	System time (seconds): 0.12
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.29
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 144120
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 36836
+	Voluntary context switches: 311
+	Involuntary context switches: 16
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 24
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

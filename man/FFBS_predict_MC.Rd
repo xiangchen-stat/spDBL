@@ -46,7 +46,8 @@ Defaults to \code{1.1}.}
 \item{gp_tau2}{Numeric scalar. Nugget variance of the GP kernel. Defaults to
 \code{1e-4}.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 }
 \value{
 A named list of length \code{nT}. Each element \code{"T<t>"} is an
@@ -58,6 +59,20 @@ Estimates posterior predictive means at new spatial locations using Monte
 Carlo integration over the posterior samples of the state \eqn{\Theta_t}.
 Uses an exponential GP kernel to compute the cross-covariance between
 observed and new locations.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+sam <- FFBS_sampling(50, res, par$F0, par$G0, nT = 4, seed = 1)
+x_new <- matrix(c(-0.5, 0.5))  # two new inputs
+pred <- FFBS_predict_MC(50, dat$Y, sam, F_ls = par$F0,
+                        F_new_ls = cbind(1, x_new), input = par$F0[, 2],
+                        input_new = x_new, nT = 4, phi_para = 1)
+dim(pred$T4)
+apply(pred$T4, 1:2, mean)  # Monte Carlo predictive mean at time 4
 }
 \seealso{
 \code{\link{FFBS_predict_exact}}, \code{\link{gen_exp_kernel}}

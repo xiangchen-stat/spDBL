@@ -26,6 +26,17 @@ model) back into a list indexed by the original \code{nT_ori} time steps.
 Assumes the number of blocks per season \code{n_block = nT / nT_ori} is an
 integer.
 }
+\examples{
+# Two time steps on six sites, split into three episodes of two sites each
+Y <- lapply(1:2, function(t) matrix(10 * t + 1:6, nrow = 1))
+ind <- generate_grid(1, 6, 1, 2)
+Y_ep <- unlist(lapply(Y, function(y) lapply(1:3, function(j)
+  y[, ind$L[j]:ind$R[j], drop = FALSE])), recursive = FALSE)
+length(Y_ep)
+rec <- recover_from_EP_exact(Y_ep, nT_ori = 2, nT = 6)
+all.equal(unname(rec$T2), Y[[2]])
+
+}
 \seealso{
 \code{\link{recover_from_EP_MC}}
 }

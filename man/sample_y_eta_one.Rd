@@ -30,6 +30,22 @@ Draws one sample from the predictive distribution
 precomputed mean and covariance (e.g., from
 \code{\link{update_muSigma_eta_one}}).
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+set.seed(1)
+mu <- matrix(1:6, nrow = 2, ncol = 3)
+y <- sample_y_eta_one(ind_sam = 1, nT_cal = 2, N_sp_train = 3,
+                      mu_arry_train = mu, Sigma_eta_train = 0.01 * diag(3))
+dim(y)
+round(y - mu, 2)
+
+}
 \seealso{
 \code{\link{update_muSigma_eta_one}}
 }

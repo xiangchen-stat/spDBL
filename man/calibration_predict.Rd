@@ -20,3 +20,18 @@ Recovers discrepancy trajectories when needed, then draws latent emulator
 fields conditional on the observations and fresh replicated observations.
 This is not forecasting at new times or new spatial sites.
 }
+\examples{
+\dontshow{if (interactive() && requireNamespace("rstan", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+data("dt_calibration")
+d <- dt_calibration
+em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+                     covariance = "sigma2R", episode_window = 2, nsam = 3,
+                     seed = 1)
+cal <- calibration_prepare(em, d$lower, d$upper)
+fit <- calibration_fit(cal, d$field$z, d$field$U,
+                       locations = d$field$locations, draws = 1:2,
+                       chains = 1, iter = 200, seed = 1)
+pred <- calibration_predict(fit)
+dim(pred$y)
+\dontshow{\}) # examplesIf}
+}

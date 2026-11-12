@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Saved SIR simulations and synthetic field observations for calibration
 #'
 #' A 6 by 6 grid with 26 observation times, including physical time zero.
@@ -16,4 +19,10 @@
 #'   Frankenburg and Zhou (2025), JMLR 26(146).
 #'   The field-generation/import script is maintained in data-raw.
 #' @seealso [calibration_prepare()], [calibration_fit()]
+#' @examples
+#' data("dt_calibration")
+#' d <- dt_calibration
+#' rbind(lower = d$lower, upper = d$upper, truth = d$truth$eta)
+#' dim(d$field$z)
+#' length(d$training$responses)
 "dt_calibration"

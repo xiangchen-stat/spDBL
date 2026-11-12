@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: >-
+  If you use spDBL, please cite the software and the paper that introduced its
+  method (Banerjee et al., 2025).
+type: software
+title: "spDBL: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models"
+version: 1.2.0
+license: MIT
+repository-code: "https://github.com/xiangchen-stat/spDBL"
+url: "https://xiangchen-stat.github.io/spDBL/"
+authors:
+  - family-names: Chen
+    given-names: Xiang
+    affiliation: "Department of Biostatistics, University of California, Los Angeles"
+  - family-names: Banerjee
+    given-names: Sudipto
+    affiliation: "Department of Biostatistics, University of California, Los Angeles"
+abstract: >-
+  An R package for Bayesian emulation and calibration of spatiotemporal
+  mechanistic simulators. It emulates gridded simulator output with a
+  matrix-variate dynamic linear model whose posterior is available in closed
+  form, processing large grids as sequences of spatial blocks, and calibrates
+  simulator parameters to noisy field data without further simulator runs,
+  using Stan conditionally on emulator posterior draws.
+keywords:
+  - emulation
+  - Bayesian calibration
+  - dynamic linear models
+  - Gaussian processes
+  - R
+references:
+  - type: article
+    title: "Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models"
+    authors:
+      - family-names: Banerjee
+        given-names: Sudipto
+      - family-names: Chen
+        given-names: Xiang
+      - family-names: Frankenburg
+        given-names: Ian
+      - family-names: Zhou
+        given-names: Daniel
+    journal: "Journal of Machine Learning Research"
+    volume: 26
+    issue: 146
+    start: 1
+    end: 43
+    year: 2025
+    url: "https://jmlr.org/papers/v26/22-0896.html"
