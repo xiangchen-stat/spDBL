@@ -50,12 +50,13 @@ parameter bounds, the design GP and the emulator draws. \code{predict()} calls
 \examples{
 data("dt_calibration")
 d <- dt_calibration
-em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+steps <- 1:6  # the first 6 of 26 time steps, to keep the example fast
+em <- emulator_learn(d$training$input, d$training$responses[steps], d$Nx, d$Ny,
   covariance = "sigma2R", episode_window = 2, nsam = 3, seed = 1)
 cal <- calibration_prepare(em, d$lower, d$upper)
 cal
 band <- predict(cal, d$validation$input[1:2, ], interval = "prediction")
-round(band$sd[[10]][, 1:4], 3)
+round(band$sd[[6]][, 1:4], 3)
 pred <- predict(cal, d$validation$input[1:2, ])
 dim(pred[[5]])
 }

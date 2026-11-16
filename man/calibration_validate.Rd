@@ -27,11 +27,12 @@ not added to either GP's training data.
 \examples{
 data("dt_calibration")
 d <- dt_calibration
-em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+steps <- 1:6  # the first 6 of 26 time steps, to keep the example fast
+em <- emulator_learn(d$training$input, d$training$responses[steps], d$Nx, d$Ny,
                      covariance = "sigma2R", episode_window = 2, nsam = 3,
                      seed = 1)
 cal <- calibration_prepare(em, d$lower, d$upper)
-held_out <- lapply(d$validation$responses, function(y) y[1:3, , drop = FALSE])
+held_out <- lapply(d$validation$responses[steps], function(y) y[1:3, , drop = FALSE])
 val <- calibration_validate(cal, d$validation$input[1:3, ], held_out)
 val$field
 }
