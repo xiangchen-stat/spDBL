@@ -1,3 +1,19 @@
+## Resubmission
+
+This is a resubmission of 1.2.0. The incoming pretest of the first
+submission (2026-11-16) reported "Overall checktime 14 min > 10 min" on
+Windows R-devel (Debian: OK). In this version:
+
+* `vignettes/calibration.Rmd` skips its two slowest chunks (the emulator fit
+  and the held-out validation) while `R CMD check` runs; `R CMD build` runs
+  every chunk, so the vignette shipped in the tarball is unchanged.
+* The six slowest tests (Monte Carlo cross-checks and two plotting tests)
+  use `skip_on_cran()`; our GitHub Actions CI runs them.
+
+Rebuilding the vignettes went from 279 s to <win-builder> and the tests from
+194 s to <win-builder> on win-builder (Windows R-devel); the whole check now
+takes <win-builder> there.
+
 ## Submission
 
 Update of spDBL from 1.1.1 to 1.2.0. Main changes (details in NEWS.md):
@@ -24,7 +40,7 @@ another update for at least two months.
 
 ## Test environments
 
-* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-15)
+* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-16)
 * GitHub Actions: Ubuntu (release, oldrel-1; R-devel weekly), macOS
   (release), Windows (release)
 * win-builder (R-devel, 2026-11-14 r90890 ucrt): Status OK
