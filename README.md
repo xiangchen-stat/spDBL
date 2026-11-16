@@ -2,6 +2,7 @@
 
 <!-- badges: start -->
 [![CRAN status](https://www.r-pkg.org/badges/version/spDBL)](https://CRAN.R-project.org/package=spDBL)
+[![DOI](https://img.shields.io/badge/DOI-10.32614%2FCRAN.package.spDBL-blue)](https://doi.org/10.32614/CRAN.package.spDBL)
 [![R-CMD-check](https://github.com/xiangchen-stat/spDBL/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/xiangchen-stat/spDBL/actions/workflows/R-CMD-check.yaml)
 [![test-coverage](https://github.com/xiangchen-stat/spDBL/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/xiangchen-stat/spDBL/actions/workflows/test-coverage.yaml)
 [![GitHub](https://img.shields.io/badge/GitHub-xiangchen--stat%2FspDBL-black?logo=github)](https://github.com/xiangchen-stat/spDBL)

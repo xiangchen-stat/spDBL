@@ -23,5 +23,6 @@ bibentry(
   author = c(person("Xiang", "Chen"), person("Sudipto", "Banerjee")),
   year = "2026",
   note = paste("R package version", meta$Version),
+  doi = "10.32614/CRAN.package.spDBL",
   url = "https://github.com/xiangchen-stat/spDBL"
 )
