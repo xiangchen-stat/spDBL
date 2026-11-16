@@ -14,12 +14,20 @@ CITATION file now gives the package's CRAN DOI.
 Some defaults change results; NEWS.md says how to restore the earlier
 behaviour.
 
+This update comes less than three weeks after 1.1.1 (October 29, 2026). It
+fixes intervals that were too narrow in 1.1.1, which ignored the predictive
+variance of the design Gaussian process (95% prediction intervals for
+held-out simulator runs covered 54% before and 94% after), and it is the
+version described in a manuscript submitted to the JMLR Machine Learning Open
+Source Software track, which archives the reviewed version. We do not plan
+another update for at least two months.
+
 ## Test environments
 
 * local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-15)
-* GitHub Actions: Ubuntu (R-devel, release, oldrel-1), macOS (release),
-  Windows (release)
-* win-builder (R-devel, 2026-11-14 r90890 ucrt): <result of the rerun>
+* GitHub Actions: Ubuntu (release, oldrel-1; R-devel weekly), macOS
+  (release), Windows (release)
+* win-builder (R-devel, 2026-11-14 r90890 ucrt): Status OK
 
 ## R CMD check results
 
