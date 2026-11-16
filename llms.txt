@@ -1,0 +1,613 @@
+# spDBL
+
+## Overview
+
+**spDBL** is an R package for **Dynamic Bayesian Learning for
+Spatiotemporal Mechanistic Models**. It implements a scalable framework
+for **Gaussian process emulation** and **Bayesian inverse problems** in
+complex spatiotemporal dynamical systems, combining **mechanistic
+modeling** with **hierarchical state-space models**.
+
+Mechanistic models arising from ordinary differential equations, partial
+differential equations, and computer simulators are often
+computationally expensive. Bayesian inverse problems seek to infer
+unknown mechanistic parameters from noisy observations and quantify
+their uncertainty through posterior distributions. `spDBL` makes this
+inference more tractable by emulating the mechanistic system and then
+melding emulator output with observations in a hierarchical Bayesian
+model.
+
+The framework supports:
+
+- **Gaussian process emulation** of mechanistic systems
+- **Hierarchical state-space modeling** for spatiotemporal dynamics
+- **Closed-form Bayesian updating** in matrix-variate Normal and Wishart
+  models during emulator construction
+- **Post-emulation MCMC** for Bayesian inverse problems and calibration
+  of mechanistic parameters
+- **Dynamic Bayesian transfer learning** for large-scale emulation
+
+The methodological details are presented in [Banerjee, Chen,
+Frankenburg, and Zhou (2025)](https://jmlr.org/papers/v26/22-0896.html).
+
+## Installation
+
+### Release version from CRAN
+
+``` r
+
+install.packages("spDBL")
+```
+
+CRAN provides binaries for Windows and macOS. On Linux the package is
+built from source, which needs a C++ compiler.
+
+### Development version from GitHub
+
+``` r
+
+# install.packages("pak")
+pak::pak("xiangchen-stat/spDBL")
+```
+
+You can also use `devtools::install_github("xiangchen-stat/spDBL")`.
+
+### Optional: RStan for calibration
+
+Emulation needs no extra software.
+[`calibration_fit()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_fit.md)
+uses the suggested package [rstan](https://mc-stan.org/rstan/), which
+compiles a Stan program on first use (cached afterwards) and therefore
+needs a C++ toolchain:
+
+``` r
+
+install.packages("rstan")
+```
+
+On macOS install the Xcode Command Line Tools, on Windows install
+Rtools, and on Linux install the system compilers recommended for R
+package compilation. See the [RStan Getting Started
+guide](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) if
+compilation fails.
+
+## Quick example
+
+Fit a dynamic emulator to 40 runs of a spatial SIR simulator on a 10 ×
+10 grid over 26 time steps, then predict 10 held-out runs:
+
+``` r
+
+library(spDBL)
+data("dt_emulation")
+d <- dt_emulation
+
+# Fit the emulator to the training simulator runs (10 x 10 grid)
+em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+                     seed = 1)
+
+# Predict the held-out runs; their lagged outputs supply the AR design rows
+pred <- emulator_predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
+
+# Root mean squared error over held-out runs, locations, and times
+sqrt(mean(unlist(Map(function(p, y) (p - y)^2, pred, d$dt_pde_test))))
+#> [1] 0.1241679
+```
+
+The held-out outputs have standard deviation 3.17, so the error is small
+relative to the signal.
+[`vignette("emulation")`](https://xiangchen-stat.github.io/spDBL/articles/emulation.md)
+walks through this example with plots and uncertainty intervals. The
+next section shows calibration, which predicts without any new simulator
+runs.
+
+## Package scope
+
+`spDBL` is designed for Bayesian learning in settings where a
+mechanistic model governs spatiotemporal dynamics but repeated direct
+simulation is too costly for routine inference. Typical applications
+include:
+
+- inverse problems for nonlinear ODE and PDE systems
+- spatiotemporal epidemiologic models
+- environmental and ecological dynamical systems
+- black-box computer models generating spatial or spatiotemporal output
+- transfer learning across related dynamical systems
+
+## Methodological summary
+
+The `spDBL` workflow has four main components:
+
+1.  **Mechanistic model runs**  
+    Generate training runs from the underlying dynamical system over a
+    finite collection of inputs.
+
+2.  **Gaussian process emulation**  
+    Learn the relationship between model inputs and system outputs using
+    Gaussian process regression.
+
+3.  **Hierarchical spatiotemporal modeling**  
+    Embed the emulator in a state-space model to combine mechanistic
+    knowledge with noisy observed data.
+
+4.  **Inference on model parameters**  
+    Use analytically tractable posterior distributions for emulator
+    construction, followed by MCMC-based inference for mechanistic
+    parameters when needed.
+
+A central advantage of this framework is that the emulator stage avoids
+expensive iterative Bayesian computation such as full MCMC or
+variational inference, while still preserving a coherent probabilistic
+learning framework.
+
+## Related paper
+
+**Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models**  
+Sudipto Banerjee, Xiang Chen, Ian Frankenburg, Daniel Zhou  
+*Journal of Machine Learning Research*, 26(146):1-43, 2025
+
+### Abstract
+
+We develop an approach for Bayesian learning of spatiotemporal dynamical
+mechanistic models. Such learning consists of statistical emulation of
+the mechanistic system that can efficiently interpolate the output of
+the system from arbitrary inputs. The emulated learner can then be used
+to train the system from noisy data achieved by melding information from
+observed data with the emulated mechanistic system. This joint melding
+of mechanistic systems employ hierarchical state-space models with
+Gaussian process regression. Assuming the dynamical system is controlled
+by a finite collection of inputs, Gaussian process regression learns the
+effect of these parameters through a number of training runs, driving
+the stochastic innovations of the spatiotemporal state-space component.
+This enables efficient modeling of the dynamics over space and time.
+
+This article details exact inference with analytically accessible
+posterior distributions in hierarchical matrix-variate Normal and
+Wishart models in designing the emulator. This step obviates expensive
+iterative algorithms such as Markov chain Monte Carlo or variational
+approximations. We also show how emulation is applicable to large-scale
+emulation by designing a dynamic Bayesian transfer learning framework.
+Inference on mechanistic model parameters proceeds using Markov chain
+Monte Carlo as a post-emulation step using the emulator as a regression
+component. We demonstrate this framework through solving inverse
+problems arising in the analysis of ordinary and partial nonlinear
+differential equations and, in addition, to a black-box computer model
+generating spatiotemporal dynamics across a graphical model.
+
+Paper link: <https://jmlr.org/papers/v26/22-0896.html>
+
+## Calibration from saved simulations
+
+The calibration interface supports the scalar covariance model and uses
+an offline GP to supply autoregressive design rows at new mechanistic
+inputs. Prediction and calibration need no new PDE solves. The design
+GP’s predictive covariance is propagated into the field covariance,
+along with emulator coefficient and predictive uncertainty.
+
+``` R
+library(spDBL)
+data("dt_calibration")
+d <- dt_calibration
+em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+  covariance = "sigma2R", episode_window = 2, nsam = 20, seed = 1234)
+cal <- calibration_prepare(em, d$lower, d$upper)
+validation <- calibration_validate(cal, d$validation$input,
+                                   d$validation$responses)
+# Optional RStan backend; requires a compiler on first use.
+# iter must be set; 4 chains x 2000 iterations per emulator draw for inference.
+fit <- calibration_fit(cal, d$field$z, d$field$U, chains = 4, iter = 2000)
+summary(fit)
+fields <- calibration_predict(fit)
+```
+
+The inverse-Wishart default of emulator_learn() is preserved.
+Calibration requires an explicit sigma2R fit and does not convert
+covariance posteriors. Both covariance models use sampling = “marginal”
+by default, drawing smoothed episode marginals conditional on a shared
+covariance draw. Choose sampling = “joint” for coefficient paths that
+preserve episode dependence. calibration_prepare() inherits the fitted
+method; an explicit sampling option changes methods using saved
+filtering results:
+
+``` R
+cal_joint <- calibration_prepare(em, d$lower, d$upper, sampling = "joint")
+fit_long <- calibration_fit(cal_joint, d$field$z, d$field$U,
+  chains = 4, iter = 2000, warmup = 1000, draws_per_emulator = 200)
+```
+
+[`calibration_fit()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_fit.md)
+has no default for `iter`. Warmup defaults to half the iterations,
+chains to one, and up to 200 available samples are retained per emulator
+draw. The default sampler controls disable adaptation for zero warmup
+and enable it when warmup is positive. `iter = 1` gives one transition
+per emulator draw: a quick execution check that does not establish
+convergence.
+
+emulator_predict(cal, input_new) also works without new PDE
+trajectories; its mean samples are distinct from full conditional field
+draws.
+
+See vignette(“calibration”, package = “spDBL”) for the end-to-end
+example and vignette(“calibration-details”, package = “spDBL”) for the
+probability model. Package builds run preparation and validation, then
+display a compact recorded calibration result; they never compile Stan
+or launch MCMC. The calibration vignette uses 500 emulator draws with
+one NUTS transition per draw, and shows eta histograms and a
+variance/discrepancy/field comparison panel. Its recorded sample
+quantiles describe an execution experiment, not converged inference.
+Full reproduction is available through the installed
+system.file(“examples”, “run_calibration.R”, package = “spDBL”) script.
+Its default oneiter500 profile uses marginal emulator sampling. The
+small, full, and smoke profiles remain available; an optional third
+argument selects joint sampling, for example run_calibration.R full
+output_dir joint. One-iteration runs are execution experiments and do
+not establish convergence.
+
+## MNIW model comparison
+
+For multivariate regression with independent observation rows,
+[`compute_analytical_waic()`](https://xiangchen-stat.github.io/spDBL/reference/compute_analytical_waic.md)
+evaluates WAIC directly from an MNIW posterior.
+[`compute_sample_waic()`](https://xiangchen-stat.github.io/spDBL/reference/compute_sample_waic.md)
+evaluates the same row likelihood from paired posterior coefficient and
+covariance draws. Both return `WAIC`, `lppd`, `p_waic`, `elpd_waic`, and
+pointwise scores. The sampled function can also return a log likelihood
+matrix for the optional `loo` package.
+
+``` r
+
+X <- cbind(1, c(-1, 0, 1, 2))
+Y <- cbind(c(0.1, 0.4, 1.2, 1.7), c(1.2, 0.8, 0.5, 0.1))
+post <- spDBL::MNIW_R(X, Y, H = diag(nrow(Y)), v = 4, S = diag(2),
+                     C = matrix(0, 2, 2), Vb = diag(2))
+spDBL::compute_analytical_waic(Y, X, post$Vbnew, post$Cnew,
+                              post$Snew, post$vnew)
+```
+
+`mn` is the posterior coefficient mean itself. Each multivariate
+response row is scored jointly; these functions do not directly evaluate
+the correlated-row GP likelihood used by the spatiotemporal emulator.
+See
+[`vignette("model-comparison", package = "spDBL")`](https://xiangchen-stat.github.io/spDBL/articles/model-comparison.md)
+for posterior sampling, comparison with `loo`, and sequential covariate
+comparisons. To render it from this checkout, use
+`bash vignettes/renderEmulation.sh quarto model-comparison`.
+
+## Documentation
+
+- Website with the function reference and all vignettes:
+  <https://xiangchen-stat.github.io/spDBL/>
+- [`vignette("emulation")`](https://xiangchen-stat.github.io/spDBL/articles/emulation.md):
+  fit an emulator and check its predictions.
+- [`vignette("calibration")`](https://xiangchen-stat.github.io/spDBL/articles/calibration.md):
+  end-to-end calibration from saved simulations.
+- [`vignette("calibration-details")`](https://xiangchen-stat.github.io/spDBL/articles/calibration-details.md):
+  the probability model behind calibration.
+- [`vignette("model-comparison")`](https://xiangchen-stat.github.io/spDBL/articles/model-comparison.md):
+  WAIC for MNIW multivariate regression.
+- [Package
+  architecture](https://xiangchen-stat.github.io/spDBL/articles/architecture.html):
+  how the code is organised, for contributors.
+- [IMPROVEMENTS.md](https://github.com/xiangchen-stat/spDBL/blob/main/IMPROVEMENTS.md):
+  what the package adds to the published method and its research code.
+
+## Getting help and contributing
+
+Ask questions and share how you use spDBL in [GitHub
+Discussions](https://github.com/xiangchen-stat/spDBL/discussions), and
+report bugs on the [issue
+tracker](https://github.com/xiangchen-stat/spDBL/issues), with a minimal
+reproducible example. Contributions are welcome; the [contributing
+guide](https://github.com/xiangchen-stat/spDBL/blob/main/.github/CONTRIBUTING.md)
+explains how to set up a development copy, run the tests (including the
+optional Stan tests), and render the vignettes. Please note that this
+project is released with a [Contributor Code of
+Conduct](https://github.com/xiangchen-stat/spDBL/blob/main/.github/CODE_OF_CONDUCT.md).
+By participating you agree to abide by its terms.
+
+## Repository structure
+
+``` text
+R/            R functions
+src/          C++ kernels (Rcpp/RcppEigen)
+inst/stan/    Stan programs for calibration
+inst/examples/  reproduction script for the calibration vignette
+tests/        testthat unit and integration tests
+vignettes/    vignettes (R Markdown sources; Quarto copies are generated)
+data/         example datasets (dt_emulation, dt_calibration)
+data-raw/     scripts that build the example data and recorded results
+man/          help pages generated by roxygen2
+.github/      CI workflows, contributing guide, issue templates
+```
+
+## License
+
+This package is released under the **MIT License** (see `LICENSE` and
+`LICENSE.md`). Every hand-written source file states this with an
+`SPDX-License-Identifier: MIT` header; the Rcpp-generated `RcppExports`
+files are covered by the same license. All dependencies use OSI-approved
+open-source licenses (GPL, MIT, or BSD), and the only optional
+dependency for calibration, rstan, is GPL (\>= 3).
+
+## Acknowledgement
+
+The hex logo for spDBL was generated with the assistance of ChatGPT
+(OpenAI) using AI-based image generation tools.
+
+# Package index
+
+## Emulation
+
+Fit a dynamic Bayesian emulator to simulator runs and predict the
+spatiotemporal output at new inputs. Exact (MCMC-free) posterior
+updates.
+
+- [`prepare_data()`](https://xiangchen-stat.github.io/spDBL/reference/prepare_data.md)
+  : Prepare PDE emulator training and testing data from CSV files
+- [`emulator_learn()`](https://xiangchen-stat.github.io/spDBL/reference/emulator_learn.md)
+  : Fit an FFBS-based dynamic emulator
+- [`emulator_predict()`](https://xiangchen-stat.github.io/spDBL/reference/emulator_predict.md)
+  : Predict simulator output from a fitted emulator
+- [`print(`*`<spDBL_emulator>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/spDBL_emulator-methods.md)
+  [`summary(`*`<spDBL_emulator>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/spDBL_emulator-methods.md)
+  [`predict(`*`<spDBL_emulator>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/spDBL_emulator-methods.md)
+  : Print, summarize and predict from a fitted emulator
+
+## Calibration
+
+Infer mechanistic parameters from field data without new PDE solves.
+Requires an emulator fitted with `covariance = "sigma2R"`; the sampler
+uses RStan (suggested package).
+
+- [`calibration_prepare()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_prepare.md)
+  : Prepare a fitted emulator for PDE-free calibration
+- [`print(`*`<spDBL_calibration_input>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/spDBL_calibration_input-methods.md)
+  [`predict(`*`<spDBL_calibration_input>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/spDBL_calibration_input-methods.md)
+  : Print and predict from a prepared calibration object
+- [`calibration_validate()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_validate.md)
+  : Validate offline calibration predictions against held-out
+  simulations
+- [`calibration_fit()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_fit.md)
+  : Fit modular calibration conditional on emulator posterior draws
+- [`calibration_predict()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_predict.md)
+  : Recover fields at the calibrated observation times and locations
+- [`summary(`*`<spDBL_calibration>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/summary.spDBL_calibration.md)
+  : Summarize modular calibration samples
+- [`plot(`*`<spDBL_calibration>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/plot.spDBL_calibration.md)
+  : Plot calibrated mechanistic parameter samples
+
+## Example data
+
+- [`dt_emulation`](https://xiangchen-stat.github.io/spDBL/reference/dt_emulation.md)
+  : Example emulation dataset
+- [`dt_calibration`](https://xiangchen-stat.github.io/spDBL/reference/dt_calibration.md)
+  : Saved SIR simulations and synthetic field observations for
+  calibration
+
+## Forward filtering and backward sampling
+
+Advanced. The matrix-variate dynamic linear model kernels behind
+[`emulator_learn()`](https://xiangchen-stat.github.io/spDBL/reference/emulator_learn.md).
+Three covariance models: inverse-Wishart (no suffix), scalar variance
+times a fixed correlation (`_sigma2R`), and identity (`_I`).
+
+- [`FF()`](https://xiangchen-stat.github.io/spDBL/reference/FF.md) :
+  Forward Filter for the MNIW dynamic linear model
+- [`FF_sigma2R()`](https://xiangchen-stat.github.io/spDBL/reference/FF_sigma2R.md)
+  : Forward Filter for the scalar-sigma-squared-times-R model
+- [`FF_I()`](https://xiangchen-stat.github.io/spDBL/reference/FF_I.md) :
+  Forward Filter with identity right-covariance
+- [`FF_1step_R_sigma2R()`](https://xiangchen-stat.github.io/spDBL/reference/FF_1step_R_sigma2R.md)
+  : Single forward filter step (scalar right-covariance, sigma-squared
+  times R)
+- [`FF_1step_R_I()`](https://xiangchen-stat.github.io/spDBL/reference/FF_1step_R_I.md)
+  : Single forward filter step (identity right-covariance)
+- [`BS()`](https://xiangchen-stat.github.io/spDBL/reference/BS.md) :
+  Backward sampler for the Forward Filter Backward Sampler (FFBS)
+- [`FFBS()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS.md) :
+  Forward Filter Backward Sampler (MNIW model)
+- [`FFBS_sigma2R()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_sigma2R.md)
+  : Forward Filter Backward Sampler (scalar sigma-squared-times-R model)
+- [`FFBS_I()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_I.md)
+  : Forward Filter Backward Sampler (identity right-covariance)
+- [`FFBS_sampling()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_sampling.md)
+  : Draw posterior samples from FFBS output (MNIW model)
+- [`FFBS_sampling_sigma2R()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_sampling_sigma2R.md)
+  : Draw posterior samples from FFBS output (scalar
+  sigma-squared-times-R model)
+- [`FFBS_sampling_I()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_sampling_I.md)
+  : Draw posterior samples from FFBS output (identity right-covariance)
+- [`FFBS_predict_exact()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_predict_exact.md)
+  : Exact posterior predictive mean using FFBS smoothed states (MNIW
+  model)
+- [`FFBS_predict_MC()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_predict_MC.md)
+  : Monte Carlo prediction using FFBS output (MNIW model)
+
+## Large data and episode partitioning
+
+Out-of-core filtering, smoothing and prediction from CSV blocks, grid
+traversal, autoregressive design construction, and mapping episode
+blocks back to time.
+
+- [`FF_bigdata_R()`](https://xiangchen-stat.github.io/spDBL/reference/FF_bigdata_R.md)
+  : Forward Filter for big data stored in CSV files (MNIW model)
+- [`BS_bigdata_R()`](https://xiangchen-stat.github.io/spDBL/reference/BS_bigdata_R.md)
+  : Out-of-core backward smoothing
+- [`FFBS_predict_bigdata_R()`](https://xiangchen-stat.github.io/spDBL/reference/FFBS_predict_bigdata_R.md)
+  : Out-of-core exact prediction
+- [`read_big_csv_quick()`](https://xiangchen-stat.github.io/spDBL/reference/read_big_csv_quick.md)
+  : Read a rectangular block from a large CSV file
+- [`generate_grid()`](https://xiangchen-stat.github.io/spDBL/reference/generate_grid.md)
+  : Generate block indices for big data grid traversal
+- [`generate.grid.exact()`](https://xiangchen-stat.github.io/spDBL/reference/generate.grid.exact.md)
+  : Generate an exact block grid analytically
+- [`generate.grid.rowsnake()`](https://xiangchen-stat.github.io/spDBL/reference/generate.grid.rowsnake.md)
+  : Generate a flexible block grid with snake traversal
+- [`generate.grid.lr()`](https://xiangchen-stat.github.io/spDBL/reference/generate.grid.lr.md)
+  : Generate a flexible block grid with left-to-right traversal
+- [`gen_F_ls_AR1()`](https://xiangchen-stat.github.io/spDBL/reference/gen_F_ls_AR1.md)
+  : Build AR(1) covariate list from a list of response matrices
+- [`gen_F_ls_AR2()`](https://xiangchen-stat.github.io/spDBL/reference/gen_F_ls_AR2.md)
+  : Build AR(2) covariate list from a list of response matrices
+- [`gen_F_ls_AR1_EP()`](https://xiangchen-stat.github.io/spDBL/reference/gen_F_ls_AR1_EP.md)
+  : Build AR(1) covariate list for the episode-block model
+- [`gen_F_ls_AR2_EP()`](https://xiangchen-stat.github.io/spDBL/reference/gen_F_ls_AR2_EP.md)
+  : Build AR(2) covariate list for the episode-block model
+- [`recover_from_EP_exact()`](https://xiangchen-stat.github.io/spDBL/reference/recover_from_EP_exact.md)
+  : Recover episode-partitioned data to original time dimension (exact)
+- [`recover_from_EP_MC()`](https://xiangchen-stat.github.io/spDBL/reference/recover_from_EP_MC.md)
+  : Recover episode-partitioned posterior samples to original time
+  dimension
+
+## Distributions and conjugate updates
+
+Advanced. Matrix-normal, MNIW and MNIG sampling and updates.
+
+- [`MNIW_R()`](https://xiangchen-stat.github.io/spDBL/reference/MNIW_R.md)
+  : MNIW posterior update
+- [`MNIW_R_naiive()`](https://xiangchen-stat.github.io/spDBL/reference/MNIW_R_naiive.md)
+  : Naive MNIW posterior update
+- [`MNIW_sampler()`](https://xiangchen-stat.github.io/spDBL/reference/MNIW_sampler.md)
+  : Sample from the Matrix Normal Inverse Wishart (MNIW) distribution
+- [`MNIG_sampler()`](https://xiangchen-stat.github.io/spDBL/reference/MNIG_sampler.md)
+  : Sample from the Matrix Normal Inverse Gamma (MNIG) distribution
+- [`rmn_chol()`](https://xiangchen-stat.github.io/spDBL/reference/rmn_chol.md)
+  : Draw one sample from a matrix-normal distribution (Cholesky
+  parameterisation)
+- [`rmn_chol_more()`](https://xiangchen-stat.github.io/spDBL/reference/rmn_chol_more.md)
+  : Draw multiple samples from a matrix-normal distribution (Cholesky
+  parameterisation)
+- [`dMTig()`](https://xiangchen-stat.github.io/spDBL/reference/dMTig.md)
+  : Log density of the matrix-T distribution with inverse-gamma right
+  covariance
+- [`check_pds()`](https://xiangchen-stat.github.io/spDBL/reference/check_pds.md)
+  : Check and repair a matrix to be positive definite and symmetric
+- [`make_pds()`](https://xiangchen-stat.github.io/spDBL/reference/make_pds.md)
+  : Force a matrix to be positive definite and symmetric
+- [`inv_chol()`](https://xiangchen-stat.github.io/spDBL/reference/inv_chol.md)
+  : Invert a matrix via its Cholesky factorisation
+- [`gen_pd_matrix()`](https://xiangchen-stat.github.io/spDBL/reference/gen_pd_matrix.md)
+  : Generate a random positive definite matrix
+- [`gen_ran_matrix()`](https://xiangchen-stat.github.io/spDBL/reference/gen_ran_matrix.md)
+  : Generate a random matrix with entries scaled to \\\[-1, 1\]\\
+
+## Model assessment
+
+One-step log posterior predictive densities for each covariance model,
+and WAIC for MNIW multivariate regression.
+
+- [`lppd_IW_1t()`](https://xiangchen-stat.github.io/spDBL/reference/lppd_IW_1t.md)
+  : One-step log posterior predictive density (MNIW / inverse-Wishart
+  model)
+- [`lppd_IG_1t()`](https://xiangchen-stat.github.io/spDBL/reference/lppd_IG_1t.md)
+  : One-step log posterior predictive density (scalar
+  sigma-squared-times-R model)
+- [`lppd_id_1t()`](https://xiangchen-stat.github.io/spDBL/reference/lppd_id_1t.md)
+  : One-step log posterior predictive density (identity right-covariance
+  model)
+- [`compute_analytical_waic()`](https://xiangchen-stat.github.io/spDBL/reference/compute_analytical_waic.md)
+  : Analytical WAIC for an MNIW multivariate regression posterior
+- [`compute_sample_waic()`](https://xiangchen-stat.github.io/spDBL/reference/compute_sample_waic.md)
+  : WAIC from paired coefficient and covariance draws
+
+## Gaussian process kernels
+
+- [`gen_gp_kernel()`](https://xiangchen-stat.github.io/spDBL/reference/gen_gp_kernel.md)
+  : Compute a Gaussian Process covariance kernel matrix
+- [`gen_exp_kernel()`](https://xiangchen-stat.github.io/spDBL/reference/gen_exp_kernel.md)
+  : Compute an exponential GP kernel matrix
+- [`gen_expsq_kernel()`](https://xiangchen-stat.github.io/spDBL/reference/gen_expsq_kernel.md)
+  : Compute a squared-exponential (Gaussian) GP kernel matrix
+- [`gen_Jt()`](https://xiangchen-stat.github.io/spDBL/reference/gen_Jt.md)
+  : Compute the cross-covariance matrix between observed and new
+  locations
+
+## Simulators and synthetic data
+
+- [`SIR()`](https://xiangchen-stat.github.io/spDBL/reference/SIR.md) :
+  Right-hand side of the spatially extended SIR ODE
+- [`gen_pde()`](https://xiangchen-stat.github.io/spDBL/reference/gen_pde.md)
+  : Simulate a spatially extended SIR PDE model
+- [`gen_ffbs_data()`](https://xiangchen-stat.github.io/spDBL/reference/gen_ffbs_data.md)
+  : Generate synthetic FFBS data in memory
+- [`gen_ffbs_csv()`](https://xiangchen-stat.github.io/spDBL/reference/gen_ffbs_csv.md)
+  : Generate synthetic FFBS data and write to CSV files
+- [`gen_calibrate_data()`](https://xiangchen-stat.github.io/spDBL/reference/gen_calibrate_data.md)
+  : Generate synthetic calibration data with correlated discrepancy
+- [`gen_calibrate_data_uncorr()`](https://xiangchen-stat.github.io/spDBL/reference/gen_calibrate_data_uncorr.md)
+  : Generate synthetic calibration data with uncorrelated discrepancy
+- [`gen_prior_u_tau2()`](https://xiangchen-stat.github.io/spDBL/reference/gen_prior_u_tau2.md)
+  : Sample prior discrepancy trajectory and variance sequence
+
+## Plotting
+
+- [`quick_heat()`](https://xiangchen-stat.github.io/spDBL/reference/quick_heat.md)
+  : Quick raster heatmap
+- [`quick_save()`](https://xiangchen-stat.github.io/spDBL/reference/quick_save.md)
+  : Save a ggplot to a timestamped PNG file
+- [`plot_panel_heatmap_9()`](https://xiangchen-stat.github.io/spDBL/reference/plot_panel_heatmap_9.md)
+  : Plot a 3-by-3 panel of heatmaps across selected time stamps
+- [`plot_panel_heatmap_9_cal()`](https://xiangchen-stat.github.io/spDBL/reference/plot_panel_heatmap_9_cal.md)
+  : Plot a 3-by-3 panel of calibration heatmaps
+- [`plot_panel_heatmap_9_cal_nolab()`](https://xiangchen-stat.github.io/spDBL/reference/plot_panel_heatmap_9_cal_nolab.md)
+  : Plot a 3-by-3 panel of calibration heatmaps without axis labels
+- [`cal_errorbar()`](https://xiangchen-stat.github.io/spDBL/reference/cal_errorbar.md)
+  : Compute median and 95% credible interval across rows
+- [`cal_errorbar_mean()`](https://xiangchen-stat.github.io/spDBL/reference/cal_errorbar_mean.md)
+  : Compute mean and 95% credible interval across rows
+
+## Legacy calibration helpers
+
+Building blocks from the research code of Banerjee et al. (2025), where
+calibration solved the PDE at every MCMC iteration. No other package
+function calls them. New work should use
+[`calibration_prepare()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_prepare.md)
+and
+[`calibration_fit()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_fit.md).
+
+- [`update_y_eta()`](https://xiangchen-stat.github.io/spDBL/reference/update_y_eta.md)
+  : Update the likelihood of observations given PDE parameters (Monte
+  Carlo)
+- [`update_y_eta_one()`](https://xiangchen-stat.github.io/spDBL/reference/update_y_eta_one.md)
+  : Update the likelihood of observations given PDE parameters (single
+  sample)
+- [`update_muSigma_eta_one()`](https://xiangchen-stat.github.io/spDBL/reference/update_muSigma_eta_one.md)
+  : Compute posterior predictive mean and covariance without sampling
+  (single sample)
+- [`sample_y_eta_one()`](https://xiangchen-stat.github.io/spDBL/reference/sample_y_eta_one.md)
+  : Draw predictive samples from a precomputed mean and covariance
+- [`cal_Bt_bt()`](https://xiangchen-stat.github.io/spDBL/reference/cal_Bt_bt.md)
+  : Update the posterior mean and covariance of the discrepancy field
+- [`scale_uniform()`](https://xiangchen-stat.github.io/spDBL/reference/scale_uniform.md)
+  : Scale a vector to the unit interval via a uniform transformation
+- [`scale_back_uniform()`](https://xiangchen-stat.github.io/spDBL/reference/scale_back_uniform.md)
+  : Invert a uniform scaling transformation
+- [`expit()`](https://xiangchen-stat.github.io/spDBL/reference/expit.md)
+  : Logistic (expit) function
+- [`cal_jacobian_logit_uniform()`](https://xiangchen-stat.github.io/spDBL/reference/cal_jacobian_logit_uniform.md)
+  : Log absolute Jacobian of the logit-uniform transformation
+
+## Package
+
+- [`spDBL`](https://xiangchen-stat.github.io/spDBL/reference/spDBL-package.md)
+  [`spDBL-package`](https://xiangchen-stat.github.io/spDBL/reference/spDBL-package.md)
+  : spDBL: Dynamic Bayesian Learning for Spatiotemporal Mechanistic
+  Models
+
+# Articles
+
+### Using spDBL
+
+- [PDE Emulation with
+  FFBS](https://xiangchen-stat.github.io/spDBL/articles/emulation.md):
+- [From saved SIR simulations to field-data
+  calibration](https://xiangchen-stat.github.io/spDBL/articles/calibration.md):
+- [The GP and probability model behind
+  calibration](https://xiangchen-stat.github.io/spDBL/articles/calibration-details.md):
+- [Analytical and Sample-Based MNIW Model
+  Comparison](https://xiangchen-stat.github.io/spDBL/articles/model-comparison.md):
+
+### For developers
+
+- [Package
+  architecture](https://xiangchen-stat.github.io/spDBL/articles/architecture.md):

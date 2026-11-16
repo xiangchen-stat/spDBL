@@ -1,0 +1,269 @@
+# The GP and probability model behind calibration
+
+This note explains the implementation corresponding to Sections 6 and
+7.2 of [Banerjee et
+al. (2025)](https://jmlr.org/papers/v26/22-0896.html). The offline
+predictor for autoregressive design rows is an additional approximation
+used to remove the remaining PDE dependency.
+
+## Emulator coefficient sampling
+
+The default sampling method is “marginal”, matching the
+smoothed-marginal procedure in equation (9) and Algorithm 4 of the
+paper. For each variance draw, \$\$
+\Theta_e^{(m)}\mid\sigma^{2(m)},\mathcal D \sim
+MN(h_e,H_e,\sigma^{2(m)}R\_{\rm episode}). \$\$ The coefficients at
+distinct episodes are sampled independently conditional on the shared
+variance. The resulting sampling law is \$\$ q\_{\rm
+marginal}(\Psi\mid\mathcal D) =p(\sigma^2\mid\mathcal D) \prod_e
+p(\Theta_e\mid\sigma^2,\mathcal D). \$\$ It reproduces the smoothed
+marginals and does not retain the full posterior dependence across
+episode coefficients.
+
+The option sampling = “joint” instead uses the backward conditional law
+in equation (7). With $`B_e=M_eG_{e+1}^{\mathsf T}A_{e+1}^{-1}`$, it
+draws \$\$ \Theta_e^{(m)}\mid\Theta\_{e+1}^{(m)},\sigma^{2(m)},\mathcal
+D \sim MN\left( m_e+B_e(\Theta\_{e+1}^{(m)}-a\_{e+1}),
+M_e-B_eA\_{e+1}B_e^{\mathsf T}, \sigma^{2(m)}R\_{\rm episode} \right).
+\$\$ This preserves coefficient dependence and gives the joint posterior
+sampling law \$q\_{\rm joint}(\Psi\mid\mathcal D)=p(\Psi\mid\mathcal
+D)\$.
+
+emulator_learn() defaults to marginal sampling. calibration_prepare()
+inherits the fitted method or resamples with an explicit sampling
+option. Saved objects record both the method and whether their samples
+are joint trajectories. The same two method choices are available for
+inverse-Wishart emulation, although calibration currently requires the
+scalar covariance model.
+
+## Two GP calculations
+
+Let $`Y_e`$ be an $`N\times C`$ training response matrix for episode
+$`e`$, and $`F_e`$ its $`N\times P`$ autoregressive design. For a fixed
+emulator posterior coefficient sample set $`m`$, the coefficients are
+$`\Theta_e^{(m)}`$ and the variance is $`\sigma^{2(m)}`$.
+
+The first GP predicts the design rows. For time $`t`$, stack the designs
+of its episodes, $`H_t=[F_e]_{e\text{ at }t}`$, center the columns by
+$`c_t`$, and scale active parameter coordinates to $`[0,1]`$. Each time
+has its own anisotropic Matern 5/2 kernel with fitted length scales and
+nugget,
+
+``` math
+(K_t)_{ij}=\left(1+\sqrt5\,r_{ij}+\tfrac53 r_{ij}^2\right)e^{-\sqrt5\,r_{ij}}
++\lambda_t\mathbf 1\{i=j\},
+\qquad
+r_{ij}^2=\sum_d\frac{(x_{id}-x_{jd})^2}{\ell_{td}^2}.
+```
+
+The hyperparameters $`(\ell_t,\lambda_t)`$ maximize the GP likelihood of
+the time’s standardized design columns. With
+`calibration_prepare(design_kernel = "sqexp", design_groups = "shared")`
+one squared-exponential kernel, $`\exp(-r_{ij}^2/2)`$, serves all times,
+as in earlier versions; the formulas below then hold with a single
+kernel.
+
+With $`k_t(\eta)`$ the vector of covariances to a new input,
+
+``` math
+\widehat h_t(\eta)=c_t^\top+k_t(\eta)^\top
+K_t^{-1}(H_t-\mathbf 1c_t^\top).
+```
+
+Split this row into $`\widehat F_e(\eta)`$. At runtime these rows
+require no PDE solution. The same GP describes their error. At each time
+all design columns share one kernel, so the errors are jointly Gaussian,
+
+``` math
+h_t(\eta)-\widehat h_t(\eta)\sim N\left(0,\;v_t(\eta)\widehat\Sigma_{F,t}\right),
+\qquad
+v_t(\eta)=1-k_t(\eta)^\top K_t^{-1}k_t(\eta),
+```
+
+with the maximum-likelihood covariance between the time’s design columns
+$`\widehat\Sigma_{F,t}=W_t^\top W_t/N`$, where
+$`W_t=L_t^{-1}(H_t-\mathbf 1c_t^\top)`$ and $`K_t=L_tL_t^\top`$. Column
+$`j`$ alone has variance $`v_t(\eta)(\widehat\Sigma_{F,t})_{jj}`$.
+Different times are separate GPs.
+`calibration_prepare(design_uncertainty = FALSE)` keeps only the mean,
+as spDBL 1.1.1 did.
+
+The second GP is the emulator’s original residual interpolation. Its
+exponential kernel uses the original mechanistic input coordinates:
+
+``` math
+V_{ij}=a\exp(-\phi\|\eta_i-\eta_j\|)+\delta\mathbf 1\{i=j\},
+\qquad J_i(\eta)=a\exp(-\phi\|\eta_i-\eta\|).
+```
+
+The nugget is independent new-run noise and is excluded from J even at a
+coincident input. Gaussian conditioning yields
+
+``` math
+\mu_e^{(m)}(\eta)^\top
+=\widehat F_e(\eta)\Theta_e^{(m)}
++J(\eta)^\top V^{-1}(Y_e-F_e\Theta_e^{(m)}),
+```
+
+``` math
+q(\eta)=a+\delta-J(\eta)^\top V^{-1}J(\eta).
+```
+
+The development name residual_weights means
+$`V^{-1}(Y_e-F_e\Theta_e^{(m)})`$: coefficients over the training
+parameter inputs, not weights over spatial locations. Shared Cholesky
+factors are cached; one draw’s residual coefficients are cached at a
+time.
+
+## Spatial recovery and covariance
+
+Each episode is a spatial block at an observation time. The recovery
+function places each block mean back into its original grid indices.
+This rearrangement does not estimate correlations. The full-field
+emulator covariance is supplied separately:
+
+\$\$ \widetilde\Sigma^{(m)}\_t(\eta) =\sigma^{2(m)}q(\eta)R\_{\rm
+field}+v_t(\eta)\\Z_t^{(m)\top}Z_t^{(m)}. \$\$
+
+The second term propagates the design-row error. $`Z_t^{(m)}`$ is
+$`N\times S`$: for each episode $`e`$ observed at time $`t`$, its
+block’s columns hold $`W_e\Theta_e^{(m)}/\sqrt N`$, where $`W_e`$ are
+the columns of $`W_t`$ for episode $`e`$. Block $`(e,e')`$ of this term
+is therefore $`\Theta_e^{(m)\top}C_F^{ee'}(\eta)\Theta_{e'}^{(m)}`$,
+with $`C_F^{ee'}`$ the matching block of
+$`v_t(\eta)\widehat\Sigma_{F,t}`$, so sites in different spatial blocks
+at the same time are correlated. Its rank is at most $`N`$.
+
+Observed locations select matching entries of the mean and covariance.
+The recorded kernel scale is preserved: R_field need not have unit
+diagonal. Its amplitude and nugget must not be silently normalized
+independently of the emulator variance scale.
+
+The original exact FFBS prediction uses the smoothed coefficient mean.
+The extended function can instead condition on one fixed coefficient
+trajectory and return the conditional input covariance. Exact refers to
+Gaussian conditioning under the chosen surrogate, not an exact PDE
+solution.
+
+## Field-data likelihood
+
+For the observed sites, paper Equation (27) becomes
+
+``` math
+z_t=y_t(\eta)+u_t+\epsilon_t,\qquad
+\epsilon_t\sim N(0,\tau_t^2 I),
+```
+
+``` math
+u_t=u_{t-1}+\omega_t,\qquad
+\omega_t\sim N(0,\tau_t^2 U).
+```
+
+The matrix U is a positive-definite discrepancy covariance scale; its
+diagonal need not equal one. Discrepancy increments have covariance
+tau2\[t\] \* U, while observation errors retain covariance tau2\[t\] \*
+I. It is distinct from the emulator covariance R_field. Initial states
+use $`u_0\mid\tau_0^2\sim N(m_0,\tau_0^2M_0)`$ and
+$`\tau_0^2\sim IG(n_0,d_0)`$. Subsequently
+$`\tau_t^2\sim IG(b^t n_0,b^t d_0)`$, with the shape–scale inverse-gamma
+convention $`p(v)\propto v^{-a-1}\exp(-d/v)`$. Stan samples reciprocal
+variances using the equivalent shape–rate gamma.
+
+Integrating out the Gaussian emulator field gives
+
+``` math
+z_t\mid\eta,u_t,\tau_t^2,\Psi^{(m)}
+\sim N\left(\mu_t^{(m)}(\eta)+u_t,\,
+\widetilde\Sigma^{(m)}_t(\eta)+\tau_t^2 I\right).
+```
+
+The observed input is z. It is not replaced by the GP prediction.
+Conditional emulator errors are independent across observation times
+given the fixed coefficient sample set. The joint sampling option
+preserves dependence between coefficients from different episodes. The
+marginal option retains the smoothed marginal distributions conditional
+on the shared variance.
+
+## Marginal discrepancy sampling
+
+The joint Stan program samples discrepancy innovations. The default
+marginal program integrates discrepancy states out exactly. Starting at
+$`a_0=m_0`$, $`C_0=\tau_0^2M_0`$, the Kalman recursion is
+
+``` math
+P_t=C_{t-1}+\tau_t^2U,\quad
+Q_t=P_t+\widetilde\Sigma^{(m)}_t(\eta)+\tau_t^2 I,\quad
+e_t=z_t-\mu_t^{(m)}(\eta)-a_{t-1},
+```
+
+``` math
+a_t=a_{t-1}+P_tQ_t^{-1}e_t,\qquad
+C_t=P_t-P_tQ_t^{-1}P_t.
+```
+
+Its log likelihood is
+
+``` math
+-\frac12\sum_t\left[n\log(2\pi)+\log|Q_t|+e_t^\top Q_t^{-1}e_t\right].
+```
+
+Gaussian backward sampling subsequently recovers coherent discrepancy
+paths. The joint and marginal programs target the same conditional
+calibration model.
+
+## Modular posterior pooling
+
+For emulator parameters $`\Psi`$ and selected sampling law $`q_s`$,
+pooling uses
+
+\$\$ p\_{\rm mod}^{(s)}(\vartheta\mid z,\mathcal D) =\int
+p(\vartheta\mid z,\Psi,\mathcal D) q_s(\Psi\mid\mathcal D)\\d\Psi
+\approx \frac1M\sum_m p(\vartheta\mid z,\Psi^{(m)},\mathcal D). \$\$
+
+Each conditional distribution is normalized separately. Equal numbers of
+retained samples are pooled. A single model using an averaged likelihood
+would generally reweight emulator draws according to their field-data
+evidence and target a different posterior.
+
+Here s denotes the selected emulator sampling method. Joint sampling
+uses the full emulator posterior in equation (29); marginal sampling
+uses the product of smoothed conditional marginals defined above.
+Pooling follows the selected law in both cases.
+
+There are two sampling dimensions: the number of emulator trajectories
+and the number of calibration transitions conditional on each
+trajectory. The number of iterations has no default and must be chosen.
+Chains default to one, warmup to floor(iter / 2), and the retained count
+to at most 200 available samples per emulator draw. The controls disable
+adaptation for zero warmup and enable it for positive warmup.
+
+Convergence must be assessed within each conditional fit. One transition
+from each of 500 initial states is not a converged approximation of this
+integral.
+
+## Uncertainty and limitations
+
+The implementation retains coefficient samples, emulator variance,
+conditional GP prediction error, dynamic discrepancy, and independent
+measurement error. For fixed eta before observing field data, emulator
+uncertainty decomposes as
+
+``` math
+\operatorname{Var}(y_t\mid\mathcal D)
+=E_\Psi[\widetilde\Sigma_\Psi]
++\operatorname{Var}_\Psi[\mu_{t,\Psi}].
+```
+
+The design GP’s predictive covariance enters $`\widetilde\Sigma`$ by
+default (`design_uncertainty = TRUE`), but its hyperparameters are
+plug-in maximum-likelihood estimates, so their uncertainty is not
+represented. Design errors are also treated as independent across times
+and independent of the emulator’s residual error, although the same
+lagged fields enter the designs of consecutive times. Both
+simplifications make calibration intervals somewhat too narrow.
+
+The initial public calibration interface supports the sigma2R emulator,
+fixed discrepancy covariance scale, finite complete observation
+matrices, and subsets of the original time/grid setup. It does not
+silently convert an inverse-Wishart fit, fill missing observations, or
+forecast new sites or times.
