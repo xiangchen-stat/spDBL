@@ -1,3 +1,19 @@
+## Resubmission
+
+This is a resubmission of 1.2.0. The incoming pretest of the first
+submission (2026-11-16) reported "Overall checktime 14 min > 10 min" on
+Windows R-devel (Debian: OK). In this version:
+
+* `vignettes/calibration.Rmd` skips its two slowest chunks (the emulator fit
+  and the held-out validation) while `R CMD check` runs; `R CMD build` runs
+  every chunk, so the vignette shipped in the tarball is unchanged.
+* The six slowest tests (Monte Carlo cross-checks and two plotting tests)
+  use `skip_on_cran()`; our GitHub Actions CI runs them.
+
+On win-builder (Windows R-devel), rebuilding the vignettes now takes 29 s
+instead of 279 s and the tests 72 s instead of 194 s; the whole check takes
+338 s (plus 76 s to install) instead of 756 s.
+
 ## Submission
 
 Update of spDBL from 1.1.1 to 1.2.0. Main changes (details in NEWS.md):
@@ -14,12 +30,20 @@ CITATION file now gives the package's CRAN DOI.
 Some defaults change results; NEWS.md says how to restore the earlier
 behaviour.
 
+This update comes less than three weeks after 1.1.1 (October 29, 2026). It
+fixes intervals that were too narrow in 1.1.1, which ignored the predictive
+variance of the design Gaussian process (95% prediction intervals for
+held-out simulator runs covered 54% before and 94% after), and it is the
+version described in a manuscript for the JMLR Machine Learning Open Source
+Software track, which archives the reviewed version. We do not plan
+another update for at least two months.
+
 ## Test environments
 
-* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-15)
-* GitHub Actions: Ubuntu (R-devel, release, oldrel-1), macOS (release),
-  Windows (release)
-* win-builder (R-devel, 2026-11-14 r90890 ucrt): <result of the rerun>
+* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-16)
+* GitHub Actions: Ubuntu (release, oldrel-1; R-devel weekly), macOS
+  (release), Windows (release)
+* win-builder (R-devel, 2026-11-14 r90890 ucrt): Status OK, check time 338 s
 
 ## R CMD check results
 
