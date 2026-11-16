@@ -116,9 +116,12 @@ Sys.setenv(SPDBL_RUN_STAN_TESTS = "true")
 covr::report(covr::package_coverage())   # opens an HTML report
 ```
 
-GitHub Actions runs `R CMD check` on macOS, Windows, and Ubuntu (R
-devel, release, and the previous release), measures coverage with the
-Stan tests on, checks license headers, and rebuilds the website.
+On every push and pull request, GitHub Actions runs `R CMD check` on
+macOS, Windows, and Ubuntu (release and the previous release), measures
+coverage with the Stan tests on, checks license headers, and rebuilds
+the website. `R CMD check` on R-devel runs weekly, and on demand from
+the Actions tab (`R-CMD-check-devel.yaml`), because its dependencies
+compile from source.
 
 ## Vignettes
 

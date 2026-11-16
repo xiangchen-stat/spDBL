@@ -97,7 +97,7 @@
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>SPDBL_RUN_STAN_TESTS <span class="op">=</span> <span class="st">"true"</span><span class="op">)</span></span>
 <span><span class="fu">covr</span><span class="fu">::</span><span class="fu">report</span><span class="op">(</span><span class="fu">covr</span><span class="fu">::</span><span class="fu">package_coverage</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>   <span class="co"># opens an HTML report</span></span></code></pre></div>
-<p>GitHub Actions runs <code>R CMD check</code> on macOS, Windows, and Ubuntu (R devel, release, and the previous release), measures coverage with the Stan tests on, checks license headers, and rebuilds the website.</p>
+<p>On every push and pull request, GitHub Actions runs <code>R CMD check</code> on macOS, Windows, and Ubuntu (release and the previous release), measures coverage with the Stan tests on, checks license headers, and rebuilds the website. <code>R CMD check</code> on R-devel runs weekly, and on demand from the Actions tab (<code>R-CMD-check-devel.yaml</code>), because its dependencies compile from source.</p>
 </div>
 <div class="section level2">
 <h2 id="vignettes">Vignettes<a class="anchor" aria-label="anchor" href="#vignettes"></a></h2>
