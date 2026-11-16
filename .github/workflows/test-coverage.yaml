@@ -23,6 +23,8 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SPDBL_RUN_STAN_TESTS: "true"
+      # Tests skipped on CRAN (skip_on_cran) still count towards coverage.
+      NOT_CRAN: "true"
 
     steps:
       - uses: actions/checkout@v6

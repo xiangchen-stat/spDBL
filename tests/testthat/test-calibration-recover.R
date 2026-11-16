@@ -123,6 +123,7 @@ test_that("the marginal density integrates the discrepancy out exactly", {
 })
 
 test_that("backward discrepancy draws follow the exact Gaussian posterior", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   f <- calibration_fixture()
   e <- f$emulator
   n <- 2000
@@ -150,6 +151,7 @@ test_that("backward discrepancy draws follow the exact Gaussian posterior", {
 })
 
 test_that("predictive field draws condition on the discrepancy and noise", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   f <- calibration_fixture()
   e <- f$emulator
   n <- 2000

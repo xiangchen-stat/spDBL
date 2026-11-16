@@ -48,6 +48,7 @@ test_that("known-row prediction intervals are Student-t around the emulator mean
 })
 
 test_that("known-row predictive variance matches Monte Carlo from the samplers", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   # Monte Carlo reference built only from the package's own draws: the
   # coefficient-conditioned means of emulator_predict(MC = TRUE) plus the
   # input-GP conditional variance q * Sigma_m[c, c] of each draw.

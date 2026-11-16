@@ -49,6 +49,7 @@ nine_panel_data <- function() {
 }
 
 test_that("emulation panel helper returns one heatmap per time stamp", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   skip_if_no_plot_packages()
   dat <- nine_panel_data()
   plots <- plot_panel_heatmap_9(dat, input_num = 2, tstamp = 1:9, max_y = 1,
@@ -67,6 +68,7 @@ test_that("emulation panel helper returns one heatmap per time stamp", {
 })
 
 test_that("calibration panel helpers plot rows of a time-by-location matrix", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   skip_if_no_plot_packages()
   set.seed(83)
   dat <- matrix(runif(9 * 6), 9, 6)
