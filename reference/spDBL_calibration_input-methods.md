@@ -81,25 +81,26 @@ lists `mean`, `sd`, `lower` and `upper` of input by site matrices, plus
 ``` r
 data("dt_calibration")
 d <- dt_calibration
-em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+steps <- 1:6  # the first 6 of 26 time steps, to keep the example fast
+em <- emulator_learn(d$training$input, d$training$responses[steps], d$Nx, d$Ny,
   covariance = "sigma2R", episode_window = 2, nsam = 3, seed = 1)
 cal <- calibration_prepare(em, d$lower, d$upper)
 cal
-#> spDBL calibration input: 3 emulator draws (marginal sampling), 36 sites, 26 times
+#> spDBL calibration input: 3 emulator draws (marginal sampling), 36 sites, 6 times
 #>  parameter lower upper status lengthscale
-#>       eta1   2.0   4.0   free       0.828
-#>       eta2   0.2   0.4   free       1.100
+#>       eta1   2.0   4.0   free       0.674
+#>       eta2   0.2   0.4   free       1.410
 #>     alpha1   0.0   0.0  fixed          NA
-#>     alpha2   0.0   0.2   free       0.503
+#>     alpha2   0.0   0.2   free       0.499
 #>     alpha3   0.0   0.0  fixed          NA
-#> Design GP: Matern 5/2 kernel, hyperparameters per time step (26) (lengthscales on the unit scale; medians over time steps)
-#> Design GP: leave-one-out RMSE 0.431, nugget 1e-08
+#> Design GP: Matern 5/2 kernel, hyperparameters per time step (6) (lengthscales on the unit scale; medians over time steps)
+#> Design GP: leave-one-out RMSE 0.181, nugget 0.0001
 #> Design-row GP variance is propagated within each time, independently across times 
 band <- predict(cal, d$validation$input[1:2, ], interval = "prediction")
-round(band$sd[[10]][, 1:4], 3)
+round(band$sd[[6]][, 1:4], 3)
 #>       [,1]  [,2]  [,3]  [,4]
-#> [1,] 0.183 0.173 0.191 0.181
-#> [2,] 0.147 0.140 0.156 0.147
+#> [1,] 0.197 0.194 0.288 0.406
+#> [2,] 0.149 0.146 0.216 0.305
 pred <- predict(cal, d$validation$input[1:2, ])
 dim(pred[[5]])
 #> [1]  2 36

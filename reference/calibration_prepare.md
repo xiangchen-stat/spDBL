@@ -112,7 +112,8 @@ prepared by spDBL 1.1.1 or earlier have no design variance.
 ``` r
 data("dt_calibration")
 d <- dt_calibration
-em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+steps <- 1:6  # the first 6 of 26 time steps, to keep the example fast
+em <- emulator_learn(d$training$input, d$training$responses[steps], d$Nx, d$Ny,
                      covariance = "sigma2R", episode_window = 2, nsam = 3,
                      seed = 1)
 cal <- calibration_prepare(em, d$lower, d$upper)
@@ -120,7 +121,7 @@ class(cal)
 #> [1] "spDBL_calibration_input"      "offline_calibration_emulator"
 c(times = cal$T, locations = cal$S, draws = cal$M)
 #>     times locations     draws 
-#>        26        36         3 
+#>         6        36         3 
 cal$parameter_names
 #> [1] "eta1"   "eta2"   "alpha1" "alpha2" "alpha3"
 ```
