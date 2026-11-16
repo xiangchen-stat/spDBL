@@ -128,7 +128,7 @@ indices must match the columns of the observation matrix.
 
 ``` r
 
-sites <- seq_len(cal$S)
+sites <- seq_len(d$Nx * d$Ny)
 z <- d$field$z[, sites, drop = FALSE]
 dim(z)
 #> [1] 26 36

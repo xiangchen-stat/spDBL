@@ -9,7 +9,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/xiangchen-stat/spDBL/blob/v1.2.0/inst/CITATION)
+[`inst/CITATION`](https://github.com/xiangchen-stat/spDBL/blob/main/inst/CITATION)
 
 Banerjee S, Chen X, Frankenburg I, Zhou D (2025). “Dynamic Bayesian
 Learning for Spatiotemporal Mechanistic Models.” *Journal of Machine
