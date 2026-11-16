@@ -5,6 +5,7 @@ message: >-
 type: software
 title: "spDBL: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models"
 version: 1.2.0
+doi: 10.32614/CRAN.package.spDBL
 license: MIT
 repository-code: "https://github.com/xiangchen-stat/spDBL"
 url: "https://xiangchen-stat.github.io/spDBL/"
