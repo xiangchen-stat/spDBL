@@ -53,6 +53,7 @@ test_that("analytical WAIC supports a univariate inverse-gamma posterior", {
 })
 
 test_that("analytical scores agree with independent MNIW posterior draws", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
   f <- waic_fixture()
   set.seed(163)
   draws <- mniw::rMNIW(30000L, Lambda = f$mn, Sigma = f$Mn,

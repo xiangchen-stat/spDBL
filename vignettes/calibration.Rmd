@@ -14,6 +14,11 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
   # The figures need the suggested plotting packages.
   eval = all(vapply(c("ggplot2", "ggpubr", "scales"), requireNamespace,
                     logical(1), quietly = TRUE)))
+# R CMD check skips the emulator fit and the held-out validation (about 45 s
+# here, several minutes on CRAN's check machines); R CMD build and the website
+# run every chunk.
+full_run <- isTRUE(knitr::opts_chunk$get("eval")) &&
+  !nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_"))
 spdbl_version <- tryCatch(utils::packageVersion("spDBL"),
                           error = function(e) NULL)
 if (is.null(spdbl_version) || spdbl_version < "1.1.1") {
@@ -65,7 +70,7 @@ grid dimensions and parameter bounds; use the bounds supplied with each dataset.
 
 ## Fit the dynamic emulator
 
-```{r}
+```{r fit-emulator, eval=full_run}
 n_emulator <- 500L
 em <- emulator_learn(
   d$training$input, d$training$responses, d$Nx, d$Ny,
@@ -106,7 +111,7 @@ inputs. The existing FFBS predictor then combines those rows with a fixed
 set of emulator coefficients and a GP residual correction. Episode recovery restores
 the original spatial order.
 
-```{r}
+```{r validate, eval=full_run}
 predicted <- emulator_predict(cal, d$validation$input)
 dim(predicted[[1]])
 validation <- calibration_validate(
@@ -129,7 +134,7 @@ Use all 36 locations in their original grid order. The order of these indices
 must match the columns of the observation matrix.
 
 ```{r}
-sites <- seq_len(cal$S)
+sites <- seq_len(d$Nx * d$Ny)
 z <- d$field$z[, sites, drop = FALSE]
 dim(z)
 range(diag(d$field$U))
