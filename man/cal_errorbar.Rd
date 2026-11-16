@@ -22,6 +22,11 @@ A data frame with columns:
 For each row of the matrix \code{X}, computes the median and the 2.5th and
 97.5th percentiles across columns (samples).
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(3 * 200, mean = 1:3), nrow = 3)
+cal_errorbar(X)
+}
 \seealso{
 \code{\link{cal_errorbar_mean}}
 }

@@ -29,6 +29,16 @@ Simulates data from the MNIW dynamic linear model for \code{nT} time steps
 and writes the observations \eqn{Y_1, \ldots, Y_T} and all model parameters
 to CSV files in \code{path}.
 }
+\examples{
+set.seed(1)
+out_dir <- file.path(tempdir(), "ffbs_csv")
+dir.create(out_dir)
+gen_ffbs_csv(N = 10, S = 3, p = 2, nT = 3, path = paste0(out_dir, "/"))
+list.files(out_dir)
+dim(read.csv(file.path(out_dir, "Y1.csv")))
+unlink(out_dir, recursive = TRUE)
+
+}
 \seealso{
 \code{\link{gen_ffbs_data}}
 }

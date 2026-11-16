@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Usage: bash vignettes/renderEmulation.sh quarto [calibration ...]

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Naive MNIW posterior update
 #'
 #' Computes the posterior parameters of the Matrix Normal Inverse Wishart (MNIW)
@@ -9,8 +12,8 @@
 #'
 #' @param X Numeric matrix. Covariate (design) matrix of dimension \eqn{n \times p}.
 #' @param Y Numeric matrix. Response matrix of dimension \eqn{n \times q}.
-#' @param newX Unused legacy parameter. Defaults to \code{none}.
-#' @param newY Unused legacy parameter. Defaults to \code{none}.
+#' @param newX Unused legacy parameter. Defaults to \code{NULL}.
+#' @param newY Unused legacy parameter. Defaults to \code{NULL}.
 #' @param H Numeric matrix. Row covariance matrix of the error term (\eqn{n \times n}).
 #' @param v Numeric scalar. Prior degrees of freedom of the inverse-Wishart on \eqn{\Sigma}.
 #' @param S Numeric matrix. Prior scale matrix of the inverse-Wishart on \eqn{\Sigma}.
@@ -26,6 +29,17 @@
 #'   }
 #'
 #' @seealso \code{\link{MNIW_R}}
+#' @examples
+#' set.seed(1)
+#' n <- 30
+#' X <- cbind(1, rnorm(n))
+#' Y <- X %*% matrix(c(1, -1, 0.5, 2), 2) + matrix(rnorm(n * 2, sd = 0.1), n, 2)
+#' prior <- list(H = diag(n), v = 4, S = diag(2), C = matrix(0, 2, 2), Vb = diag(10, 2))
+#' post <- do.call(MNIW_R_naiive, c(list(X = X, Y = Y), prior))
+#' round(post$Cnew, 2)
+#' # Same result as the crossprod version
+#' all.equal(post, do.call(MNIW_R, c(list(X = X, Y = Y), prior)))
+#'
 #' @export
 MNIW_R_naiive <- function(X, Y, newX = NULL, newY = NULL, H, v, S, C, Vb){
   out <- list()
@@ -64,8 +78,8 @@ MNIW_R_naiive <- function(X, Y, newX = NULL, newY = NULL, H, v, S, C, Vb){
 #'
 #' @param X Numeric matrix. Covariate (design) matrix of dimension \eqn{n \times p}.
 #' @param Y Numeric matrix. Response matrix of dimension \eqn{n \times q}.
-#' @param newX Unused legacy parameter. Defaults to \code{none}.
-#' @param newY Unused legacy parameter. Defaults to \code{none}.
+#' @param newX Unused legacy parameter. Defaults to \code{NULL}.
+#' @param newY Unused legacy parameter. Defaults to \code{NULL}.
 #' @param H Numeric matrix. Row covariance matrix of the error term (\eqn{n \times n}).
 #' @param v Numeric scalar. Prior degrees of freedom of the inverse-Wishart on \eqn{\Sigma}.
 #' @param S Numeric matrix. Prior scale matrix of the inverse-Wishart on \eqn{\Sigma}.
@@ -81,6 +95,17 @@ MNIW_R_naiive <- function(X, Y, newX = NULL, newY = NULL, H, v, S, C, Vb){
 #'   }
 #'
 #' @seealso \code{\link{MNIW_R_naiive}}
+#' @examples
+#' set.seed(1)
+#' n <- 30
+#' X <- cbind(1, rnorm(n))
+#' B <- matrix(c(1, -1, 0.5, 2, 0, 1), nrow = 2)
+#' Y <- X %*% B + matrix(rnorm(n * 3, sd = 0.1), n, 3)
+#' post <- MNIW_R(X, Y, H = diag(n), v = 5, S = diag(3),
+#'                C = matrix(0, 2, 3), Vb = diag(10, 2))
+#' post$vnew
+#' round(post$Cnew, 2)  # close to B
+#'
 #' @export
 MNIW_R <- function(X, Y, newX = NULL, newY = NULL, H, v, S, C, Vb){
   out <- list()

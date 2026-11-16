@@ -10,7 +10,10 @@ calibration_prepare(
   upper,
   n_draws = NULL,
   seed = 1234,
-  sampling = NULL
+  sampling = NULL,
+  design_uncertainty = TRUE,
+  design_kernel = c("matern52", "sqexp"),
+  design_groups = c("time", "shared")
 )
 }
 \arguments{
@@ -30,6 +33,21 @@ samples when the selected sampling method agrees with the fitted emulator.}
 conditional on a shared variance; "joint" draws coherent backward paths.
 Changing the method resamples the existing number of draws unless n_draws
 is supplied.}
+
+\item{design_uncertainty}{If TRUE (the default), the predictive covariance
+of the AR design GP is added to the field covariance used by
+\code{\link[=calibration_fit]{calibration_fit()}} and \code{\link[=calibration_predict]{calibration_predict()}}. FALSE uses the GP mean
+only, as spDBL 1.1.1 did; its intervals are too narrow.}
+
+\item{design_kernel}{Kernel of the design GP: \code{"matern52"} (Matern 5/2,
+the default) or \code{"sqexp"} (squared exponential). Both are anisotropic,
+with one lengthscale per free parameter on the unit scale.}
+
+\item{design_groups}{\code{"time"} (the default) fits separate kernel
+hyperparameters, by maximum likelihood, for the design columns of each
+time step; \code{"shared"} fits one set for all times.
+\verb{design_kernel = "sqexp", design_groups = "shared"} reproduces the design
+GP of earlier spDBL versions.}
 }
 \value{
 A spDBL_calibration_input object containing the training data,
@@ -37,15 +55,38 @@ coefficient samples, offline design predictor, and shared GP factors.
 At most one draw's residual weights are cached at a time.
 }
 \description{
-Fits a shared GP mean to the recorded autoregressive design matrices.
+Fits a Gaussian process (the design GP) to the recorded autoregressive
+design matrices, so that design rows can be predicted at untried inputs.
 Reuses the fitted emulator's coefficient samples or draws additional samples
 from saved filtering results, without refitting the dynamic emulator.
 }
 \details{
-The AR design GP is used through its fitted mean; interpolation
-uncertainty is not integrated into calibration. The emulator's conditional
-covariance and coefficient uncertainty are retained. Initial calibration
-support is limited to the scalar sigma2R model on the original time/grid.
+The AR design GP supplies the design rows at a new input. At each
+time step, all design columns share one kernel (with \code{design_groups = "time"}; one kernel for all times with \code{"shared"}), so their prediction
+errors at an input \eqn{\eta} are jointly Gaussian with covariance
+\eqn{C_{F,t}(\eta) = v_t(\eta)\hat\Sigma_{F,t}}: \eqn{v_t(\eta)} is the
+GP's latent variance factor and \eqn{\hat\Sigma_{F,t}} is the
+maximum-likelihood covariance between the design columns of time
+\eqn{t}. With \code{design_uncertainty = TRUE} this is propagated through each
+coefficient draw: at each time, the field covariance gains
+\eqn{\Theta^\top C_{F,t}(\eta) \Theta} over the episodes of that time,
+including covariance between spatial blocks. Design errors are treated as
+independent across times and independent of the emulator's own
+prediction error. The emulator's conditional covariance and coefficient
+uncertainty are always retained. Calibration support is limited to the
+scalar sigma2R model on the original time/grid.
+Objects prepared by spDBL 1.1.1 or earlier have no design variance.
+}
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+                     covariance = "sigma2R", episode_window = 2, nsam = 3,
+                     seed = 1)
+cal <- calibration_prepare(em, d$lower, d$upper)
+class(cal)
+c(times = cal$T, locations = cal$S, draws = cal$M)
+cal$parameter_names
 }
 \seealso{
 \code{\link[=calibration_validate]{calibration_validate()}}, \code{\link[=calibration_fit]{calibration_fit()}}, \code{\link[=emulator_predict]{emulator_predict()}}

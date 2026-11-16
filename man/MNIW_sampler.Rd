@@ -37,6 +37,17 @@ Draws \code{nsam} posterior samples of the regression coefficient matrix
 \deqn{Y = X B + E, \quad E \sim MN(0, H, \Sigma)}
 \deqn{\Sigma \sim IW(v, S), \quad B | \Sigma \sim MN(C, V_b, \Sigma).}
 }
+\examples{
+set.seed(1)
+C <- matrix(c(1, -1), nrow = 1)
+draws <- MNIW_sampler(nsam = 2000, X = matrix(1, 5, 1), v = 10, S = diag(2),
+                      C = C, Vb = matrix(1))
+dim(draws$B)
+# E[Sigma] = S / (v - q - 1) = diag(2) / 7
+round(apply(draws$sigma, 1:2, mean), 2)
+round(rowMeans(draws$B[1, , ]), 2)  # close to C
+
+}
 \seealso{
 \code{\link{MNIG_sampler}}, \code{\link{FFBS_sampling}}
 }

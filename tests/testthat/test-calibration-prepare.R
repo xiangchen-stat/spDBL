@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 test_that("the installed emulator API prepares PDE-free predictions", {
   local_mocked_bindings(gen_pde = function(...) stop("PDE solver must not run"),
                         .package = "spDBL")
@@ -27,6 +30,34 @@ test_that("the installed emulator API prepares PDE-free predictions", {
   expect_error(calibration_prepare(tiny_emulator("iw"), c(0, 0), c(1, 1)), "sigma2R")
 })
 
+test_that("the design GP defaults to a Matern 5/2 kernel per time step", {
+  em <- tiny_emulator()
+  cal <- calibration_prepare(em, c(0, 0), c(1, 1))
+  expect_identical(cal$design_kernel, "matern52")
+  expect_identical(cal$design_groups, "time")
+  expect_identical(cal$predictor$kernel, "matern52")
+  expect_identical(cal$predictor$groups, (seq_len(cal$E) - 1L) %/% cal$B + 1L)
+  expect_identical(dim(cal$predictor$lengthscale), c(cal$T, 2L))
+  expect_length(cal$predictor$K_chol, cal$T)
+  # The earlier design GP: one squared-exponential kernel for all times.
+  old <- calibration_prepare(em, c(0, 0), c(1, 1), design_kernel = "sqexp",
+                             design_groups = "shared")
+  expect_identical(old$predictor$groups, rep(1L, old$E))
+  expect_identical(dim(old$predictor$lengthscale), c(1L, 2L))
+  expect_identical(old$posterior, cal$posterior)
+  shared <- calibration_prepare(em, c(0, 0), c(1, 1), design_groups = "shared")
+  expect_identical(shared$predictor$kernel, "matern52")
+  for (object in list(cal, old, shared)) {
+    p <- spDBL:::predict_calibration(c(0.3, 0.6), 2L, object)
+    expect_length(p$design_variance, object$T)
+    expect_true(all(is.finite(p$mu)))
+  }
+  expect_error(calibration_prepare(em, c(0, 0), c(1, 1), design_kernel = "exp"),
+               "should be one of")
+  expect_error(calibration_prepare(em, c(0, 0), c(1, 1), design_groups = "site"),
+               "should be one of")
+})
+
 test_that("calibration preparation inherits or overrides coefficient sampling", {
   em <- tiny_emulator()
   before <- .Random.seed
@@ -40,6 +71,18 @@ test_that("calibration preparation inherits or overrides coefficient sampling", 
   inherited <- calibration_prepare(em_joint, c(0, 0), c(1, 1))
   expect_identical(inherited$sampling_method, "joint")
   expect_identical(inherited$posterior$theta, em_joint$res_ffbs[1:6])
+})
+
+test_that("fitted objects record their seed and spDBL version", {
+  version <- as.character(utils::packageVersion("spDBL"))
+  em <- tiny_emulator()
+  expect_identical(em$setup$seed, 91L)
+  expect_identical(em$setup$spDBL_version, version)
+  reused <- calibration_prepare(em, c(0, 0), c(1, 1))
+  expect_identical(reused$seed, 91L)
+  expect_identical(reused$spDBL_version, version)
+  fresh <- calibration_prepare(em, c(0, 0), c(1, 1), n_draws = 2L, seed = 7L)
+  expect_identical(fresh$seed, 7L)
 })
 
 test_that("custom designs retain wrapper dimensions", {
@@ -70,4 +113,39 @@ test_that("the bundled calibration design has independent provenance", {
   expect_false(d$truth$input_id %in% d$provenance$train_ids)
   expect_true(all(d$training$input[, 1] >= 2))
   expect_false(any(c("eta", "truth", "y") %in% names(d$field)))
+})
+
+test_that("calibration builds the field covariance only where it is needed", {
+  input <- cbind(a = seq(0.05, 0.95, length.out = 8),
+                 b = c(0.1, 0.7, 0.3, 0.9, 0.2, 0.6, 0.4, 0.8))
+  responses <- lapply(1:3, function(t)
+    outer(input[, 1] + t * input[, 2], 1:4, function(x, y) sin(x) + y / 10))
+  learn <- function(...) emulator_learn(input, responses, Nx = 2L, Ny = 2L,
+    AR_choice = 1L, covariance = "sigma2R", nsam = 3L, seed = 91L, ...)
+  lazy <- learn()
+  expect_null(lazy$setup$R_field)  # no S x S matrix in the fitted emulator
+  s <- lazy$setup
+  # The kernel emulator_learn() built and stored in spDBL 1.1.1.
+  R_full <- s$gp_sigma2 * exp(-s$phi_sp * as.matrix(dist(s$ind_sp))) +
+    diag(s$gp_tau2, s$N_sp)
+  explicit <- learn(R_field = R_full)
+  expect_identical(explicit$setup$R_field, R_full)
+  cal_lazy <- calibration_prepare(lazy, c(0, 0), c(1, 1))
+  cal_explicit <- calibration_prepare(explicit, c(0, 0), c(1, 1))
+  expect_null(cal_lazy$R_field)
+  expect_null(cal_explicit$field_kernel)
+  for (loc in list(1:4, c(3L, 1L))) {
+    expect_equal(spDBL:::.cal_R_field(cal_lazy, loc), R_full[loc, loc],
+                 ignore_attr = TRUE)
+    for (mode in c("full", "marginal"))
+      expect_equal(spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_lazy, loc, mode),
+                   spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_explicit, loc, mode),
+                   ignore_attr = TRUE)
+  }
+  z <- matrix(0.5, 3, 2)
+  expect_equal(spDBL:::make_stan_calibration_data(cal_lazy, 1L, z, diag(4), c(2L, 4L))$R_field,
+               R_full[c(2, 4), c(2, 4)], ignore_attr = TRUE)
+  expect_error(spDBL:::make_offline_calibration_input(cal_lazy$input, cal_lazy$Y,
+    cal_lazy$F_ls, cal_lazy$posterior, cal_lazy$block_cols, NULL, 2, c(0, 0), c(1, 1)),
+    "Supply R_field or a valid field_kernel")
 })

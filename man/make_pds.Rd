@@ -19,6 +19,12 @@ The corrected positive definite symmetric matrix.
 Symmetrises a matrix by averaging it with its transpose and, if the result
 is not positive definite, adds a small diagonal ridge.
 }
+\examples{
+A <- matrix(c(2, 0.9, 1.1, 2), 2)
+make_pds(A)  # averaged with its transpose
+isSymmetric(make_pds(A))
+
+}
 \seealso{
 \code{\link{check_pds}}
 }

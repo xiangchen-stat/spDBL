@@ -1,4 +1,7 @@
 #!/usr/bin/env Rscript
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Rscript spDBL/vignettes/reproduce/run_reproduction.R [emulation|calibration|all] [full|quick] [--dry-run]
 args <- commandArgs(trailingOnly = FALSE)
 this_file <- sub("^--file=", "", args[startsWith(args, "--file=")][1])

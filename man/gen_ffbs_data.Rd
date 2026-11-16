@@ -31,6 +31,14 @@ Simulates data from the MNIW dynamic linear model for \code{nT} time steps
 and returns the generated observations and model parameters as in-memory
 objects.
 }
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 10, S = 3, p = 2, nT = 4)
+names(dat$Y)
+dim(dat$Y$Y1)
+dim(dat$para$V0)
+
+}
 \seealso{
 \code{\link{gen_ffbs_csv}}
 }

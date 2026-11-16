@@ -16,3 +16,9 @@ The inverse of \code{X}.
 Computes \eqn{X^{-1}} using \code{chol} followed by \code{chol2inv} for
 numerical stability.
 }
+\examples{
+A <- matrix(c(4, 1, 1, 3), 2)
+inv_chol(A)
+all.equal(inv_chol(A), solve(A))
+
+}

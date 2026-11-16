@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Shared by the two research vignettes. All model fitting uses installed spDBL.
 reproduction_root <- function(start = getwd()) {
   start <- normalizePath(start, mustWork = TRUE)

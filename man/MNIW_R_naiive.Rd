@@ -11,9 +11,9 @@ MNIW_R_naiive(X, Y, newX = NULL, newY = NULL, H, v, S, C, Vb)
 
 \item{Y}{Numeric matrix. Response matrix of dimension \eqn{n \times q}.}
 
-\item{newX}{Unused legacy parameter. Defaults to \code{none}.}
+\item{newX}{Unused legacy parameter. Defaults to \code{NULL}.}
 
-\item{newY}{Unused legacy parameter. Defaults to \code{none}.}
+\item{newY}{Unused legacy parameter. Defaults to \code{NULL}.}
 
 \item{H}{Numeric matrix. Row covariance matrix of the error term (\eqn{n \times n}).}
 
@@ -42,6 +42,18 @@ without \code{crossprod} optimisations. Intended for reference and testing.
 \details{
 The model is \eqn{Y = X B + E}, where \eqn{E \sim MN(0, H, \Sigma)},
 \eqn{\Sigma \sim IW(v, S)}, and \eqn{B | \Sigma \sim MN(C, V_b, \Sigma)}.
+}
+\examples{
+set.seed(1)
+n <- 30
+X <- cbind(1, rnorm(n))
+Y <- X \%*\% matrix(c(1, -1, 0.5, 2), 2) + matrix(rnorm(n * 2, sd = 0.1), n, 2)
+prior <- list(H = diag(n), v = 4, S = diag(2), C = matrix(0, 2, 2), Vb = diag(10, 2))
+post <- do.call(MNIW_R_naiive, c(list(X = X, Y = Y), prior))
+round(post$Cnew, 2)
+# Same result as the crossprod version
+all.equal(post, do.call(MNIW_R, c(list(X = X, Y = Y), prior)))
+
 }
 \seealso{
 \code{\link{MNIW_R}}

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Rscript data-raw/record-calibration.R /path/to/completed/oneiter500/profile
 # Run from the package directory. Keep the full fit and field arrays in the
 # reproduction output; distribute only samples and plot quantiles.
@@ -36,6 +39,9 @@ recorded <- list(
   provenance = list(profile = "oneiter500", execution_only = TRUE,
     emulator_sampling_method = fit$settings$emulator_sampling,
     joint_trajectories = fit$emulator$posterior$joint_trajectories,
+    design_uncertainty = isTRUE(fit$emulator$design_uncertainty),
+    design_kernel = fit$emulator$design_kernel,
+    design_groups = fit$emulator$design_groups,
     generated = as.character(Sys.Date()),
     package_version = as.character(utils::packageVersion("spDBL")),
     seed = fit$settings$seed, prediction_seed = 1234L,

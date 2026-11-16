@@ -10,4 +10,14 @@
 ^vignettes/.*\.qmd$
 ^\.r-library$
 ^vignettes/reproduce$
+^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$
+^benchmarks$
+^codecov\.yml$
 ^material$
+^IMPROVEMENTS\.md$
+^CITATION\.cff$
+^cran-comments\.md$

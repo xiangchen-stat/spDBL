@@ -1,0 +1,43 @@
+The upper bounds of the range parameters are 157.8465 15.69057 15.61597 
+The initial values of range parameters are 3.15693 0.3138114 0.3123194 
+Start of the optimization  1  : 
+The number of iterations is  16 
+ The value of the  marginal posterior  function is  -201283.7 
+ Optimized range parameters are 1.780904 0.7943324 0.09108269 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.04742809 0.004714541 0.004692127 
+Start of the optimization  2  : 
+The number of iterations is  18 
+ The value of the  marginal posterior  function is  -201283.7 
+ Optimized range parameters are 1.780904 0.7943324 0.09108268 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+Warning message:
+In ppgasp(design = X, response = Y[, !const, drop = FALSE]) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL-e2fixed/benchmarks/e2_worker.R ~/spDBL-e2fixed/benchmarks/results/e2/fixed/tasks/e2_g020_d10_ppgasp_default.rds"
+	User time (seconds): 3.72
+	System time (seconds): 0.34
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.15
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 182444
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 146369
+	Voluntary context switches: 331
+	Involuntary context switches: 21
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 32
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Run from the package directory after editing the canonical R Markdown files.
 # Quarto copies are generated, never edited independently.
 for (path in list.files("vignettes", pattern = "[.]Rmd$", full.names = TRUE)) {

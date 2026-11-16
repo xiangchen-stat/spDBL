@@ -1,0 +1,97 @@
+Label: ablation: two-stage design, 40 bundled + 40 targeted runs
+Time: 2026-11-09 05:52:42 UTC
+Commit: 70e029fadf24ab7fb52706f1c985bc78f4014f3a
+Profile: abl_two
+
+Config:
+List of 32
+ $ label         : chr "ablation: two-stage design, 40 bundled + 40 targeted runs"
+ $ n_rep         : num 30
+ $ methods       : chr "spdbl"
+ $ episode_window: num 2
+ $ n_draws       : num 20
+ $ chains        : num 4
+ $ iter          : num 2000
+ $ warmup        : num 1000
+ $ cores         : num 4
+ $ init          : chr "mode"
+ $ rc_mle_starts : num 10
+ $ rc_S          : num 20000
+ $ rc_S0         : num 5000
+ $ rc_chains     : num 4
+ $ field_n0      : num 30
+ $ field_d0      : num 2
+ $ inner         : num 0.8
+ $ seed          : num 20261101
+ $ timeout_sec   : num 86400
+ $ jobs          : num 4
+ $ threads       : num 1
+ $ train_add     : num 40
+ $ stage1_draws  : num 10
+ $ stage1_chains : num 2
+ $ stage1_iter   : num 1000
+ $ experiment    : chr "e3"
+ $ profile       : chr "abl_two"
+ $ resume        : logi TRUE
+ $ reps          : num [1:10] 1 2 3 4 5 6 7 8 9 10
+ $ out           : chr "~/spDBL-e3mode/benchmarks/results/e3/abl_two"
+ $ cache         : chr "~/spdbl-bench-matern/sim-cache"
+ $ stan_cache    : chr "~/spdbl-bench-matern/stan-cache"
+
+Hardware:
+List of 5
+ $ cpu         : chr "model name\t: Intel(R) Xeon(R) Gold 6240 CPU @ 2.60GHz"
+ $ cores       : chr "36"
+ $ memory_bytes: chr "MemTotal:       197718876 kB"
+ $ load        : chr " 21:52:42 up 2 days, 21:05,  0 users,  load average: 29.78, 22.20, 19.40"
+ $ scheduler   : Named chr [1:5] "" "" "" "1097352" ...
+  ..- attr(*, "names")= chr [1:5] "JOB_ID" "NSLOTS" "QUEUE" "SLURM_JOB_ID" ...
+
+BLAS: /u/local/compilers/intel/oneapi/2026.2.0/mkl/2026.2/lib/libmkl_gf_lp64.so.3
+LAPACK: /u/local/compilers/intel/oneapi/2026.2.0/mkl/2026.2/lib/libmkl_gf_lp64.so.3 3.12.1
+
+Packages:
+spDBL 1.2.0
+RobustGaSP 0.6.8
+RobustCalibration 0.5.6
+mlegp 3.1.10
+rstan 2.32.7
+StanHeaders 2.39.1.1
+deSolve 1.42
+ReacTran 1.4.3.2
+Rcpp 1.1.2
+RcppEigen 0.3.4.0.2
+mniw 1.0.2
+matrixsampling 2.0.0
+
+spDBL path: $TMPDIR/1097352/spdbl-e3collect.KHwmiD/lib/spDBL
+
+R version 4.6.1 (2026-06-24)
+Platform: x86_64-pc-linux-gnu
+Running under: Rocky Linux 9.8 (Blue Onyx)
+
+Matrix products: default
+BLAS/LAPACK: /u/local/compilers/intel/oneapi/2026.2.0/mkl/2026.2/lib/libmkl_gf_lp64.so.3;  LAPACK version 3.12.1
+
+locale:
+ [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+ [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+ [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+[10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
+
+time zone: America/Los_Angeles
+tzcode source: system (glibc)
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] spDBL_1.2.0
+
+loaded via a namespace (and not attached):
+ [1] R6_2.6.1             tzdb_0.5.0           keep_1.0            
+ [4] magrittr_2.0.5       glue_1.8.1           tibble_3.3.1        
+ [7] pkgconfig_2.0.3      lifecycle_1.0.5      readr_2.2.0         
+[10] cli_3.6.6            vctrs_0.7.3          matrixsampling_2.0.0
+[13] compiler_4.6.1       tools_4.6.1          hms_1.1.4           
+[16] pillar_1.11.1        Rcpp_1.1.2           rlang_1.3.0         

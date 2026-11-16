@@ -96,6 +96,31 @@ computer model output, computes the posterior predictive mean and covariance
 at calibration locations using all \code{nsam} FFBS samples, and draws new
 observations from the resulting predictive distribution.
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+set.seed(1)
+input <- matrix(runif(10), nrow = 5, ncol = 2)
+res_ffbs <- lapply(1:12, function(e) array(rnorm(8), c(2, 2, 2)))
+res_ffbs$Sigma <- c(0.2, 0.3)
+args <- list(eta = c(0.3, 0.1, 0.01, 0.01, 0.01), Nx = 2, Ny = 3, N_people = 100,
+  nT_ori = 4, nT = 12, nT_cal = 3, N_sp = 6, N_sp_train = 4, AR_choice = 1,
+  bncol = 2, res_ffbs = res_ffbs, n_b_cal = 3,
+  ind_block_cal = generate_grid(1, 6, 1, 2),
+  t_VinvY_FTheta_ls = lapply(1:3, function(t) array(rnorm(60), c(6, 5, 2))),
+  Vinv = solve(gen_exp_kernel(input, phi = 2, sigma2 = 1.1, tau2 = 1e-4)),
+  R_cal_train = diag(4), input = input, input_cal = c(0.4, 0.6), phi_para = 2,
+  gp_sigma2 = 1.1, gp_tau2 = 1e-4, ind_train_cal = c(1, 3, 4, 6))
+out <- do.call(update_y_eta, c(args, nsam = 2))
+dim(out$y)  # nT_cal x N_sp_train x nsam
+out$sigma2_cal
+
+}
 \seealso{
 \code{\link{update_y_eta_one}}, \code{\link{gen_pde}}
 }

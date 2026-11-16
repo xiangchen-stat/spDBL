@@ -38,6 +38,16 @@ correlated random discrepancy \eqn{u_t} and an independent noise term to
 the computer model output \eqn{y_t}. The variance \eqn{\tau^2_t} decays
 over time via the discount factor \eqn{b}.
 }
+\examples{
+set.seed(1)
+ycal <- matrix(rnorm(3 * 4), nrow = 3, ncol = 4)
+para <- list(b = 0.9, n0 = 20, d0 = 2, u0 = rep(0, 4))
+sim <- gen_calibrate_data(ycal, para, U_gen = 0.5 * diag(4))
+names(sim)
+dim(sim$z)
+sim$tau2
+
+}
 \seealso{
 \code{\link{gen_prior_u_tau2}}
 }

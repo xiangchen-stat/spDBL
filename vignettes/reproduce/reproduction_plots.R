@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 # Figure code is separate from inference cache fingerprints.
 plot_emulation_reproduction <- function(r, directory) {
   dir.create(directory, recursive = TRUE, showWarnings = FALSE)

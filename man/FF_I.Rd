@@ -25,7 +25,8 @@ FF_I(Y, F_ls, G_ls, W_ls, V_ls, m0, M0, nT, delta = 1, verbose = FALSE)
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -39,6 +40,16 @@ element \code{prior} stores \code{m0} and \code{M0}.
 Runs the full forward filtering pass over \code{nT} time steps under the
 model where the right covariance is fixed at the identity (no
 inverse-Wishart update). Calls \code{\link{FF_1step_R_I}} at each step.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res_ff <- FF_I(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0, nT = 4)
+# The first step equals a single call of FF_1step_R_I
+one <- FF_1step_R_I(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+                    par$m0, par$M0)
+all.equal(res_ff$T1, one)
 }
 \seealso{
 \code{\link{FF_1step_R_I}}, \code{\link{FFBS_I}}

@@ -24,6 +24,16 @@ An array of dimension \code{c(p, S, nsam)}.
 Draws \code{nsam} independent samples from \eqn{MN(m, U, \Sigma)} using
 the Cholesky factors of \eqn{U} and \eqn{\Sigma}.
 }
+\examples{
+set.seed(1)
+U <- matrix(c(1, 0.5, 0.5, 1), 2)
+Sigma <- diag(c(1, 2, 3))
+draws <- rmn_chol_more(2000, m = matrix(0, 2, 3), RM = chol(U), RSigma = chol(Sigma))
+dim(draws)
+var(draws[1, 3, ])                # close to U[1, 1] * Sigma[3, 3] = 3
+cor(draws[1, 1, ], draws[2, 1, ]) # close to U[1, 2] = 0.5
+
+}
 \seealso{
 \code{\link{rmn_chol}}
 }

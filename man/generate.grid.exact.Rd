@@ -26,6 +26,12 @@ A \code{data.frame} with columns \code{block_no}, \code{U}, \code{D},
 Computes block indices when block dimensions divide file dimensions exactly.
 Uses vectorised operations rather than a loop, making it fast for large grids.
 }
+\examples{
+# Block sizes divide the grid exactly
+generate.grid.exact(4, 6, 2, 3, traversal.mode = "rowsnake")
+generate.grid.exact(4, 6, 2, 3, traversal.mode = "lr")
+
+}
 \seealso{
 \code{\link{generate_grid}}, \code{\link{generate.grid.rowsnake}},
 \code{\link{generate.grid.lr}}

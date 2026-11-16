@@ -13,7 +13,8 @@ FFBS_sampling(
   delta = 1,
   verbose = FALSE,
   sampling = c("marginal", "joint"),
-  seed = NULL
+  seed = NULL,
+  keep_draws = TRUE
 )
 }
 \arguments{
@@ -28,7 +29,8 @@ FFBS_sampling(
 
 \item{nT}{Integer. Number of time steps.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+\item{delta}{Discount factor. Must be 1: discounting is not implemented.
+Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -38,6 +40,13 @@ episode conditional on the same covariance draw. "joint" samples backward
 conditionals to obtain coherent trajectories.}
 
 \item{seed}{Optional local RNG seed; NULL follows the session RNG.}
+
+\item{keep_draws}{If TRUE (default), store every episode's coefficient
+draws. If FALSE (marginal sampling only), store the random-number state
+at the start of each episode's draws instead; spDBL's prediction and
+calibration functions then regenerate identical draws on demand, which
+cuts the memory of large emulators. Indexing the returned draws by episode
+(\code{[[e]]}) then fails.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through
@@ -52,6 +61,18 @@ Given the filtered and smoothed distributions from \code{\link{FFBS}},
 draws \code{nsam} posterior sample sets of the state matrices
 \eqn{\Theta_1, \ldots, \Theta_T} and the covariance \eqn{\Sigma} using the
 MNIW sampler.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+sam <- FFBS_sampling(500, res, par$F0, par$G0, nT = 4, seed = 1)
+dim(sam$T2)
+dim(sam$Sigma)
+# Sample mean versus smoothed mean at time 2
+round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 }
 \seealso{
 \code{\link{FFBS}}, \code{\link{MNIW_sampler}}

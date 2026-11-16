@@ -30,7 +30,10 @@ CSV files, one per time step.}
 
 \item{F_ls}{Either a single file path (constant \eqn{F_t}) or a character
 vector of length \code{nT} (time-varying). Can also contain a second set
-of columns (AR2 lags) for the same file at offset \code{fncol}.}
+of columns (AR2 lags) for the same file at offset \code{fncol}.
+Each design block is read with the same rows and columns as the
+response block, so the design must have as many columns as a block
+(\code{bncol}), as with the autoregressive designs.}
 
 \item{G_ls}{Either a single file path (constant \eqn{G_t}) or a character
 vector of length \code{nT} (time-varying).}
@@ -62,8 +65,8 @@ submatrix indexed by the row range of each spatial block.}
 
 \item{path_out}{Character. Directory path where output CSV files are written.}
 
-\item{delta}{Numeric scalar. Right-variance discount factor. Defaults to
-\code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -87,6 +90,28 @@ spatial blocks and stored as CSV files on disk. At each time step the spatial
 domain is traversed block-by-block using a snake traversal order (see
 \code{\link{generate.grid.rowsnake}}), and results are written to disk to
 avoid exhausting memory.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 2, p = 2, nT = 3)
+par <- dat$para
+dir <- file.path(tempdir(), "ff_big")
+dir.create(dir, showWarnings = FALSE)
+csv <- function(x, name) {
+  f <- file.path(dir, name)
+  write.csv(x, f, row.names = FALSE)
+  f
+}
+Y_files <- mapply(csv, dat$Y, paste0("Y", 1:3, ".csv"))
+files <- FF_bigdata_R(Y_files, csv(par$F0, "F.csv"), csv(par$G0, "G.csv"),
+                      csv(par$W0, "W.csv"), csv(par$V0, "V.csv"), par$m0,
+                      par$M0, par$n0, par$D0, nT = 3, fnrow = 5, fncol = 2,
+                      bnrow = 5, bncol = 2, path_out = dir)
+# With a single block this matches the in-memory filter
+res_ff <- FF(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+             par$n0, par$D0, nT = 3)
+all.equal(unname(as.matrix(read.csv(files$mt_ls[3]))), unname(res_ff$T3$mt))
+unlink(dir, recursive = TRUE)
 }
 \seealso{
 \code{\link{FF}}, \code{\link{generate.grid.rowsnake}}

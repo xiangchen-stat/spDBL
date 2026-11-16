@@ -32,6 +32,15 @@ Computes the log posterior predictive density of \eqn{Y_t} at a single time
 step under the MNIW model, evaluated at the smoothed state parameters from
 \code{\link{FFBS}}.
 }
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+res <- FFBS(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+            par$n0, par$D0, nT = 4)
+lppd_IW_1t(dat$Y[[2]], par$F0, par$V0, st = res$bs$st[, , 2],
+           St = res$bs$St[, , 2], nt = res$ff$T2$nt, Dt = res$ff$T2$Dt)
+}
 \seealso{
 \code{\link{lppd_IG_1t}}, \code{\link{lppd_id_1t}}
 }

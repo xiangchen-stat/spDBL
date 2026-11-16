@@ -18,7 +18,18 @@ matrix \eqn{F_t}.
 }
 \description{
 Constructs the time-varying covariate list \eqn{F_t} for a first-order
-autoregressive model: \eqn{F_t = Y_{t-1}} (with \eqn{F_1 = Y_1}).
+autoregressive model: \eqn{F_t = Y_{t-1}}. No earlier output exists at
+\eqn{t = 1}, so \eqn{F_1} is a matrix of ones (a per-site intercept).
+The design is causal and deterministic: \eqn{F_t} uses only outputs
+before time \eqn{t}. (Versions up to 1.1.1 used \eqn{F_1 = Y_1}, the
+response itself.)
+}
+\examples{
+Y <- lapply(1:4, function(t) matrix(t, 2, 3))
+F_ls <- gen_F_ls_AR1(Y, nT = 4)
+length(F_ls)
+sapply(F_ls, function(Ft) Ft[1, 1])  # ones at t = 1, then lags: 1 1 2 3
+
 }
 \seealso{
 \code{\link{gen_F_ls_AR2}}, \code{\link{gen_F_ls_AR1_EP}}

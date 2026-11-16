@@ -28,6 +28,16 @@ Like \code{\link{gen_calibrate_data}} but uses independent (uncorrelated)
 discrepancy increments drawn from a univariate normal with variance
 \eqn{\tau^2_t \cdot U_{11}}.
 }
+\examples{
+set.seed(1)
+ycal <- matrix(rnorm(3 * 4), nrow = 3, ncol = 4)
+para <- list(b = 0.9, n0 = 20, d0 = 2, u0 = rep(0, 4))
+sim <- gen_calibrate_data_uncorr(ycal, para, U_gen = 0.5 * diag(4))
+names(sim)
+dim(sim$z)
+sim$tau2
+
+}
 \seealso{
 \code{\link{gen_calibrate_data}}
 }

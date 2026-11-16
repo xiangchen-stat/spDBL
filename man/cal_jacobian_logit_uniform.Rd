@@ -25,5 +25,24 @@ Numeric scalar (log absolute Jacobian or absolute Jacobian).
 Computes the log (or raw) absolute Jacobian of the transformation from the
 constrained parameter \code{eta} (bounded in
 \code{[eta_limit_low, eta_limit_high]}) to the unconstrained logit scale.
-Zero entries of \code{eta} are excluded from the product.
+Fixed coordinates (equal lower and upper bounds) are excluded from the
+product. Versions up to 1.1.1 excluded zero entries of \code{eta}
+instead, which wrongly dropped a free coordinate equal to zero.
+}
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+eta <- c(0.3, 2.5)
+low <- c(0, 1)
+high <- c(1, 4)
+cal_jacobian_logit_uniform(eta, low, high)
+cal_jacobian_logit_uniform(eta, low, high, log = TRUE)
+# A fixed coordinate (low == high) does not contribute
+all.equal(cal_jacobian_logit_uniform(c(0.3, 2), c(0, 2), c(1, 2)), 1 / (0.3 * 0.7))
+
 }

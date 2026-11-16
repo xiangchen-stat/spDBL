@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 make_stan_calibration_data <- function(emulator, draw, z, U,
     locations = seq_len(emulator$S), n0 = 30, d0 = 2, discount = 1,
     m0 = rep(0, length(locations)), M0 = diag(length(locations))) {
@@ -13,24 +16,40 @@ make_stan_calibration_data <- function(emulator, draw, z, U,
   residual <- array(0, c(emulator$E, nrow(emulator$input), emulator$C))
   weights <- .cal_residual_weights(emulator, draw)
   for (e in seq_len(emulator$E)) {
-    theta[e, , ] <- emulator$posterior$theta[[e]][, , draw]
+    theta[e, , ] <- .cal_theta(emulator, e)[, , draw]
     residual[e, , ] <- weights[[e]]
   }
   f <- emulator$predictor
+  spec <- .cal_predictor_spec(f)
+  N <- nrow(emulator$input)
+  # Design-row covariance at each time before scaling by the GP variance
+  # factor, which Stan computes at eta. Zero when design uncertainty is off.
+  factors <- .cal_design_factors(emulator, draw, locations)
+  design_covariance <- array(0, c(emulator$T, S, S))
+  for (t in seq_along(factors)) design_covariance[t, , ] <- crossprod(factors[[t]])
+  # One kernel (lengthscales and lower Cholesky factor) per group; the
+  # episodes of one time step share a group.
+  predictor_L <- array(0, c(spec$G, N, N))
+  for (g in seq_len(spec$G)) predictor_L[g, , ] <- t(.cal_predictor_chol(f, g))
+  time_group <- spec$groups[(seq_len(emulator$T) - 1L) * emulator$B + 1L]
   # Explicit dimensions keep length-one vectors from becoming Stan scalars.
   vector_data <- function(x) array(as.numeric(x), length(x))
   index_data <- function(x) array(as.integer(x), length(x))
-  list(N = nrow(emulator$input), D_full = ncol(emulator$input), D = length(f$active),
+  list(N = N, D_full = ncol(emulator$input), D = length(f$active),
     T = emulator$T, S_full = emulator$S, S = S, B = emulator$B, C = emulator$C,
     P = emulator$p, E = emulator$E, active = index_data(f$active),
     eta_lower = vector_data(f$lower), eta_upper = vector_data(f$upper),
-    input = emulator$input, predictor_x = f$x, lengthscale = vector_data(f$lengthscale),
+    input = emulator$input, predictor_x = f$x,
+    G = spec$G, time_group = index_data(time_group),
+    design_kernel = if (spec$kernel == "matern52") 2L else 1L,
+    lengthscale = spec$lengthscale,
     predictor_center = vector_data(f$center), predictor_alpha = f$alpha,
+    predictor_L = predictor_L, design_covariance = design_covariance,
     theta = theta, residual_weights = residual, block_cols = emulator$block_cols,
     locations = index_data(locations), phi_para = emulator$phi_para,
     gp_sigma2 = emulator$gp_sigma2, gp_tau2 = emulator$gp_tau2,
     sigma2 = emulator$posterior$sigma2[draw], L_V = t(emulator$V_chol),
-    R_field = emulator$R_field[locations, locations, drop = FALSE],
+    R_field = .cal_R_field(emulator, locations),
     L_U = t(.cal_spd(U[locations, locations, drop = FALSE], "U")),
     L_M0 = t(.cal_spd(M0, "M0")), m0 = vector_data(m0), z = z,
     n0 = n0, d0 = d0, discount = discount)
@@ -55,7 +74,7 @@ calibration_log_density <- function(eta_unit, precision, u_std, emulator,
                       rate = discount^(0:emulator$T) * d0, log = TRUE)) +
     sum(stats::dnorm(u_std, log = TRUE))
   for (t in seq_len(emulator$T)) {
-    covariance <- pred$Sigma + diag(tau2[t + 1], length(locations))
+    covariance <- .cal_time_covariance(pred, t) + diag(tau2[t + 1], length(locations))
     L <- chol(covariance)
     residual <- forwardsolve(t(L), z[t, ] - pred$mu[t, ] - u[t + 1, ])
     log_p <- log_p - length(locations) / 2 * log(2 * pi) -
@@ -76,7 +95,7 @@ calibration_log_density <- function(eta_unit, precision, u_std, emulator,
   log_likelihood <- 0
   for (t in seq_len(T)) {
     P <- covariances[[t]] + tau2_all[t + 1L] * U
-    observation_covariance <- P + pred$Sigma + diag(tau2_all[t + 1L], S)
+    observation_covariance <- P + .cal_time_covariance(pred, t) + diag(tau2_all[t + 1L], S)
     L <- t(.cal_spd(observation_covariance))
     residual <- z[t, ] - pred$mu[t, ] - means[t, ]
     whitened <- forwardsolve(L, residual)
@@ -158,10 +177,11 @@ recover_calibration_predictions <- function(eta, tau2, u, emulator_draw,
   for (i in seq_len(n)) {
     pred <- predict_calibration(eta[i, ], emulator_draw[i], emulator, locations)
     for (t in seq_len(T)) {
-      covariance <- pred$Sigma + diag(tau2[i, t], S)
-      K <- pred$Sigma %*% chol2inv(chol(covariance))
+      prior <- .cal_time_covariance(pred, t)
+      covariance <- prior + diag(tau2[i, t], S)
+      K <- prior %*% chol2inv(chol(covariance))
       mean <- pred$mu[t, ] + K %*% (z[t, ] - u[i, t, ] - pred$mu[t, ])
-      variance <- pred$Sigma - K %*% pred$Sigma
+      variance <- prior - K %*% prior
       y[i, t, ] <- as.numeric(mean + t(.cal_spd((variance + t(variance)) / 2)) %*% stats::rnorm(S))
       z_rep[i, t, ] <- y[i, t, ] + u[i, t, ] + stats::rnorm(S, sd = sqrt(tau2[i, t]))
     }
@@ -179,7 +199,8 @@ fit_calibration_rstan <- function(emulator, z, U,
     m0 = rep(0, length(locations)), M0 = diag(length(locations)),
     control = list(adapt_delta = 0.95, max_treedepth = 12), compiled_model = NULL,
     marginal_discrepancy = TRUE, refresh = 100, checkpoint_dir = NULL,
-    keep_discrepancy = TRUE) {
+    keep_discrepancy = TRUE, init = "midpoint", mode_starts = 20L,
+    parallel_draws = 1L) {
   if (!requireNamespace("rstan", quietly = TRUE)) stop("Install rstan first")
   if (warmup >= iter || chains < 1 || draws_per_emulator < 1 ||
       draws_per_emulator > chains * (iter - warmup) || !length(draws) ||
@@ -187,21 +208,100 @@ fit_calibration_rstan <- function(emulator, z, U,
   if (!is.null(checkpoint_dir)) dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
   model <- if (is.null(compiled_model))
     .cal_stan_model(marginal_discrepancy, cache = FALSE) else compiled_model
-  out <- vector("list", length(draws))
-  diagnostics <- vector("list", length(draws))
-  for (j in seq_along(draws)) {
+  # Fits run at the same time (forked) run their chains one after another, so
+  # that no process pool is started inside a forked process. rstan's draws do
+  # not depend on the number of cores, so results are unchanged.
+  forked <- parallel_draws > 1L && .Platform$OS.type != "windows" && length(draws) > 1L
+  chain_cores <- if (forked) 1L else cores
+  if (forked && cores > 1L)
+    message("parallel_draws > 1: each conditional fit runs its chains in sequence ",
+            "(cores = ", cores, " is not used); ", parallel_draws, " fits run at once")
+  if (forked) .warn_threaded_blas()
+  # One conditional fit per emulator draw. Every random number a fit uses comes
+  # from seeds derived from seed and j, so fits are independent and can run
+  # in any order or at the same time.
+  fit_one <- function(j) {
     m <- draws[j]
     message("Calibration conditional on emulator draw ", m, " (", j, "/", length(draws), ")")
     data <- make_stan_calibration_data(emulator, m, z, U, locations, n0, d0,
                                        discount, m0, M0)
-    init <- function() {
-      values <- list(eta_unit = array(rep(0.5, data$D), data$D),
-                     precision = rep(n0 / d0, data$T + 1))
-      if (!marginal_discrepancy) values$u_std <- matrix(0, data$T + 1, data$S)
-      values
+    # Starting eta on the unit scale, one row per chain. init is "mode" (set
+    # after the checkpoint check below), "midpoint", "random" (uniform in the
+    # box, seeded per conditional fit), or a unit vector from .cal_init_spec().
+    mode_init <- identical(init, "mode")
+    precision_start <- matrix(n0 / d0, chains, data$T + 1)
+    eta_start <- if (mode_init) NULL else if (identical(init, "random")) {
+      set.seed(seed + j)
+      matrix(stats::runif(chains * data$D), chains, data$D)
+    } else matrix(if (identical(init, "midpoint")) 0.5 else init,
+                  chains, data$D, byrow = TRUE)
+    # A fit saved by an earlier run with identical data and settings is
+    # reused, so an interrupted calibration resumes where it stopped.
+    checkpoint <- if (!is.null(checkpoint_dir))
+      file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m))
+    fingerprint <- if (!is.null(checkpoint)) rlang::hash(list(data = data,
+      eta_start = if (mode_init) list("mode", mode_starts) else eta_start,
+      chains = chains, iter = iter, warmup = warmup,
+      seed = seed + j, draws_per_emulator = draws_per_emulator, control = control,
+      marginal_discrepancy = marginal_discrepancy,
+      program = tryCatch(model@model_code, error = function(e) NULL)))
+    if (!is.null(checkpoint) && file.exists(checkpoint)) {
+      saved <- tryCatch(readRDS(checkpoint), error = function(e) NULL)
+      if (identical(saved$fingerprint, fingerprint)) {
+        message("  reusing the saved fit ", basename(checkpoint))
+        return(list(samples = saved$samples, diagnostics = saved$diagnostics))
+      }
+      message("  ", basename(checkpoint), " was saved with other data or settings; refitting")
     }
-    fit <- rstan::sampling(model, data = data, init = init, chains = chains,
-      iter = iter, warmup = warmup, seed = seed + j, cores = cores, refresh = refresh,
+    # init = "mode": L-BFGS (rstan::optimizing) from mode_starts random starts;
+    # the chains start, slightly jittered, at the optimum with the highest
+    # log posterior density. Chains started far from it can otherwise settle
+    # in local modes of negligible posterior mass.
+    mode_search <- NULL
+    if (mode_init) {
+      set.seed(seed + j)
+      starts <- matrix(stats::runif(mode_starts * data$D), mode_starts, data$D)
+      optima <- lapply(seq_len(mode_starts), function(k) {
+        values <- list(eta_unit = array(starts[k, ], data$D),
+                       precision = rep(n0 / d0, data$T + 1))
+        if (!marginal_discrepancy) values$u_std <- matrix(0, data$T + 1, data$S)
+        tryCatch(rstan::optimizing(model, data = data, init = values,
+            seed = seed + 1000L * j + k, algorithm = "LBFGS", iter = 2000L,
+            as_vector = FALSE, refresh = 0L),
+          error = function(e) NULL)
+      })
+      values <- vapply(optima, function(o)
+        if (is.null(o) || !identical(as.integer(o$return_code), 0L)) -Inf else o$value, numeric(1))
+      if (!any(is.finite(values)))
+        stop("The mode search failed from every start for emulator draw ", m)
+      best <- optima[[which.max(values)]]
+      eta_mode <- pmin(pmax(as.numeric(best$par$eta_unit), 1e-6), 1 - 1e-6)
+      precision_mode <- as.numeric(best$par$precision)
+      eta_start <- t(vapply(seq_len(chains), function(ch)
+        stats::plogis(stats::qlogis(eta_mode) + stats::rnorm(data$D, sd = 0.05)), numeric(data$D)))
+      eta_start <- matrix(eta_start, chains, data$D)
+      precision_start <- t(vapply(seq_len(chains), function(ch)
+        precision_mode * exp(stats::rnorm(data$T + 1, sd = 0.05)), numeric(data$T + 1)))
+      precision_start <- matrix(precision_start, chains, data$T + 1)
+      mode_search <- list(log_density = values, eta_unit = eta_mode,
+        near_best = sum(values > max(values) - 1))
+    }
+    # local() keeps this fit's values; the loop reassigns eta_start and data.
+    start <- local({
+      eta <- eta_start
+      precision <- precision_start
+      D <- data$D
+      T <- data$T
+      S <- data$S
+      function(chain_id = 1) {
+        values <- list(eta_unit = array(eta[chain_id, ], D),
+                       precision = precision[chain_id, ])
+        if (!marginal_discrepancy) values$u_std <- matrix(0, T + 1, S)
+        values
+      }
+    })
+    fit <- rstan::sampling(model, data = data, init = start, chains = chains,
+      iter = iter, warmup = warmup, seed = seed + j, cores = chain_cores, refresh = refresh,
       pars = c("eta", "tau2", if (!marginal_discrepancy) "u"), control = control)
     raw <- rstan::extract(fit, permuted = FALSE, inc_warmup = FALSE)
     if (length(dim(raw)) != 3L || !length(raw))
@@ -222,34 +322,58 @@ fit_calibration_rstan <- function(emulator, z, U,
         grep("^tau2\\[", colnames(samples), value = TRUE),
         if (!marginal_discrepancy) grep("^u\\[", colnames(samples), value = TRUE))
       summary <- cbind(mean = colMeans(samples[, parameter_names, drop = FALSE]),
-        n_eff = NA_real_, Rhat = NA_real_)
+        n_eff = NA_real_, Rhat = NA_real_, ess_bulk = NA_real_, ess_tail = NA_real_)
     } else {
       summary <- rstan::summary(fit, pars = c(paste0("eta[", data$active, "]"),
         "tau2", if (!marginal_discrepancy) "u"))$summary
+      # Rank-normalised split Rhat and bulk and tail effective sample sizes
+      # (Vehtari et al., 2021) replace the classic diagnostics that
+      # rstan::summary() reports.
+      summary <- cbind(summary[, setdiff(colnames(summary), "Rhat"), drop = FALSE],
+        .cal_convergence(raw[, , rownames(summary), drop = FALSE]))
     }
     sampler <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
-    diagnostics[[j]] <- list(emulator_draw = m, summary = summary,
+    diagnostics_j <- list(emulator_draw = m, summary = summary, mode_search = mode_search,
       divergences = sum(vapply(sampler, function(x) sum(x[, "divergent__"]), numeric(1))),
       max_treedepth_hits = sum(vapply(sampler, function(x)
         sum(x[, "treedepth__"] >= if (is.null(control$max_treedepth)) 10 else control$max_treedepth), numeric(1))),
-      max_rhat = if (any(is.finite(summary[, "Rhat"]))) max(summary[, "Rhat"], na.rm = TRUE) else NA_real_,
-      min_n_eff = if (any(is.finite(summary[, "n_eff"])))
-        min(summary[is.finite(summary[, "n_eff"]), "n_eff"]) else NA_real_)
-    if (diagnostics[[j]]$divergences > 0 ||
-        (!is.na(diagnostics[[j]]$max_rhat) && diagnostics[[j]]$max_rhat > 1.01))
-      warning("Emulator draw ", m, " needs additional convergence checks; inspect diagnostics")
-    out[[j]] <- list(eta = eta, tau2 = tau[, -1, drop = FALSE], tau2_0 = tau[, 1],
+      max_rhat = .cal_extreme(summary[, "Rhat"], max),
+      min_n_eff = .cal_extreme(summary[, "ess_bulk"], min),
+      min_ess_tail = .cal_extreme(summary[, "ess_tail"], min))
+    samples_j <- list(eta = eta, tau2 = tau[, -1, drop = FALSE], tau2_0 = tau[, 1],
       chain = rep(seq_len(dim(raw)[2]), each = dim(raw)[1])[selected],
       iteration = rep(seq_len(dim(raw)[1]), dim(raw)[2])[selected], emulator_draw = rep(m, length(selected)))
     if (!marginal_discrepancy) {
-      out[[j]]$u <- array(states[, -1, , drop = FALSE], c(length(selected), data$T, data$S))
-      out[[j]]$u0 <- matrix(states[, 1, ], length(selected), data$S)
+      samples_j$u <- array(states[, -1, , drop = FALSE], c(length(selected), data$T, data$S))
+      samples_j$u0 <- matrix(states[, 1, ], length(selected), data$S)
     }
-    if (!is.null(checkpoint_dir)) saveRDS(list(samples = out[[j]],
-      diagnostics = diagnostics[[j]], marginal_discrepancy = marginal_discrepancy,
-      chains = chains, iter = iter, warmup = warmup),
-      file.path(checkpoint_dir, sprintf("conditional_%03d.rds", m)))
+    if (!is.null(checkpoint)) saveRDS(list(samples = samples_j,
+      diagnostics = diagnostics_j, marginal_discrepancy = marginal_discrepancy,
+      chains = chains, iter = iter, warmup = warmup, init = init,
+      fingerprint = fingerprint), checkpoint)
+    list(samples = samples_j, diagnostics = diagnostics_j)
   }
+  # parallel_draws > 1 runs that many fits at once in forked processes (not
+  # on Windows, where fits run one after another); each fit's chains use
+  # `cores` processes of their own.
+  fits <- if (forked) {
+    parallel::mclapply(seq_along(draws), fit_one, mc.cores = parallel_draws,
+                       mc.preschedule = FALSE)
+  } else lapply(seq_along(draws), fit_one)
+  failed <- vapply(fits, function(f) inherits(f, "try-error") || is.null(f), logical(1))
+  if (any(failed)) {
+    reason <- fits[[which(failed)[1]]]
+    stop("Calibration failed for emulator draw ", draws[which(failed)[1]], ": ",
+         if (inherits(reason, "try-error")) conditionMessage(attr(reason, "condition")) else
+           "the worker process returned nothing (out of memory?)", call. = FALSE)
+  }
+  out <- lapply(fits, `[[`, "samples")
+  diagnostics <- lapply(fits, `[[`, "diagnostics")
+  # Warnings are raised here, so they also reach the caller from forked fits.
+  for (d in diagnostics)
+    if (isTRUE(d$divergences > 0) || (!is.na(d$max_rhat) && d$max_rhat > 1.01))
+      warning("Emulator draw ", d$emulator_draw,
+              " needs additional convergence checks; inspect diagnostics")
   bind_arrays <- function(name, dims) {
     # rbind flattened trajectories to keep the first dimension as posterior draws.
     flat <- do.call(rbind, lapply(out, function(o) matrix(o[[name]], nrow(o$eta))))
@@ -280,4 +404,32 @@ fit_calibration_rstan <- function(emulator, z, U,
     result$mcmc_z <- predictions$z_rep
   }
   result
+}
+
+# Per-parameter convergence diagnostics from an iterations x chains x
+# parameters array of post-warmup draws.
+.cal_convergence <- function(draws) {
+  one <- function(k) {
+    x <- matrix(draws[, , k], dim(draws)[1], dim(draws)[2])
+    c(Rhat = rstan::Rhat(x), ess_bulk = rstan::ess_bulk(x),
+      ess_tail = rstan::ess_tail(x))
+  }
+  out <- t(vapply(seq_len(dim(draws)[3]), one, numeric(3)))
+  rownames(out) <- dimnames(draws)[[3]]
+  out
+}
+
+.cal_extreme <- function(x, f) if (any(is.finite(x))) f(x[is.finite(x)]) else NA_real_
+
+
+# Forking after an OpenMP-threaded BLAS (oneMKL, OpenBLAS, BLIS) has run can
+# leave the forked processes waiting forever on the thread pool's lock.
+.warn_threaded_blas <- function(blas = paste(La_library(), extSoftVersion()[["BLAS"]]),
+                                omp_threads = Sys.getenv("OMP_NUM_THREADS")) {
+  if (grepl("mkl|openblas|blis", blas, ignore.case = TRUE) && !identical(omp_threads, "1"))
+    warning("parallel_draws forks R, and this R uses a multithreaded BLAS (",
+            basename(strsplit(blas, " ")[[1]][1]), "); forked fits can hang. Start R with ",
+            "OMP_NUM_THREADS=1 (and MKL_NUM_THREADS=1 or OPENBLAS_NUM_THREADS=1).",
+            call. = FALSE)
+  invisible(NULL)
 }

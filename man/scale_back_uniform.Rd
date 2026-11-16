@@ -20,6 +20,20 @@ Numeric vector or matrix rescaled to \eqn{[\text{low}, \text{high}]}.
 Maps \code{x} from the unit interval back to the original range
 \eqn{[\text{low}, \text{high}]}: \eqn{x \cdot (\text{high} - \text{low}) + \text{low}}.
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+u <- c(0, 0.25, 1)
+x <- scale_back_uniform(u, low = -1, high = 3)
+x
+all.equal(scale_uniform(x, low = -1, high = 3), u)
+
+}
 \seealso{
 \code{\link{scale_uniform}}
 }

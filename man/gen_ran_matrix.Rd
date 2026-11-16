@@ -16,5 +16,14 @@ A numeric matrix of dimension \code{c(nrow, ncol)}.
 }
 \description{
 Draws a matrix of independent standard normal entries and divides by the
-absolute maximum, so all entries lie in \eqn{[-1, 1]}.
+largest absolute entry, so all entries lie in \eqn{[-1, 1]}. (Versions up
+to 1.1.1 divided by the absolute value of the largest entry, so entries
+could fall below -1.)
+}
+\examples{
+set.seed(1)
+M <- gen_ran_matrix(3, 4)
+dim(M)
+max(abs(M))  # the largest absolute entry is scaled to 1
+
 }

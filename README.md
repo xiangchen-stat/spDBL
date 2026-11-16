@@ -1,7 +1,9 @@
 # spDBL <a href="https://github.com/xiangchen-stat/spDBL"><img src="man/figures/logo.png" align="right" height="138" alt="spDBL hex logo" /></a>
 
 <!-- badges: start -->
-[![CRAN](https://img.shields.io/badge/CRAN-spDBL-blue)](https://CRAN.R-project.org/package=spDBL)
+[![CRAN status](https://www.r-pkg.org/badges/version/spDBL)](https://CRAN.R-project.org/package=spDBL)
+[![R-CMD-check](https://github.com/xiangchen-stat/spDBL/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/xiangchen-stat/spDBL/actions/workflows/R-CMD-check.yaml)
+[![test-coverage](https://github.com/xiangchen-stat/spDBL/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/xiangchen-stat/spDBL/actions/workflows/test-coverage.yaml)
 [![GitHub](https://img.shields.io/badge/GitHub-xiangchen--stat%2FspDBL-black?logo=github)](https://github.com/xiangchen-stat/spDBL)
 [![Paper](https://img.shields.io/badge/JMLR-2025-blue)](https://jmlr.org/papers/v26/22-0896.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/xiangchen-stat/spDBL/blob/main/LICENSE.md)
@@ -25,29 +27,65 @@ The methodological details are presented in [Banerjee, Chen, Frankenburg, and Zh
 
 ## Installation
 
-### Install from GitHub
+### Release version from CRAN
+
+```r
+install.packages("spDBL")
+```
+
+CRAN provides binaries for Windows and macOS. On Linux the package is built from
+source, which needs a C++ compiler.
+
+### Development version from GitHub
 
 ```r
 # install.packages("pak")
 pak::pak("xiangchen-stat/spDBL")
 ```
 
-You can also install with `devtools`:
+You can also use `devtools::install_github("xiangchen-stat/spDBL")`.
+
+### Optional: RStan for calibration
+
+Emulation needs no extra software. `calibration_fit()` uses the suggested
+package [rstan](https://mc-stan.org/rstan/), which compiles a Stan program on
+first use (cached afterwards) and therefore needs a C++ toolchain:
 
 ```r
-# install.packages("devtools")
-devtools::install_github("xiangchen-stat/spDBL")
+install.packages("rstan")
 ```
 
-### Install from source
+On macOS install the Xcode Command Line Tools, on Windows install Rtools, and
+on Linux install the system compilers recommended for R package compilation.
+See the [RStan Getting Started guide](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started)
+if compilation fails.
 
-To install from a source tarball, download the package source file and run:
+## Quick example
+
+Fit a dynamic emulator to 40 runs of a spatial SIR simulator on a 10 × 10 grid
+over 26 time steps, then predict 10 held-out runs:
 
 ```r
-install.packages("spDBL_X.X.X.tar.gz", repos = NULL, type = "source")
+library(spDBL)
+data("dt_emulation")
+d <- dt_emulation
+
+# Fit the emulator to the training simulator runs (10 x 10 grid)
+em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+                     seed = 1)
+
+# Predict the held-out runs; their lagged outputs supply the AR design rows
+pred <- emulator_predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
+
+# Root mean squared error over held-out runs, locations, and times
+sqrt(mean(unlist(Map(function(p, y) (p - y)^2, pred, d$dt_pde_test))))
+#> [1] 0.1241679
 ```
 
-Since `spDBL` contains compiled code, you will need a working C/C++ toolchain on your system. On macOS, this typically means installing Xcode Command Line Tools. On Windows, use Rtools. On Linux, install the corresponding system compilers and development libraries recommended for R package compilation.
+The held-out outputs have standard deviation 3.17, so the error is small
+relative to the signal. `vignette("emulation")` walks through this example with
+plots and uncertainty intervals. The next section shows calibration, which
+predicts without any new simulator runs.
 
 ## Package scope
 
@@ -77,21 +115,6 @@ The `spDBL` workflow has four main components:
 
 A central advantage of this framework is that the emulator stage avoids expensive iterative Bayesian computation such as full MCMC or variational inference, while still preserving a coherent probabilistic learning framework.
 
-<!-- ## Quick example
-
-```r
-library(spDBL)
-
-# Example workflow
-# sim_data <- simulate_mechanistic_model(n_runs = 50)
-# gp_model <- fit_gp_emulator(sim_data)
-# fit <- run_inference(gp_model, observations)
-
-# summary(fit)
-```
-
-Please replace the example above with package-specific functions as your API stabilizes. -->
-
 ## Related paper
 
 **Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models**  
@@ -110,9 +133,9 @@ Paper link: <https://jmlr.org/papers/v26/22-0896.html>
 
 The calibration interface supports the scalar covariance model and uses an
 offline GP to supply autoregressive design rows at new mechanistic inputs.
-Prediction and calibration need no new PDE solves. The GP design interpolation
-uncertainty remains excluded; emulator coefficient and predictive uncertainty
-are retained.
+Prediction and calibration need no new PDE solves. The design GP's predictive
+covariance is propagated into the field covariance, along with emulator
+coefficient and predictive uncertainty.
 
     library(spDBL)
     data("dt_calibration")
@@ -123,8 +146,8 @@ are retained.
     validation <- calibration_validate(cal, d$validation$input,
                                        d$validation$responses)
     # Optional RStan backend; requires a compiler on first use.
-    # Defaults: marginal emulator sampling, one calibration iteration per draw.
-    fit <- calibration_fit(cal, d$field$z, d$field$U)
+    # iter must be set; 4 chains x 2000 iterations per emulator draw for inference.
+    fit <- calibration_fit(cal, d$field$z, d$field$U, chains = 4, iter = 2000)
     summary(fit)
     fields <- calibration_predict(fit)
 
@@ -140,11 +163,11 @@ changes methods using saved filtering results:
     fit_long <- calibration_fit(cal_joint, d$field$z, d$field$U,
       chains = 4, iter = 2000, warmup = 1000, draws_per_emulator = 200)
 
-The calibration defaults are chains = 1, iter = 1, warmup = 0, and one retained
-sample per emulator draw. Larger iter values default to half the iterations as
-warmup and retain up to 200 available samples per emulator draw. The default
-sampler controls disable adaptation for zero warmup and enable it when warmup
-is positive. One-transition results do not establish convergence.
+`calibration_fit()` has no default for `iter`. Warmup defaults to half the
+iterations, chains to one, and up to 200 available samples are retained per
+emulator draw. The default sampler controls disable adaptation for zero warmup
+and enable it when warmup is positive. `iter = 1` gives one transition per
+emulator draw: a quick execution check that does not establish convergence.
 
 emulator_predict(cal, input_new) also works without new PDE trajectories;
 its mean samples are distinct from full conditional field draws.
@@ -162,24 +185,6 @@ Its default oneiter500 profile uses marginal emulator sampling. The small,
 full, and smoke profiles remain available; an optional third argument selects
 joint sampling, for example run_calibration.R full output_dir joint.
 One-iteration runs are execution experiments and do not establish convergence.
-
-Maintain .Rmd vignette sources; Rscript data-raw/sync-vignettes.R generates
-their Quarto counterparts. To render the calibration vignette from this source
-checkout, run this command from the package directory:
-
-```sh
-bash vignettes/renderEmulation.sh quarto calibration
-```
-
-The helper installs the current source into the ignored .r-library directory,
-then renders calibration.qmd. This avoids using an older system installation
-that lacks dt_calibration and the calibration functions. Subsequent direct
-Quarto renders use the same local library. Omit calibration to render all
-vignettes, or select r instead of quarto for R Markdown.
-
-Set SPDBL_RUN_STAN_TESTS=true with the package's
-testthat suite to enable compiler-dependent integration checks. The ordinary
-unit suite does not require RStan.
 
 ## MNIW model comparison
 
@@ -206,18 +211,54 @@ GP likelihood used by the spatiotemporal emulator. See
 comparison with `loo`, and sequential covariate comparisons. To render it from
 this checkout, use `bash vignettes/renderEmulation.sh quarto model-comparison`.
 
+## Documentation
+
+* Website with the function reference and all vignettes:
+  <https://xiangchen-stat.github.io/spDBL/>
+* `vignette("emulation")`: fit an emulator and check its predictions.
+* `vignette("calibration")`: end-to-end calibration from saved simulations.
+* `vignette("calibration-details")`: the probability model behind calibration.
+* `vignette("model-comparison")`: WAIC for MNIW multivariate regression.
+* [Package architecture](https://xiangchen-stat.github.io/spDBL/articles/architecture.html):
+  how the code is organised, for contributors.
+* [IMPROVEMENTS.md](https://github.com/xiangchen-stat/spDBL/blob/main/IMPROVEMENTS.md):
+  what the package adds to the published method and its research code.
+
+## Getting help and contributing
+
+Ask questions and share how you use spDBL in
+[GitHub Discussions](https://github.com/xiangchen-stat/spDBL/discussions), and
+report bugs on the [issue tracker](https://github.com/xiangchen-stat/spDBL/issues),
+with a minimal reproducible example. Contributions are welcome; the
+[contributing guide](https://github.com/xiangchen-stat/spDBL/blob/main/.github/CONTRIBUTING.md) explains how to set up a
+development copy, run the tests (including the optional Stan tests), and
+render the vignettes. Please note that this project is released with a
+[Contributor Code of Conduct](https://github.com/xiangchen-stat/spDBL/blob/main/.github/CODE_OF_CONDUCT.md). By participating you
+agree to abide by its terms.
+
 ## Repository structure
 
 ```text
-R/          R functions
-src/        C++ source code
-man/        documentation files
-tests/      tests
+R/            R functions
+src/          C++ kernels (Rcpp/RcppEigen)
+inst/stan/    Stan programs for calibration
+inst/examples/  reproduction script for the calibration vignette
+tests/        testthat unit and integration tests
+vignettes/    vignettes (R Markdown sources; Quarto copies are generated)
+data/         example datasets (dt_emulation, dt_calibration)
+data-raw/     scripts that build the example data and recorded results
+man/          help pages generated by roxygen2
+.github/      CI workflows, contributing guide, issue templates
 ```
 
 ## License
 
-This package is released under the **MIT License**.
+This package is released under the **MIT License** (see `LICENSE` and
+`LICENSE.md`). Every hand-written source file states this with an
+`SPDX-License-Identifier: MIT` header; the Rcpp-generated `RcppExports` files
+are covered by the same license. All dependencies use OSI-approved open-source
+licenses (GPL, MIT, or BSD), and the only optional dependency for
+calibration, rstan, is GPL (>= 3).
 
 ## Acknowledgement
 

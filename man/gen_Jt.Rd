@@ -18,15 +18,26 @@ gen_Jt(input, input_new, phi_para, gp_sigma2 = 1.1, gp_tau2 = 10^(-4))
 \item{gp_sigma2}{Numeric scalar. Marginal variance of the kernel. Defaults
 to \code{1.1}.}
 
-\item{gp_tau2}{Numeric scalar. Nugget variance. Defaults to \code{1e-4}.}
+\item{gp_tau2}{Numeric scalar. Nugget variance. Not used; kept for
+compatibility. Defaults to \code{1e-4}.}
 }
 \value{
 Numeric matrix of dimension \code{c(N, N_new)}.
 }
 \description{
-Builds the full covariance matrix over observed and new locations using an
-exponential GP kernel, then extracts the \eqn{N \times N_{\text{new}}}
-cross-covariance block \eqn{J_t}.
+Evaluates the exponential GP kernel between observed and new locations,
+giving the \eqn{N \times N_{\text{new}}} cross-covariance block \eqn{J_t}.
+The nugget does not enter a cross-covariance, even when a new location
+coincides with an observed one; this matches \code{\link{FFBS_predict_exact}}.
+}
+\examples{
+set.seed(1)
+input <- matrix(runif(10), nrow = 5, ncol = 2)
+J <- gen_Jt(input, input_new = c(0.5, 0.5), phi_para = 2)
+length(J)
+# At an observed input the cross-covariance equals gp_sigma2
+gen_Jt(input, input[1, ], phi_para = 2)[1]
+
 }
 \seealso{
 \code{\link{gen_exp_kernel}}

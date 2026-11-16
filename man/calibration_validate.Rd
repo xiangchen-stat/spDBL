@@ -13,7 +13,8 @@ calibration_validate(object, input_new, responses, seed = 1234)
 
 \item{responses}{Time-indexed list of held-out response matrices.}
 
-\item{seed}{Local seed for the special AR2 validation initialization.}
+\item{seed}{Not used since spDBL 1.2.0, whose AR designs are deterministic;
+kept for compatibility.}
 }
 \value{
 A list with episode design errors and per-input field RMSE using
@@ -22,4 +23,15 @@ known versus GP-predicted autoregressive rows.
 \description{
 Held-out trajectories are used only for this accuracy assessment. They are
 not added to either GP's training data.
+}
+\examples{
+data("dt_calibration")
+d <- dt_calibration
+em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
+                     covariance = "sigma2R", episode_window = 2, nsam = 3,
+                     seed = 1)
+cal <- calibration_prepare(em, d$lower, d$upper)
+held_out <- lapply(d$validation$responses, function(y) y[1:3, , drop = FALSE])
+val <- calibration_validate(cal, d$validation$input[1:3, ], held_out)
+val$field
 }

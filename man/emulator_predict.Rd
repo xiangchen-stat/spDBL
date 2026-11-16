@@ -36,6 +36,15 @@ matrices or saved simulator outputs used to construct them. With a
 \code{\link[=calibration_prepare]{calibration_prepare()}} result, the offline GP supplies those rows and
 dt_pde_test is unnecessary.
 }
+\examples{
+data("dt_emulation")
+d <- dt_emulation
+em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+                     nsam = 5, seed = 1)
+pred <- emulator_predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
+dim(pred[[2]])
+sqrt(mean((unlist(pred) - unlist(d$dt_pde_test))^2))
+}
 \seealso{
 \code{\link[=FFBS_predict_exact]{FFBS_predict_exact()}}, \code{\link[=calibration_predict]{calibration_predict()}}
 }

@@ -24,6 +24,15 @@ absolute tolerance). If so, symmetrises it and, if still not positive
 definite, adds a small diagonal ridge. Raises an error if the asymmetry
 exceeds the tolerance.
 }
+\examples{
+# A covariance matrix with a tiny rounding asymmetry
+A <- matrix(c(2, 1, 1 + 1e-8, 2), 2)
+isSymmetric(A)
+A_fixed <- check_pds(A)
+isSymmetric(A_fixed)
+A_fixed
+
+}
 \seealso{
 \code{\link{make_pds}}
 }

@@ -12,6 +12,15 @@ using hierarchical and state-space modelling approaches. Core computational
 routines (forward filter, backward sampler, matrix-normal sampling) are
 implemented in C++ via \pkg{RcppEigen}.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://xiangchen-stat.github.io/spDBL/}
+  \item \url{https://github.com/xiangchen-stat/spDBL}
+  \item Report bugs at \url{https://github.com/xiangchen-stat/spDBL/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Xiang Chen \email{xiangchen@ucla.edu}
 

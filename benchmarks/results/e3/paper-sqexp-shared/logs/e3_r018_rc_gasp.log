@@ -1,0 +1,148 @@
+Starting emulation 
+The upper bounds of the range parameters are 124.6627 13.18772 13.558 
+The initial values of range parameters are 2.493253 0.2637545 0.27116 
+Start of the optimization  1  : 
+The number of iterations is  25 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965045 0.4361581 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  FALSE 
+The initial values of range parameters are 0.09562553 0.01011596 0.01039999 
+Start of the optimization  2  : 
+The number of iterations is  34 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965047 0.4361579 0.1697296 
+ Optimized nugget parameter is 0 
+ Convergence:  FALSE 
+end emulation 
+The inverse range  parameters from the emulation are  0.201408 2.292748 5.891724 
+The nugget  parameter from the emulation is  0 
+2500  of  10000  posterior samples are drawn 
+5000  of  10000  posterior samples are drawn 
+7500  of  10000  posterior samples are drawn 
+10000  of  10000  posterior samples are drawn 
+Done with posterior sampling 
+1173  of  10000  proposed posterior samples of calibration parameters are accepted 
+658  of  10000  proposed posterior samples of range and nugget parameters are accepted 
+Starting emulation 
+The upper bounds of the range parameters are 116.1463 12.2868 12.63178 
+The initial values of range parameters are 2.322926 0.2457361 0.2526356 
+Start of the optimization  1  : 
+The number of iterations is  16 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965045 0.4361581 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.09562553 0.01011596 0.01039999 
+Start of the optimization  2  : 
+The number of iterations is  33 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965047 0.4361581 0.1697296 
+ Optimized nugget parameter is 0 
+ Convergence:  FALSE 
+end emulation 
+The inverse range  parameters from the emulation are  0.201408 2.292746 5.891723 
+The nugget  parameter from the emulation is  0 
+2500  of  10000  posterior samples are drawn 
+5000  of  10000  posterior samples are drawn 
+7500  of  10000  posterior samples are drawn 
+10000  of  10000  posterior samples are drawn 
+Done with posterior sampling 
+1209  of  10000  proposed posterior samples of calibration parameters are accepted 
+647  of  10000  proposed posterior samples of range and nugget parameters are accepted 
+Starting emulation 
+The upper bounds of the range parameters are 121.6248 12.86636 13.22761 
+The initial values of range parameters are 2.432496 0.2573271 0.2645521 
+Start of the optimization  1  : 
+The number of iterations is  16 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965047 0.4361582 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.09562553 0.01011596 0.01039999 
+Start of the optimization  2  : 
+The number of iterations is  29 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965045 0.4361581 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+end emulation 
+The inverse range  parameters from the emulation are  0.201408 2.292747 5.891722 
+The nugget  parameter from the emulation is  0 
+2500  of  10000  posterior samples are drawn 
+5000  of  10000  posterior samples are drawn 
+7500  of  10000  posterior samples are drawn 
+10000  of  10000  posterior samples are drawn 
+Done with posterior sampling 
+1209  of  10000  proposed posterior samples of calibration parameters are accepted 
+665  of  10000  proposed posterior samples of range and nugget parameters are accepted 
+Starting emulation 
+The upper bounds of the range parameters are 123.1613 13.0289 13.39471 
+The initial values of range parameters are 2.463225 0.2605779 0.2678942 
+Start of the optimization  1  : 
+The number of iterations is  15 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965045 0.4361581 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.09562553 0.01011596 0.01039999 
+Start of the optimization  2  : 
+The number of iterations is  27 
+ The value of the  marginal posterior  function is  5171.819 
+ Optimized range parameters are 4.965045 0.4361581 0.1697297 
+ Optimized nugget parameter is 0 
+ Convergence:  TRUE 
+end emulation 
+The inverse range  parameters from the emulation are  0.201408 2.292747 5.891722 
+The nugget  parameter from the emulation is  0 
+2500  of  10000  posterior samples are drawn 
+5000  of  10000  posterior samples are drawn 
+7500  of  10000  posterior samples are drawn 
+10000  of  10000  posterior samples are drawn 
+Done with posterior sampling 
+1139  of  10000  proposed posterior samples of calibration parameters are accepted 
+609  of  10000  proposed posterior samples of range and nugget parameters are accepted 
+Warning messages:
+1: In ppgasp(design = X_sim, response = Y[, keep]) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+2: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+3: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+4: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+5: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL/benchmarks/e3_worker.R ~/spDBL/benchmarks/results/e3/paper/tasks/e3_r018_rc_gasp.rds"
+	User time (seconds): 16320.25
+	System time (seconds): 364.32
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:38:55
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 347208
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 110925364
+	Voluntary context switches: 1457
+	Involuntary context switches: 23774
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 160
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

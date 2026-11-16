@@ -28,3 +28,9 @@ Efficiently reads a contiguous rectangular block of rows and columns from a
 CSV file using \code{readr::read_csv}. Useful for processing big data in
 chunks without loading the entire file into memory.
 }
+\examples{
+f <- file.path(tempdir(), "big.csv")
+write.csv(matrix(1:20, 5, 4), f, row.names = FALSE)
+read_big_csv_quick(f, rows = c(2, 4), cols = c(2, 3))
+unlink(f)
+}

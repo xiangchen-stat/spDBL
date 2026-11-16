@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Prepare PDE emulator training and testing data from CSV files
 #'
 #' Reads a matrix of PDE input parameters and a set of PDE output CSV files,
@@ -29,14 +32,30 @@
 #'
 #' @seealso \code{\link{emulator_learn}}, \code{\link{emulator_predict}}
 #' @importFrom utils read.csv
+#' @examples
+#' data("dt_emulation")
+#' d <- dt_emulation
+#' dir <- tempfile("spdbl_")
+#' dir.create(dir)
+#' file_para <- file.path(dir, "para.csv")
+#' utils::write.csv(d$pde_para_train[1:5, ], file_para, row.names = FALSE)
+#' file_data <- file.path(dir, paste0("run_", 1:5, ".csv"))
+#' for (i in 1:5) utils::write.csv(t(sapply(d$dt_pde_train, function(y) y[i, ])),
+#'                                 file_data[i], row.names = FALSE)
+#' dat <- prepare_data(file_para, file_data, prop_train = 0.6)
+#' c(n_train = dat$n_train, n_test = dat$n_test)
+#' dim(dat$dt_pde_train$T1)
+#' unlink(dir, recursive = TRUE)
 #' @export
 prepare_data <- function(file_para, file_data, prop_train = 0.8){
   pde_para <- as.matrix(read.csv(file = file_para))
   n_input <- dim(pde_para)[1]
   n_train <- round(n_input * prop_train)
   n_test <- n_input - n_train
-  pde_para_train <- pde_para[1:n_train,]
-  pde_para_test <- pde_para[(n_train + 1):n_input,]
+  if (n_train < 1 || n_test < 1)
+    stop("prop_train must leave at least one training run and one test run")
+  pde_para_train <- pde_para[1:n_train, , drop = FALSE]
+  pde_para_test <- pde_para[(n_train + 1):n_input, , drop = FALSE]
   
   # manipulate new data
   dat_pde <- list()
@@ -100,25 +119,47 @@ prepare_data <- function(file_para, file_data, prop_train = 0.8){
 #' @param gp_tune Positive range tuning factor.
 #' @param gp_sigma2,gp_tau2 Positive input/spatial kernel amplitude and nugget.
 #' @param covariance "iw" (default) or "sigma2R".
-#' @param R_episode,R_field Optional spatial covariance matrices for the block
-#'   and full grid, respectively. Defaults use the same exponential kernel.
+#' @param R_episode,R_field Optional spatial covariance matrices for one block
+#'   and for the full grid. `R_episode` defaults to the exponential kernel over
+#'   the sites of a block. `R_field` is used only by calibration. Unless it is
+#'   supplied it is not formed here, since an S x S matrix costs
+#'   \eqn{O(S^2)} memory and its check \eqn{O(S^3)} time; calibration builds
+#'   the same exponential kernel at the observed sites when it needs it.
 #' @param seed Optional local RNG seed. NULL follows the session RNG.
 #' @param verbose Whether to report progress.
+#' @param keep_draws If TRUE (default), store every coefficient draw. If FALSE
+#'   (marginal sampling only), store only where each episode's draws start in
+#'   the random-number stream and regenerate identical draws when prediction or
+#'   calibration needs them. This removes the largest part of a large
+#'   emulator's memory at the cost of re-drawing (about the original sampling
+#'   time per full pass over the draws). Each episode then costs about 2.5 KB
+#'   instead of its draws, so it pays off once an episode's draws exceed that.
 #' @param sampling "marginal" (default) uses smoothed episode marginals
 #'   conditional on a shared covariance draw, following Eq. (9) and Algorithm 4.
 #'   "joint" uses backward conditionals to preserve dependence across episodes.
 #' @return An object of class spDBL_emulator, retaining para_ffbs,
 #'   res_ffbs, and a complete setup list for prediction and calibration.
 #' @seealso [emulator_predict()], [calibration_prepare()]
+#' @examples
+#' data("dt_emulation")
+#' d <- dt_emulation
+#' em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+#'                      nsam = 5, seed = 1)
+#' class(em)
+#' c(n_train = em$setup$n_train, episodes = em$setup$nT, locations = em$setup$N_sp)
 #' @export
 emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
     F_ls_train = "default", F_ls_test = "default", N_people = 10000,
     nsam = 10, AR_choice = 2, episode_window = 1, gp_tune = 0.5,
     gp_sigma2 = 1.1, gp_tau2 = 1e-4, covariance = c("iw", "sigma2R"),
     R_episode = NULL, R_field = NULL, seed = NULL, verbose = FALSE,
-    sampling = c("marginal", "joint")) {
+    sampling = c("marginal", "joint"), keep_draws = TRUE) {
   covariance <- match.arg(covariance)
   sampling <- match.arg(sampling)
+  if (!isTRUE(keep_draws) && !isFALSE(keep_draws))
+    stop("keep_draws must be TRUE or FALSE")
+  if (!keep_draws && sampling != "marginal")
+    stop("keep_draws = FALSE needs sampling = \"marginal\"")
   restore_seed <- .cal_seed(seed)
   on.exit(restore_seed(), add = TRUE)
   pde_para_train <- as.matrix(pde_para_train)
@@ -152,14 +193,12 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
     diag(gp_tau2, nrow(x))
   V <- kernel(pde_para_train, phi_para)
   if (is.null(R_episode)) R_episode <- kernel(ind_sp[block_cols[1, ], , drop = FALSE], phi_sp)
-  if (is.null(R_field)) R_field <- kernel(ind_sp, phi_sp)
-  if (!identical(dim(R_episode), c(C, C)) || !identical(dim(R_field), c(S, S)))
+  if (!identical(dim(R_episode), c(C, C)) ||
+      (!is.null(R_field) && !identical(dim(R_field), c(S, S))))
     stop("Spatial covariance dimensions do not match the block and grid")
   .cal_spd(R_episode, "R_episode")
-  .cal_spd(R_field, "R_field")
+  if (!is.null(R_field)) .cal_spd(R_field, "R_field")
   if (identical(F_ls_train, "default")) {
-    if (AR_choice == 2 && nT_ori < 3L)
-      stop("The default AR2 initialization requires at least three observations")
     F_ls_train <- if (AR_choice == 2)
       gen_F_ls_AR2_EP(dt_pde_train, nT_ori, B, ind) else
       gen_F_ls_AR1_EP(dt_pde_train, nT_ori, B, ind)
@@ -182,9 +221,9 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
     do.call(FFBS_sigma2R, c(args, list(R = R_episode)))
   res_ffbs <- if (covariance == "iw")
     FFBS_sampling(nsam, para_ffbs, F_ls_train, G, E, verbose = verbose,
-                  sampling = sampling) else
+                  sampling = sampling, keep_draws = keep_draws) else
     FFBS_sampling_sigma2R(nsam, para_ffbs, F_ls_train, G, E, R_episode,
-                          verbose = verbose, sampling = sampling)
+                          verbose = verbose, sampling = sampling, keep_draws = keep_draws)
   structure(list(para_ffbs = para_ffbs, res_ffbs = res_ffbs,
     setup = list(version = 1L, covariance = covariance, sampling_method = sampling,
       Nx = Nx, Ny = Ny,
@@ -195,7 +234,8 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
       block_cols = block_cols, nsam = nsam, Y = Y, F_ls = F_ls_train,
       G_ls = G, W_ls = W, V = V, R_episode = R_episode, R_field = R_field,
       prior = prior, phi_para = phi_para, phi_sp = phi_sp,
-      gp_tune = gp_tune, gp_sigma2 = gp_sigma2, gp_tau2 = gp_tau2)),
+      gp_tune = gp_tune, gp_sigma2 = gp_sigma2, gp_tau2 = gp_tau2,
+      seed = seed, spDBL_version = .spdbl_version())),
     class = "spDBL_emulator")
 }
 
@@ -217,39 +257,42 @@ emulator_learn <- function(pde_para_train, dt_pde_train, Nx, Ny,
 #' @return A time-indexed list of matrices, or arrays with a final posterior
 #'   draw dimension when MC = TRUE.
 #' @seealso [FFBS_predict_exact()], [calibration_predict()]
+#' @examples
+#' data("dt_emulation")
+#' d <- dt_emulation
+#' em <- emulator_learn(d$pde_para_train, d$dt_pde_train, Nx = 10, Ny = 10,
+#'                      nsam = 5, seed = 1)
+#' pred <- emulator_predict(em, d$pde_para_test, dt_pde_test = d$dt_pde_test)
+#' dim(pred[[2]])
+#' sqrt(mean((unlist(pred) - unlist(d$dt_pde_test))^2))
 #' @export
 emulator_predict <- function(emulator, input_new, dt_pde_test = NULL,
                              F_new_ls = "default", MC = FALSE) {
   if (is.null(dim(input_new))) input_new <- matrix(input_new, nrow = 1)
   input_new <- as.matrix(input_new)
   if (inherits(emulator, "spDBL_calibration_input")) {
-    values <- lapply(seq_len(nrow(input_new)), function(i)
-      lapply(seq_len(emulator$M), function(m)
-        predict_calibration(input_new[i, ], m, emulator)$mu))
-    return(lapply(seq_len(emulator$T), function(t) {
-      out <- array(NA_real_, c(nrow(input_new), emulator$S, emulator$M))
-      for (i in seq_len(nrow(input_new))) for (m in seq_len(emulator$M))
-        out[i, , m] <- values[[i]][[m]][t, ]
-      if (MC) out else matrix(apply(out, c(1, 2), mean), nrow(input_new), emulator$S)
-    }))
+    n <- nrow(input_new)
+    out <- lapply(seq_len(emulator$T), function(t)
+      array(NA_real_, c(n, emulator$S, emulator$M)))
+    # Draw-outer order reuses the cached residual weights of each draw.
+    for (m in seq_len(emulator$M)) for (i in seq_len(n)) {
+      mu <- predict_calibration(input_new[i, ], m, emulator, covariance = "none")$mu
+      for (t in seq_len(emulator$T)) out[[t]][i, , m] <- mu[t, ]
+    }
+    return(lapply(out, function(a)
+      if (MC) a else matrix(apply(a, c(1, 2), mean), n, emulator$S)))
   }
   s <- emulator$setup
   nT_ori <- s$nT_ori
-  if (identical(F_new_ls, "default")) {
-    if (is.null(dt_pde_test))
-      stop("Supply F_new_ls or dt_pde_test, or use a calibration_prepare() result")
-    n_test <- nrow(input_new)
-    index <- generate.grid.rowsnake(n_test, s$fncol, n_test, s$bncol)
-    F_new_ls <- if (s$AR_choice == 2)
-      gen_F_ls_AR2_EP(dt_pde_test, nT_ori, s$n_b, index) else
-      gen_F_ls_AR1_EP(dt_pde_test, nT_ori, s$n_b, index)
-  }
+  if (identical(F_new_ls, "default"))
+    F_new_ls <- .emulator_default_designs(emulator, input_new, dt_pde_test)
   args <- list(Y = s$Y, F_ls = s$F_ls, F_new_ls = F_new_ls,
     input = s$pde_para_train, input_new = input_new, nT = s$nT,
     phi_para = s$phi_para, gp_sigma2 = s$gp_sigma2, gp_tau2 = s$gp_tau2)
   if (MC) {
-    episodic <- do.call(FFBS_predict_MC,
-      c(args, list(nsam = s$nsam, res_ffbs = emulator$res_ffbs)))
+    episodic <- if (inherits(emulator$res_ffbs, "spDBL_lazy_draws"))
+      do.call(.predict_mc_regenerated, c(list(emulator = emulator), args)) else
+      do.call(FFBS_predict_MC, c(args, list(nsam = s$nsam, res_ffbs = emulator$res_ffbs)))
     recover_from_EP_MC(episodic, nT_ori, s$nT, s$nsam)
   } else {
     episodic <- do.call(FFBS_predict_exact, c(args, list(para_ffbs = emulator$para_ffbs)))

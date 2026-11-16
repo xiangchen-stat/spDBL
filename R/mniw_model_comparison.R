@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Xiang Chen. Part of the spDBL R package.
+# SPDX-License-Identifier: MIT
+
 #' Analytical WAIC for an MNIW multivariate regression posterior
 #'
 #' Computes the log pointwise predictive density and the posterior-variance

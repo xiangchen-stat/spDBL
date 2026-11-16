@@ -30,3 +30,21 @@ Computes the posterior mean vector \eqn{B_t b_t} and covariance matrix
 \eqn{B_t} of the discrepancy \eqn{u_t} given the current predictive mean
 \eqn{\mu_t}, observations \eqn{z_t - u_t}, and variance \eqn{\tau^2_t}.
 }
+\section{Lifecycle}{
+
+Deprecated since spDBL 1.2.0 and will be removed in a future release.
+The first call in a session warns; set
+\code{options(spDBL.warn_deprecated = FALSE)} to silence it.
+}
+
+\examples{
+set.seed(1)
+Sigma <- matrix(c(1, 0.3, 0.1, 0.3, 1, 0.3, 0.1, 0.3, 1), 3)
+mu <- rnorm(3)
+zu <- rnorm(3)
+post <- cal_Bt_bt(mu, invSigma = solve(Sigma), tau2t = 0.4, zt_ut = zu, I_Stilde = diag(3))
+K <- Sigma \%*\% solve(Sigma + 0.4 * diag(3))  # Kalman gain
+all.equal(post$Bt, Sigma - K \%*\% Sigma)
+all.equal(as.vector(post$Btbt), as.vector(mu + K \%*\% (zu - mu)))
+
+}

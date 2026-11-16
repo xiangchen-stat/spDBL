@@ -22,7 +22,8 @@ FF_1step_R_I(Yt, Ft, Gt, Wt, Vt, mt_1, Mt_1, delta = 1)
 \item{Mt_1}{Numeric matrix. Filtered state left-covariance at \eqn{t-1}
 (\eqn{p \times p}).}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1.0}.}
+\item{delta}{Discount factor. Not implemented: values other than 1 give a
+warning and are ignored. Defaults to \code{1}.}
 }
 \value{
 A named list with:
@@ -31,13 +32,22 @@ A named list with:
 \item{At}{One-step-ahead state left-covariance.}
 \item{mt}{Filtered state mean.}
 \item{Mt}{Filtered state left-covariance.}
-\item{delta}{The discount factor passed in.}
+\item{delta}{Always 1; discounting is not implemented.}
 }
 }
 \description{
 Performs one step of the forward filter under the model where the right
 covariance of the state and observation is the identity matrix (no
 inverse-Wishart update for \eqn{\Sigma}).
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 1)
+par <- dat$para
+one <- FF_1step_R_I(dat$Y[[1]], par$F0, par$G0, par$W0, par$V0,
+                    par$m0, par$M0)
+one$mt
+one$Mt
 }
 \seealso{
 \code{\link{FF_I}}

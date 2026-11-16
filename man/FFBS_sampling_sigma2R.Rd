@@ -14,7 +14,8 @@ FFBS_sampling_sigma2R(
   delta = 1,
   verbose = FALSE,
   seed = NULL,
-  sampling = c("marginal", "joint")
+  sampling = c("marginal", "joint"),
+  keep_draws = TRUE
 )
 }
 \arguments{
@@ -30,7 +31,8 @@ FFBS_sampling_sigma2R(
 
 \item{R}{Numeric matrix. Fixed spatial correlation matrix.}
 
-\item{delta}{Numeric scalar. Discount factor. Defaults to \code{1}.}
+\item{delta}{Discount factor. Must be 1: discounting is not implemented.
+Defaults to \code{1}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emits progress messages. Defaults
 to \code{FALSE}.}
@@ -40,6 +42,13 @@ to \code{FALSE}.}
 \item{sampling}{"marginal" (default) draws smoothed episode marginals
 conditional on a shared variance. "joint" preserves cross-episode
 dependence by sampling backward conditionals.}
+
+\item{keep_draws}{If TRUE (default), store every episode's coefficient
+draws. If FALSE (marginal sampling only), store the random-number state
+at the start of each episode's draws instead; spDBL's prediction and
+calibration functions then regenerate identical draws on demand, which
+cuts the memory of large emulators. Indexing the returned draws by episode
+(\code{[[e]]}) then fails.}
 }
 \value{
 A named list of length \code{nT + 1}. Elements \code{"T1"} through
@@ -52,6 +61,19 @@ Attributes sampling_method and joint_trajectories identify the chosen law.
 Draws \code{nsam} posterior samples of the state \eqn{\Theta_t} and the
 scalar variance \eqn{\sigma^2} using the MNIG sampler, given the FFBS output
 under the scalar-sigma model.
+}
+\examples{
+set.seed(1)
+dat <- gen_ffbs_data(N = 5, S = 3, p = 2, nT = 4)
+par <- dat$para
+R <- 0.5^abs(outer(1:3, 1:3, "-"))
+res <- FFBS_sigma2R(dat$Y, par$F0, par$G0, par$W0, par$V0, par$m0, par$M0,
+                    n0 = 3, D0 = 1, nT = 4, R = R)
+sam <- FFBS_sampling_sigma2R(500, res, par$F0, par$G0, nT = 4, R = R,
+                             seed = 1)
+dim(sam$T2)
+summary(sam$Sigma)  # draws of sigma^2
+round(apply(sam$T2, 1:2, mean) - res$bs$st[, , 2], 2)
 }
 \seealso{
 \code{\link{FFBS_sigma2R}}, \code{\link{MNIG_sampler}}

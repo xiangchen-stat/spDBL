@@ -25,4 +25,11 @@ dt_emulation
 A list of example training and testing objects used to illustrate the
 emulation workflow in the package.
 }
+\examples{
+data("dt_emulation")
+d <- dt_emulation
+dim(d$pde_para_train)
+length(d$dt_pde_train)
+dim(d$dt_pde_train$T1)
+}
 \keyword{datasets}
