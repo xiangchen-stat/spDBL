@@ -5,10 +5,11 @@ Authors@R: c(
     person("Xiang", "Chen", email = "xiangchen@ucla.edu", role = c("aut", "cre")),
     person("Sudipto", "Banerjee", email = "sudipto@ucla.edu", role = c("aut"))
   )
-Description: Emulates the gridded output of spatiotemporal mechanistic
-    simulators with a matrix-variate dynamic linear model whose posterior is
-    available in closed form, processing large grids as sequences of spatial
-    blocks, and predicts the output at untried inputs. Calibrates simulator
+Description: Emulates the output of spatiotemporal mechanistic simulators,
+    a field on a spatial grid at each time step, with a matrix-variate dynamic
+    linear model whose posterior is available in closed form, processing large
+    grids as sequences of spatial blocks, and predicts the output at untried
+    inputs. Calibrates simulator
     parameters to noisy field data without further simulator runs: a design
     Gaussian process supplies the emulator's autoregressive inputs, and 'Stan'
     (through the suggested package 'rstan') samples the parameters

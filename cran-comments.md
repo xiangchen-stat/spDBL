@@ -23,13 +23,11 @@ behaviour.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
-* Possibly misspelled word in DESCRIPTION: "gridded". The word is spelled
-  correctly (output on a spatial grid).
-
-The first win-builder run also timed three examples at 16-17 s; they now fit
-on 6 of the bundled data's 26 time steps.
+A first win-builder run gave two NOTEs, both fixed: "gridded" flagged as
+possibly misspelled in DESCRIPTION (reworded), and three examples at 16-17 s
+(they now fit on 6 of the bundled data's 26 time steps).
 
 (Locally, `R CMD check --as-cran` also reports "unable to verify current
 time" and skips math rendering in the HTML manual because V8 is not
