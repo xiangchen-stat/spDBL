@@ -19,11 +19,17 @@ behaviour.
 * local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-15)
 * GitHub Actions: Ubuntu (R-devel, release, oldrel-1), macOS (release),
   Windows (release)
-* win-builder (R-devel): <to run before submission>
+* win-builder (R-devel, 2026-11-14 r90890 ucrt): <result of the rerun>
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 1 note
+
+* Possibly misspelled word in DESCRIPTION: "gridded". The word is spelled
+  correctly (output on a spatial grid).
+
+The first win-builder run also timed three examples at 16-17 s; they now fit
+on 6 of the bundled data's 26 time steps.
 
 (Locally, `R CMD check --as-cran` also reports "unable to verify current
 time" and skips math rendering in the HTML manual because V8 is not
