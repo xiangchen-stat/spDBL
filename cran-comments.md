@@ -3,15 +3,20 @@
 Update of spDBL from 1.1.1 to 1.2.0. Main changes (details in NEWS.md):
 calibration without simulator runs with propagated design-GP uncertainty,
 posterior-mode chain starts and rank-normalised convergence diagnostics,
-pointwise prediction intervals, out-of-core smoothing and prediction, and
-fewer hard dependencies (ggplot2, ggpubr, scales, deSolve and ReacTran moved
-to Suggests; magrittr, invgamma, LaplacesDemon and matrixcalc removed).
+pointwise prediction intervals, out-of-core smoothing and prediction,
+batched simulator-free prediction (about 40 times faster), coefficient draws
+that can be regenerated on demand instead of stored (`keep_draws = FALSE`,
+about half the memory on large grids), faster calibration gradients,
+conditional fits that can run in parallel (`parallel_draws`), and fewer hard
+dependencies (ggplot2, ggpubr, scales, deSolve and ReacTran moved to
+Suggests; magrittr, invgamma, LaplacesDemon and matrixcalc removed). The
+CITATION file now gives the package's CRAN DOI.
 Some defaults change results; NEWS.md says how to restore the earlier
 behaviour.
 
 ## Test environments
 
-* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran`
+* local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-15)
 * GitHub Actions: Ubuntu (R-devel, release, oldrel-1), macOS (release),
   Windows (release)
 * win-builder (R-devel): <to run before submission>
