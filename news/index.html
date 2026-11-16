@@ -42,7 +42,7 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="1.2.0" id="spdbl-120">spDBL 1.2.0<a class="anchor" aria-label="anchor" href="#spdbl-120"></a></h2>
+<h2 class="pkg-version" data-toc-text="1.2.0" id="spdbl-120">spDBL 1.2.0<a class="anchor" aria-label="anchor" href="#spdbl-120"></a></h2><p class="text-muted">CRAN release: 2026-11-16</p>
 <div class="section level3">
 <h3 id="changes-that-affect-existing-code-or-results-1-2-0">Changes that affect existing code or results<a class="anchor" aria-label="anchor" href="#changes-that-affect-existing-code-or-results-1-2-0"></a></h3>
 <ul><li>The default autoregressive designs are now causal and deterministic. A lag that does not exist yet is a column of ones (a per-site intercept), so the AR(1) design at t = 1 is no longer the response itself, and the AR(2) designs at t = 1, 2 no longer use random noise or the future value Y_3. <code><a href="../reference/emulator_learn.html">emulator_learn()</a></code> and <code><a href="../reference/emulator_predict.html">emulator_predict()</a></code> results change, and predictions no longer draw from the session’s random numbers. AR(2) emulators no longer need three time steps.</li>

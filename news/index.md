@@ -2,6 +2,8 @@
 
 ## spDBL 1.2.0
 
+CRAN release: 2026-11-16
+
 ### Changes that affect existing code or results
 
 - The default autoregressive designs are now causal and deterministic. A
