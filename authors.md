@@ -28,13 +28,15 @@ Learning Research*, **26**(146), 1–43.
     }
 
 Chen X, Banerjee S (2026). *spDBL: Dynamic Bayesian Learning for
-Spatiotemporal Mechanistic Models*. R package version 1.2.0,
-<https://github.com/xiangchen-stat/spDBL>.
+Spatiotemporal Mechanistic Models*.
+[doi:10.32614/CRAN.package.spDBL](https://doi.org/10.32614/CRAN.package.spDBL).
+R package version 1.2.0, <https://github.com/xiangchen-stat/spDBL>.
 
     @Manual{spDBL,
       title = {{spDBL}: Dynamic Bayesian Learning for Spatiotemporal Mechanistic Models},
       author = {Xiang Chen and Sudipto Banerjee},
       year = {2026},
       note = {R package version 1.2.0},
+      doi = {10.32614/CRAN.package.spDBL},
       url = {https://github.com/xiangchen-stat/spDBL},
     }

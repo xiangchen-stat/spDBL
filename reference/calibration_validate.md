@@ -47,7 +47,7 @@ held_out <- lapply(d$validation$responses, function(y) y[1:3, , drop = FALSE])
 val <- calibration_validate(cal, d$validation$input[1:3, ], held_out)
 val$field
 #>   input rmse_known_design rmse_offline_design
-#> 1     1        0.06867287          0.16160714
+#> 1     1        0.06867287          0.16160715
 #> 2     2        0.02786569          0.03456963
 #> 3     3        0.03810663          0.07013791
 ```
