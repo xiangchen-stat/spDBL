@@ -10,9 +10,9 @@ Windows R-devel (Debian: OK). In this version:
 * The six slowest tests (Monte Carlo cross-checks and two plotting tests)
   use `skip_on_cran()`; our GitHub Actions CI runs them.
 
-Rebuilding the vignettes went from 279 s to <win-builder> and the tests from
-194 s to <win-builder> on win-builder (Windows R-devel); the whole check now
-takes <win-builder> there.
+On win-builder (Windows R-devel), rebuilding the vignettes now takes 29 s
+instead of 279 s and the tests 72 s instead of 194 s; the whole check takes
+338 s (plus 76 s to install) instead of 756 s.
 
 ## Submission
 
@@ -43,7 +43,7 @@ another update for at least two months.
 * local macOS (aarch64), R 4.4.1: `R CMD check --as-cran` (2026-11-16)
 * GitHub Actions: Ubuntu (release, oldrel-1; R-devel weekly), macOS
   (release), Windows (release)
-* win-builder (R-devel, 2026-11-14 r90890 ucrt): Status OK
+* win-builder (R-devel, 2026-11-14 r90890 ucrt): Status OK, check time 338 s
 
 ## R CMD check results
 
