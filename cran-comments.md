@@ -18,8 +18,8 @@ This update comes less than three weeks after 1.1.1 (October 29, 2026). It
 fixes intervals that were too narrow in 1.1.1, which ignored the predictive
 variance of the design Gaussian process (95% prediction intervals for
 held-out simulator runs covered 54% before and 94% after), and it is the
-version described in a manuscript submitted to the JMLR Machine Learning Open
-Source Software track, which archives the reviewed version. We do not plan
+version described in a manuscript for the JMLR Machine Learning Open Source
+Software track, which archives the reviewed version. We do not plan
 another update for at least two months.
 
 ## Test environments
