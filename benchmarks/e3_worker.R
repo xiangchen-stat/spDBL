@@ -220,11 +220,14 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
     mode_s <- mle$elapsed
   }
   # Proposal scales tuned from a pilot chain (profile option rc_pilot, the
-  # pilot's iterations): RobustCalibration's random-walk proposal for theta
-  # defaults to 5% of each prior range, which accepted about 11% of moves in
-  # E3. The pilot starts at the mode with the default scales; each theta's
-  # proposal sd becomes rc_sd_scale times its pilot posterior sd. No true
-  # values are used, and the pilot's time counts towards the calibration.
+  # pilot's iterations). RobustCalibration proposes all of theta at once with
+  # sd sd_proposal[i] * (range of theta_i), and its default sd_proposal[i] is
+  # 5% of that range, so the default steps are 10% of the range for eta1
+  # (range 2) and 1% for eta2 and alpha2 (range 0.2); E3 accepted about 11%
+  # of them. The pilot starts at the mode with the default scales; each
+  # theta's proposal sd then becomes rc_sd_scale times its pilot posterior
+  # sd (divided by the range, which RobustCalibration multiplies back). No
+  # true values are used, and the pilot's time counts towards the calibration.
   sd_proposal <- NULL
   pilot_s <- 0
   if (!is.null(cfg$rc_pilot)) {
@@ -236,7 +239,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       simul_nug = simul_nug, discrepancy_type = discrepancy,
       initial_values = theta_mode))
     pilot_draws <- pilot$value@post_sample[, seq_along(active), drop = FALSE]
-    sd_theta <- cfg$rc_sd_scale * apply(pilot_draws, 2, stats::sd)
+    width <- theta_range[, 2] - theta_range[, 1]
+    sd_theta <- cfg$rc_sd_scale * apply(pilot_draws, 2, stats::sd) / width
     # Keep RobustCalibration's defaults for the discrepancy's range
     # parameters and nugget.
     sd_proposal <- c(sd_theta, rep(0.25, ncol(x)), 0.25)
@@ -290,8 +294,11 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$emulator_s <- emu$elapsed
   out$mode_search_s <- mode_s
   out$pilot_s <- pilot_s
-  out$sd_proposal_theta <- if (is.null(sd_proposal)) NA_character_ else
-    paste(signif(sd_proposal[seq_along(active)], 3), collapse = ";")
+  # The proposal sd of each theta in its own units (RobustCalibration's
+  # sd_proposal times the range).
+  out$sd_proposal_theta <- paste(signif((if (is.null(sd_proposal))
+    0.05 * (theta_range[, 2] - theta_range[, 1]) else sd_proposal[seq_along(active)]) *
+    (theta_range[, 2] - theta_range[, 1]), 3), collapse = ";")
   # Each chain is single-threaded: CPU time is the sum over chains, wall time
   # the slowest chain when they run at the same time. The mode search and
   # the pilot run before the chains, on one core.
