@@ -23,6 +23,11 @@
 #                           inaccurate for many outputs).
 #   mlegp_pca               mlegp GPs on principal-component weights of the
 #                           centred outputs (Higdon-style PCA-GP).
+#   gasp_*                  RobustGaSP tuning study (profile gasp_tune, on
+#                           designs 11-12 that E2 does not evaluate): the
+#                           settings in gasp_specs below. The selected one is
+#                           run on designs 1-10 as ppgasp_opt (profile
+#                           fixed_gasp).
 
 local({
   file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
@@ -113,6 +118,59 @@ fit_designgp_only <- function(d, cfg, task) {
   list(pred = pred$value, fit_s = fit$elapsed, fit_cpu_s = fit$cpu,
        predict_s = pred$elapsed, predict_cpu_s = pred$cpu, heap_fit = NA_real_,
        extra = list(last_time_predicted = FALSE))
+}
+
+# RobustGaSP settings of the tuning study. Each starts from ppgasp_tuned
+# (estimated nugget, Nelder-Mead) and changes one setting; per_time fits one
+# ppgasp per time step. ppgasp_opt is the setting selected on designs 11-12.
+gasp_base <- list(per_time = FALSE, nugget.est = TRUE, optimization = "nelder-mead",
+                  kernel_type = "matern_5_2", trend = "constant", method = "post_mode",
+                  prior_choice = "ref_approx", num_initial_values = 2L)
+gasp_specs <- list(
+  gasp_base = list(),
+  gasp_starts = list(num_initial_values = 10L),
+  gasp_trend = list(trend = "linear"),
+  gasp_m32 = list(kernel_type = "matern_3_2"),
+  gasp_powexp = list(kernel_type = "pow_exp"),
+  gasp_mmle = list(method = "mmle"),
+  gasp_refgamma = list(prior_choice = "ref_gamma"),
+  gasp_pt = list(per_time = TRUE),
+  gasp_pt_trend = list(per_time = TRUE, trend = "linear"))
+
+fit_ppgasp_spec <- function(d, cfg, task, spec) {
+  suppressPackageStartupMessages(library(RobustGaSP))
+  spec <- utils::modifyList(gasp_base, spec)
+  active <- d$upper > d$lower
+  X <- d$input_train[, active, drop = FALSE]
+  X_new <- d$input_test[, active, drop = FALSE]
+  n <- nrow(X_new); S <- d$grid^2; T <- length(d$train)
+  trend <- if (spec$trend == "linear") cbind(1, X) else matrix(1, nrow(X), 1)
+  trend_new <- if (spec$trend == "linear") cbind(1, X_new) else matrix(1, n, 1)
+  fit_one <- function(Y) {
+    const <- apply(Y, 2, function(v) max(v) - min(v) < 1e-12)
+    out <- list(mean = matrix(rep(Y[1, ], each = n), n, ncol(Y)))
+    out$lower <- out$upper <- out$mean
+    out$sd <- matrix(0, n, ncol(Y))
+    if (any(!const)) {
+      utils::capture.output(fit <- ppgasp(design = X, response = Y[, !const, drop = FALSE],
+        trend = trend, nugget.est = spec$nugget.est, optimization = spec$optimization,
+        kernel_type = spec$kernel_type, method = spec$method,
+        prior_choice = spec$prior_choice, num_initial_values = spec$num_initial_values))
+      pp <- predict(fit, X_new, testing_trend = trend_new)
+      out$mean[, !const] <- pp$mean; out$sd[, !const] <- pp$sd
+      out$lower[, !const] <- pp$lower95; out$upper[, !const] <- pp$upper95
+    }
+    out
+  }
+  tm <- timed(if (spec$per_time) lapply(d$train, function(y) fit_one(as.matrix(y))) else
+    list(fit_one(flatten_runs(d$train))))
+  parts <- tm$value
+  shape <- function(k) array(do.call(cbind, lapply(parts, `[[`, k)), c(n, S, T))
+  list(pred = list(mean = shape("mean"), sd = shape("sd"), lower = shape("lower"),
+                   upper = shape("upper")),
+       fit_s = tm$elapsed, fit_cpu_s = tm$cpu, predict_s = NA_real_,
+       predict_cpu_s = NA_real_, heap_fit = NA_real_,
+       extra = list(gasp_spec = paste(names(spec), unlist(spec), sep = "=", collapse = ";")))
 }
 
 # Ablation: ppgasp fitted separately at each time step (same defaults).
@@ -239,7 +297,9 @@ bench_worker_main(function(task) {
     mlegp_pca = fit_mlegp(d, cfg, task),
     designgp_only = fit_designgp_only(d, cfg, task),
     ppgasp_per_time = fit_ppgasp_per_time(d, cfg, task),
-    stop("Unknown method ", task$method))
+    if (task$method %in% names(gasp_specs))
+      fit_ppgasp_spec(d, cfg, task, gasp_specs[[task$method]]) else
+      stop("Unknown method ", task$method))
   truth <- list_to_array(d$test)
   mask <- array(FALSE, dim(truth))
   mask[, , seq_len(dim(truth)[3]) >= cfg$eval_from] <- TRUE

@@ -170,3 +170,32 @@ local({
          train_n = 100, train_seed = bench_profiles$e3$mode$seed + 3000L,
          rc_cores = 4))
 })
+
+# RobustGaSP tuning study for E2 (results/e2/gasp_tune): the fixed profile on
+# two designs E2 does not evaluate (11 and 12; run with --reps=11,12), with
+# the settings in e2_worker.R's gasp_specs. Selection rule, fixed before any
+# result was seen: the lowest CRPS averaged over the three grids and the two
+# designs; ties broken by RMSE.
+local({
+  bench_profiles$e2$gasp_tune <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "RobustGaSP tuning on designs 11-12", designs = 12,
+         methods = c("gasp_base", "gasp_starts", "gasp_trend", "gasp_m32",
+                     "gasp_powexp", "gasp_mmle", "gasp_refgamma", "gasp_pt",
+                     "gasp_pt_trend")))
+})
+
+# RobustCalibration with tuned proposal scales (results/e3/n100_gasp_*): the
+# n100 profile for rc_gasp only, with a pilot chain of rc_pilot iterations
+# setting each theta's random-walk proposal sd to rc_sd_scale times its pilot
+# posterior sd (e3_worker.R). gasp_pilot compares scales on a few replicates
+# with shorter chains; rc_sd_scale is then chosen by effective samples per
+# CPU second, which uses no true values, and n100_gasp_opt reruns all 30.
+local({
+  base <- utils::modifyList(bench_profiles$e3$n100,
+    list(methods = "rc_gasp", rc_pilot = 4000L, rc_sd_scale = 1))
+  bench_profiles$e3$gasp_pilot <<- utils::modifyList(base,
+    list(label = "RobustCalibration GaSP proposal-scale pilot", rc_S = 6000L,
+         rc_S0 = 1500L))
+  bench_profiles$e3$n100_gasp_opt <<- utils::modifyList(base,
+    list(label = "100 training runs, RobustCalibration GaSP with tuned proposals"))
+})
