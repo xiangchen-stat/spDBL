@@ -198,7 +198,11 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
              col = rep(d$grid$col, T))[keep, , drop = FALSE]
   X_sim <- training$input[, active, drop = FALSE]
   theta_range <- cbind(d$lower[active], d$upper[active])
-  emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep])))
+  # rc_simul_nug: RobustCalibration's ppgasp emulator estimates a nugget, as
+  # the tuned RobustGaSP fits of E2 do (default FALSE, the package default).
+  simul_nug <- isTRUE(cfg$rc_simul_nug)
+  emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep],
+    nugget.est = simul_nug)))
   # init = "mode": RobustCalibration's own maximum-likelihood estimate from
   # rc_mle_starts initial values, the counterpart of spDBL's mode search; its
   # time counts towards the calibration time.
@@ -210,7 +214,7 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       observations = obs, p_theta = length(active), simul_type = 0,
       input_simul = X_sim, output_simul = Y[, keep],
       loc_index_emulator = seq_len(sum(keep)), theta_range = theta_range,
-      discrepancy_type = discrepancy, method = "mle",
+      simul_nug = simul_nug, discrepancy_type = discrepancy, method = "mle",
       num_initial_values = cfg$rc_mle_starts)))
     theta_mode <- fit_mle@param_est[seq_along(active)]
     mode_s <- mle$elapsed
@@ -229,7 +233,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       p_theta = length(active), simul_type = 0, input_simul = X_sim,
       output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
       theta_range = theta_range, S = cfg$rc_pilot, S_0 = cfg$rc_pilot %/% 4,
-      discrepancy_type = discrepancy, initial_values = theta_mode))
+      simul_nug = simul_nug, discrepancy_type = discrepancy,
+      initial_values = theta_mode))
     pilot_draws <- pilot$value@post_sample[, seq_along(active), drop = FALSE]
     sd_theta <- cfg$rc_sd_scale * apply(pilot_draws, 2, stats::sd)
     # Keep RobustCalibration's defaults for the discrepancy's range
@@ -255,8 +260,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       p_theta = length(active), simul_type = 0, input_simul = X_sim,
       output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
       theta_range = theta_range, S = cfg$rc_S, S_0 = cfg$rc_S0,
-      discrepancy_type = discrepancy, initial_values = start,
-      sd_proposal = sd_proposal))
+      simul_nug = simul_nug, discrepancy_type = discrepancy,
+      initial_values = start, sd_proposal = sd_proposal))
     list(sample = run$value@post_sample[, seq_along(active), drop = FALSE],
          time = run$elapsed, accept = run$value@accept_S[1] / cfg$rc_S)
   }
@@ -301,7 +306,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s%s", discrepancy,
     cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","),
     if (is.null(cfg$rc_pilot)) "" else sprintf(" pilot=%d sd_scale=%g",
-      as.integer(cfg$rc_pilot), cfg$rc_sd_scale))
+      as.integer(cfg$rc_pilot), cfg$rc_sd_scale),
+    if (simul_nug) " simul_nug" else "")
   out
 }
 

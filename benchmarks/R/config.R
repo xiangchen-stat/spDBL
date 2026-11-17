@@ -184,18 +184,26 @@ local({
                      "gasp_pt_trend")))
 })
 
-# RobustCalibration with tuned proposal scales (results/e3/n100_gasp_*): the
-# n100 profile for rc_gasp only, with a pilot chain of rc_pilot iterations
-# setting each theta's random-walk proposal sd to rc_sd_scale times its pilot
-# posterior sd (e3_worker.R). gasp_pilot compares scales on a few replicates
-# with shorter chains; rc_sd_scale is then chosen by effective samples per
-# CPU second, which uses no true values, and n100_gasp_opt reruns all 30.
+# RobustCalibration (S-GaSP and GaSP) with a comparable setup to spDBL's
+# (results/e3/rc_pilot_*, results/e3/n100_rc_tuned): the n100 profile with
+#   - rc_mle_starts = 20: chains start at the best of 20 maximum-likelihood
+#     starts, as spDBL's start at the best of 20 L-BFGS optima;
+#   - a pilot chain of rc_pilot iterations from that optimum setting each
+#     theta's random-walk proposal sd to rc_sd_scale times its pilot posterior
+#     sd (e3_worker.R), the counterpart of the step size and mass matrix that
+#     Stan adapts during spDBL's warm-up; the pilot's time counts;
+#   - rc_simul_nug = TRUE: the internal ppgasp emulator estimates a nugget,
+#     as the tuned RobustGaSP fits of E2 do.
+# rc_pilot compares rc_sd_scale on replicates 1-3 with shorter chains; the
+# scale is chosen per method by median effective samples per CPU second,
+# which uses no true values, and n100_rc_tuned reruns all 30 replicates.
 local({
   base <- utils::modifyList(bench_profiles$e3$n100,
-    list(methods = "rc_gasp", rc_pilot = 4000L, rc_sd_scale = 1))
-  bench_profiles$e3$gasp_pilot <<- utils::modifyList(base,
-    list(label = "RobustCalibration GaSP proposal-scale pilot", rc_S = 6000L,
+    list(methods = c("rc_sgasp", "rc_gasp"), rc_mle_starts = 20L,
+         rc_pilot = 4000L, rc_sd_scale = 1, rc_simul_nug = TRUE))
+  bench_profiles$e3$rc_pilot <<- utils::modifyList(base,
+    list(label = "RobustCalibration proposal-scale pilot", rc_S = 6000L,
          rc_S0 = 1500L))
-  bench_profiles$e3$n100_gasp_opt <<- utils::modifyList(base,
-    list(label = "100 training runs, RobustCalibration GaSP with tuned proposals"))
+  bench_profiles$e3$n100_rc_tuned <<- utils::modifyList(base,
+    list(label = "100 training runs, RobustCalibration with a comparable setup"))
 })
