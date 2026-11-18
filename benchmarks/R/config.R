@@ -247,3 +247,12 @@ local({
                      "sp_w5_tune1_nsam50", "pc_linear_9999", "pc_linear_nugget",
                      "pc_9999_nugget", "pc_linear_9999_nugget", "pc_all")))
 })
+
+# The selected spDBL and PCA-GP settings on E2's designs 1-10
+# (results/e2/fixed_tuned): sp_opt (episode window 5, gp_tune 1, 50 draws)
+# and pc_opt (linear mean, 99.99% of variance, nugget, 20 restarts).
+local({
+  bench_profiles$e2$fixed_tuned <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, 10 designs: spDBL and PCA-GP with tuned settings",
+         methods = c("sp_opt", "pc_opt")))
+})

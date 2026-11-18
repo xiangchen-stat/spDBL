@@ -180,7 +180,10 @@ spdbl_specs <- list(
   sp_w5_tune1 = list(episode_window = 5L, gp_tune = 1),
   sp_w5_nsam50 = list(episode_window = 5L, nsam = 50L),
   sp_tune1_nsam50 = list(gp_tune = 1, nsam = 50L),
-  sp_w5_tune1_nsam50 = list(episode_window = 5L, gp_tune = 1, nsam = 50L))
+  sp_w5_tune1_nsam50 = list(episode_window = 5L, gp_tune = 1, nsam = 50L),
+  # Selected on designs 11-12 (lowest mean CRPS over both rounds: 0.1182,
+  # against 0.1200 for spdbl_s2r_designgp's setting), run on designs 1-10.
+  sp_opt = list(episode_window = 5L, gp_tune = 1, nsam = 50L))
 pca_specs <- list(
   pc_base = list(),
   pc_99 = list(PC.percent = 99),
@@ -194,7 +197,10 @@ pca_specs <- list(
   pc_linear_nugget = list(constantMean = 0, nugget = 1e-4),
   pc_9999_nugget = list(PC.percent = 99.99, nugget = 1e-4),
   pc_linear_9999_nugget = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4),
-  pc_all = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L))
+  pc_all = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L),
+  # Selected on designs 11-12 (0.1180, against 0.1276 for mlegp_pca's
+  # setting), run on designs 1-10.
+  pc_opt = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L))
 
 fit_ppgasp_spec <- function(d, cfg, task, spec) {
   suppressPackageStartupMessages(library(RobustGaSP))
