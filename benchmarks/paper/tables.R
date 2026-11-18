@@ -88,7 +88,7 @@ lab2 <- c(sp_opt = "\\pkg{spDBL}, tuned$^{d}$", ppgasp_opt = "\\code{ppgasp}, tu
   mlegp_pca = "PCA-GP (\\pkg{mlegp})",
   spdbl_s2r_designgp_lazy = "\\pkg{spDBL}, design GP$^{c}$")
 tuned2 <- c("sp_opt", "ppgasp_opt", "pc_opt")
-add("\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{4pt}",
+add("\\begin{table}[ht]", "\\centering\\scriptsize\\setlength{\\tabcolsep}{4pt}",
     "\\begin{tabular}{@{}llrrrrrrr@{}}", "\\toprule",
     "Grid & Method & RMSE & CRPS & Cov. & Width & Fit (s) & Predict (s) & Peak (GiB) \\\\", "\\midrule")
 for (g in sort(unique(e2$grid))) {
