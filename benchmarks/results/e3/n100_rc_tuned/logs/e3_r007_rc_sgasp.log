@@ -1,0 +1,168 @@
+Starting emulation 
+The upper bounds of the range parameters are 57.75528 5.806672 5.805945 Inf 
+The initial values of range parameters are 1.155106 0.1161334 0.1161189 
+Start of the optimization  1  : 
+The number of iterations is  40 
+ The value of the  marginal posterior  function is  64058.91 
+ Optimized range parameters are 5.066396 1.210413 0.1651546 
+ Optimized nugget parameter is 2.757081e-08 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.05682107 0.005712747 0.005712032 
+Start of the optimization  2  : 
+The number of iterations is  43 
+ The value of the  marginal posterior  function is  64058.91 
+ Optimized range parameters are 5.066481 1.210431 0.1651567 
+ Optimized nugget parameter is 2.757643e-08 
+ Convergence:  FALSE 
+end emulation 
+The inverse range  parameters from the emulation are  0.197379 0.8261642 6.054933 
+The nugget  parameter from the emulation is  2.757081e-08 
+1000  of  4000  posterior samples are drawn 
+2000  of  4000  posterior samples are drawn 
+3000  of  4000  posterior samples are drawn 
+4000  of  4000  posterior samples are drawn 
+Done with posterior sampling 
+469  of  4000  proposed posterior samples of calibration parameters are accepted 
+484  of  4000  proposed posterior samples of range and nugget parameters are accepted 
+Starting emulation 
+Starting emulation 
+Starting emulation 
+Starting emulation 
+The upper bounds of the range parameters are 56.31126 5.661491 5.660783 Inf 
+The initial values of range parameters are 1.126225 0.1132298 0.1132157 
+Start of the optimization  1  : 
+The upper bounds of the range parameters areThe upper bounds of the range parameters are  56.3112656.31126  5.6614915.661491  5.6607835.660783  InfInf  
+
+The initial values of range parameters are 1.126225 The initial values of range parameters are0.1132298  1.1262250.1132157  
+0.1132298 0.1132157 
+Start of the optimization  Start of the optimization 1   : 
+1  : 
+The upper bounds of the range parameters are 56.31126 5.661491 5.660783 Inf 
+The initial values of range parameters are 1.126225 0.1132298 0.1132157 
+Start of the optimization  1  : 
+The number of iterations is  29 
+ The value of the  marginal posterior  function is  64058.91 
+ Optimized range parameters are 5.066479 1.210432 0.1651567 
+ Optimized nugget parameter is 2.757671e-08 
+ Convergence:  TRUE 
+The initial values of range parameters are 0.05682107 0.005712747 0.005712032 
+Start of the optimization  2  : 
+The number of iterations is The number of iterations is   2929  
+
+  The value of the  marginal posterior  function is The value of the  marginal posterior  function is   64058.9164058.91  
+
+  Optimized range parameters areOptimized range parameters are  5.0664795.066479  The number of iterations is 1.2104321.210432   290.16515670.1651567   
+
+
+   The value of the  marginal posterior  function is Optimized nugget parameter isOptimized nugget parameter is   2.757671e-082.757671e-08 64058.91 
+ 
+ 
+ Convergence:  Convergence:  Optimized range parameters are TRUE TRUE  5.066479
+
+ 1.210432 0.1651567 
+ Optimized nugget parameter is 2.757671e-08 
+ Convergence:  TRUE 
+The initial values of range parameters areThe initial values of range parameters are The initial values of range parameters are  0.05682107 0.056821070.05682107 0.005712747  0.0057127470.005712747 0.005712032  0.005712032
+0.005712032  
+
+Start of the optimization  2Start of the optimization  Start of the optimization   : 
+ 22   : 
+ : 
+The number of iterations is  32 
+ The value of the  marginal posterior  function is  64058.91 
+ Optimized range parameters are 5.06648 1.210432 0.1651567 
+ Optimized nugget parameter is 2.757672e-08 
+ Convergence:  TRUE 
+end emulation 
+The inverse range  parameters from the emulation are  0.1973757 0.8261513 6.054856 
+The nugget  parameter from the emulation is  2.757672e-08 
+The number of iterations is The number of iterations is The number of iterations is    323232   
+
+
+   The value of the  marginal posterior  function is The value of the  marginal posterior  function is The value of the  marginal posterior  function is    64058.9164058.9164058.91   
+
+
+   Optimized range parameters areOptimized range parameters areOptimized range parameters are   5.066485.066485.06648   1.2104321.210432 1.210432 0.1651567  0.1651567
+0.1651567   
+Optimized nugget parameter is
+   Optimized nugget parameter isOptimized nugget parameter is 2.757672e-08  2.757672e-082.757672e-08
+   
+
+Convergence:    Convergence: TRUEConvergence:    TRUE
+TRUE  
+
+end emulation 
+end emulation 
+The inverse range  parameters from the emulation are  end emulation 
+The inverse range  parameters from the emulation are  0.1973757The inverse range  parameters from the emulation are  0.1973757  0.8261513 0.8261513 6.0548566.054856 0.1973757 
+ 
+0.8261513 6.054856 The nugget  parameter from the emulation is The nugget  parameter from the emulation is 
+  2.757672e-082.757672e-08  
+The nugget  parameter from the emulation is 
+ 2.757672e-08 
+5000  of  20000  posterior samples are drawn 
+5000  of  20000  posterior samples are drawn 
+5000  of  20000  posterior samples are drawn 
+5000  of  20000  posterior samples are drawn 
+10000  of  20000  posterior samples are drawn 
+10000  of  20000  posterior samples are drawn 
+10000  of  20000  posterior samples are drawn 
+10000  of  20000  posterior samples are drawn 
+15000  of  20000  posterior samples are drawn 
+15000  of  20000  posterior samples are drawn 
+15000  of  20000  posterior samples are drawn 
+15000  of  20000  posterior samples are drawn 
+20000  of  20000  posterior samples are drawn 
+Done with posterior sampling 
+6103  of  20000  proposed posterior samples of calibration parameters are accepted 
+2262  of  20000  proposed posterior samples of range and nugget parameters are accepted 
+20000  of  20000  posterior samples are drawn 
+Done with posterior sampling 
+6177  of  20000  proposed posterior samples of calibration parameters are accepted 
+2254  of  20000  proposed posterior samples of range and nugget parameters are accepted 
+20000  of  20000  posterior samples are drawn 
+Done with posterior sampling 
+5986  of  20000  proposed posterior samples of calibration parameters are accepted 
+2325  of  20000  proposed posterior samples of range and nugget parameters are accepted 
+20000  of  20000  posterior samples are drawn 
+Done with posterior sampling 
+5942  of  20000  proposed posterior samples of calibration parameters are accepted 
+2363  of  20000  proposed posterior samples of range and nugget parameters are accepted 
+Warning messages:
+1: In ppgasp(design = X_sim, response = Y[, keep], nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+2: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+3: In ppgasp(design = input_simul, response = output_simul, nugget.est = simul_nug) :
+  Please consider to select optimization= 'nelder-mead' or 'brent' 
+              as the derivative-based optimization can be inaccurate 
+             when the number of observations is large.
+4: In sprintf("%s S=%d S_0=%d chains=%d init=%s%s", discrepancy, cfg$rc_S,  :
+  one argument not used by format '%s S=%d S_0=%d chains=%d init=%s%s'
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL-gasp/benchmarks/e3_worker.R ~/spDBL-gasp/benchmarks/results/e3/n100_rc_tuned/tasks/e3_r007_rc_sgasp.rds"
+	User time (seconds): 56241.29
+	System time (seconds): 581.05
+	Percent of CPU this job got: 334%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:43:05
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 404888
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 46
+	Minor (reclaiming a frame) page faults: 175093943
+	Voluntary context switches: 24030
+	Involuntary context switches: 135653
+	Swaps: 0
+	File system inputs: 26896
+	File system outputs: 184
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
