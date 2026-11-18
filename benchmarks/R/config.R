@@ -256,3 +256,12 @@ local({
     list(label = "fixed domain, 10 designs: spDBL and PCA-GP with tuned settings",
          methods = c("sp_opt", "pc_opt")))
 })
+
+# Times and memory of the three tuned E2 settings, as fixed_timing measured
+# the untuned ones: design 1, one task at a time on a whole node
+# (results/e2/fixed_tuned_timing; run with --reps=1 --jobs=1, --exclusive).
+local({
+  bench_profiles$e2$fixed_tuned_timing <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, design 1, timing of the tuned settings",
+         methods = c("sp_opt", "ppgasp_opt", "pc_opt")))
+})
