@@ -214,15 +214,45 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
   result
 }
 
-#' Recover fields at the calibrated observation times and locations
+#' Recover fields at the observed sites and predict them at other grid sites
 #'
 #' Recovers discrepancy trajectories when needed, then draws latent emulator
-#' fields conditional on the observations and fresh replicated observations.
-#' This is not forecasting at new times or new spatial sites.
+#' fields conditional on the observations and fresh replicated observations
+#' at the observed locations. With `sites`, it also predicts the emulator
+#' field, the discrepancy and new field observations at grid sites without
+#' observations, at the observation times. It does not forecast new times or
+#' predict at sites off the emulator grid.
+#'
+#' Predictions at `sites` are composition draws: each one conditions on the
+#' same posterior draw of the field and the discrepancy at the observed sites.
+#' At each time, the emulator field at the observed sites and at `sites` is
+#' Gaussian with the mean and covariance that calibration uses, design-row
+#' term included, so the field at `sites` is drawn given its values at the
+#' observed sites. The discrepancy's increments at `sites` are drawn given
+#' their values at the observed sites, with covariance scale `U` (the
+#' full-grid matrix given to [calibration_fit()]); its starting value at
+#' `sites` has prior mean `m0_sites` and covariance \eqn{\tau_0^2}
+#' `M0_sites`, independent of its starting value at the observed sites. This
+#' extends the model to `sites` without changing the calibration posterior.
+#' New observations add independent noise of variance \eqn{\tau_t^2}. The
+#' discrepancy at `sites` is informed only through `U`, which is fixed, not
+#' estimated.
 #' @param object Result from [calibration_fit()].
 #' @param seed Local RNG seed for Gaussian recovery.
+#' @param sites Optional grid indices, numbered as `locations` in
+#'   [calibration_fit()], of sites without observations to predict at.
+#' @param joint If `FALSE` (default), each site is drawn from its own
+#'   predictive distribution, so draws at different sites are independent;
+#'   this avoids site-by-site matrices. If `TRUE`, the sites are drawn
+#'   jointly, as needed for sums or maps over several sites.
+#' @param m0_sites,M0_sites Prior mean vector and covariance scale matrix of
+#'   the starting discrepancy at `sites`. The defaults match those of
+#'   [calibration_fit()].
 #' @return A list containing y, u, and z_rep arrays, each with dimensions
-#'   posterior draws by observation times by observed locations.
+#'   posterior draws by observation times by observed locations. With
+#'   `sites`, also `sites`, a list with the site indices `locations` and
+#'   arrays `y`, `u` and `z` of dimensions posterior draws by observation
+#'   times by sites.
 #' @examplesIf interactive() && requireNamespace("rstan", quietly = TRUE)
 #' data("dt_calibration")
 #' d <- dt_calibration
@@ -230,24 +260,70 @@ calibration_fit <- function(object, z, U, locations = seq_len(object$S),
 #'                      covariance = "sigma2R", episode_window = 2, nsam = 3,
 #'                      seed = 1)
 #' cal <- calibration_prepare(em, d$lower, d$upper)
-#' fit <- calibration_fit(cal, d$field$z, d$field$U,
-#'                        locations = d$field$locations, draws = 1:2,
-#'                        chains = 1, iter = 200, seed = 1)
-#' pred <- calibration_predict(fit)
+#' # Leave two grid sites out of the calibration, then predict them.
+#' held_out <- c(8, 15)
+#' fit <- calibration_fit(cal, d$field$z[, -held_out], d$field$U,
+#'                        locations = d$field$locations[-held_out],
+#'                        draws = 1:2, chains = 1, iter = 200, seed = 1)
+#' pred <- calibration_predict(fit, sites = held_out)
 #' dim(pred$y)
+#' dim(pred$sites$z)
+#' # Predictive medians against the held-out observations at the first time
+#' rbind(median = apply(pred$sites$z[, 1, ], 2, stats::median),
+#'       observed = d$field$z[1, held_out])
 #' @export
-calibration_predict <- function(object, seed = 1234L) {
+calibration_predict <- function(object, seed = 1234L, sites = NULL,
+    joint = FALSE, m0_sites = rep(0, length(sites)),
+    M0_sites = diag(length(sites))) {
   if (!inherits(object, "spDBL_calibration")) stop("Supply a calibration_fit() result")
   restore_seed <- .cal_seed(seed)
   on.exit(restore_seed(), add = TRUE)
   f <- object$field
+  if (!is.null(sites)) {
+    sites <- .cal_check_sites(object, sites, joint)
+    m0_sites <- as.numeric(m0_sites)
+    M0_sites <- as.matrix(M0_sites)
+    if (length(m0_sites) != length(sites) || any(!is.finite(m0_sites)) ||
+        !identical(dim(M0_sites), rep(length(sites), 2L)))
+      stop("m0_sites and M0_sites must match sites")
+    if (!tryCatch({.cal_spd(M0_sites, "M0_sites"); TRUE}, error = function(e) FALSE))
+      stop("M0_sites must be a symmetric positive definite matrix")
+    if (!is.null(object$mcmc_u) && is.null(object$u0))
+      stop("The fit stores discrepancy draws without u0")
+  }
   u <- object$mcmc_u
-  if (is.null(u)) u <- recover_calibration_discrepancy(object$mcmc_eta,
-    object$mcmc_tau2, object$tau2_0, object$emulator_draw, object$emulator,
-    f$z, f$U, f$locations, f$m0, f$M0, seed)$u
+  u0 <- object$u0
+  if (is.null(u)) {
+    states <- recover_calibration_discrepancy(object$mcmc_eta,
+      object$mcmc_tau2, object$tau2_0, object$emulator_draw, object$emulator,
+      f$z, f$U, f$locations, f$m0, f$M0, seed)
+    u <- states$u
+    u0 <- states$u0
+  }
   pred <- recover_calibration_predictions(object$mcmc_eta, object$mcmc_tau2,
     u, object$emulator_draw, object$emulator, f$z, f$locations, seed + 1L)
-  list(y = pred$y, u = u, z_rep = pred$z_rep)
+  out <- list(y = pred$y, u = u, z_rep = pred$z_rep)
+  if (!is.null(sites)) {
+    out$sites <- c(list(locations = sites), recover_site_predictions(
+      object$mcmc_eta, object$mcmc_tau2, object$tau2_0, u, u0, pred$y,
+      object$emulator_draw, object$emulator, f$U, f$locations, sites,
+      m0_sites, M0_sites, joint, seed + 2L))
+  }
+  out
+}
+
+# Grid sites to predict at: distinct grid indices without observations.
+.cal_check_sites <- function(object, sites, joint) {
+  if (!isTRUE(joint) && !isFALSE(joint)) stop("joint must be TRUE or FALSE")
+  S <- object$emulator$S
+  if (!is.numeric(sites) || !length(sites) || any(!is.finite(sites)) ||
+      any(sites != round(sites)) || any(sites < 1 | sites > S))
+    stop("sites must be grid indices between 1 and ", S)
+  sites <- as.integer(sites)
+  if (anyDuplicated(sites)) stop("sites must be distinct")
+  if (any(sites %in% object$field$locations))
+    stop("sites must not include observed locations; their draws are y, u and z_rep")
+  sites
 }
 
 #' Summarize modular calibration samples

@@ -168,6 +168,50 @@ test_that("summaries, plots and predictions work on stored calibration draws", {
     pred$u, fit$emulator_draw, e, f$z, seed = 10L)$y)
 })
 
+test_that("calibration_predict predicts at grid sites without observations", {
+  # A fit object assembled by hand, so this runs without rstan.
+  f <- calibration_fit_fixture()
+  e <- f$emulator
+  o <- c(1L, 3L)
+  eta <- cbind(a = c(0.3, 0.5, 0.4, 0.6), b = c(0.2, 0.4, 0.6, 0.5))
+  fit <- structure(list(mcmc_eta = eta, mcmc_tau2 = matrix(0.2, 4, 2),
+    tau2_0 = rep(0.3, 4), emulator_draw = c(1L, 1L, 2L, 2L), emulator = e,
+    field = list(z = f$z[, o], U = f$U, locations = o, m0 = rep(0, 2), M0 = diag(2))),
+    class = "spDBL_calibration")
+  base <- calibration_predict(fit, seed = 9L)
+  set.seed(5)
+  before <- .Random.seed
+  pred <- calibration_predict(fit, seed = 9L, sites = c(4, 2))
+  expect_identical(.Random.seed, before)
+  # Results at the observed sites do not depend on `sites`.
+  expect_identical(pred[c("y", "u", "z_rep")], base)
+  expect_identical(pred$sites$locations, c(4L, 2L))
+  for (x in c("y", "u", "z")) expect_identical(dim(pred$sites[[x]]), c(4L, 2L, 2L))
+  u0 <- spDBL:::recover_calibration_discrepancy(eta, fit$mcmc_tau2, fit$tau2_0,
+    fit$emulator_draw, e, f$z[, o], f$U, o, seed = 9L)$u0
+  expect_equal(pred$sites[c("y", "u", "z")], spDBL:::recover_site_predictions(eta,
+    fit$mcmc_tau2, fit$tau2_0, base$u, u0, base$y, fit$emulator_draw, e, f$U, o,
+    c(4L, 2L), seed = 11L))
+  joint <- calibration_predict(fit, seed = 9L, sites = c(4, 2), joint = TRUE,
+                               m0_sites = c(1, -1), M0_sites = diag(c(2, 0.5)))
+  expect_identical(joint[c("y", "u", "z_rep")], base)
+  # Stored discrepancy draws are used as they are; u0 must be stored with them.
+  stored <- fit
+  stored$mcmc_u <- base$u
+  stored$u0 <- u0
+  expect_equal(calibration_predict(stored, seed = 9L, sites = c(4, 2)), pred)
+  stored$u0 <- NULL
+  expect_error(calibration_predict(stored, sites = 2), "without u0")
+  expect_error(calibration_predict(fit, sites = 3), "must not include observed")
+  expect_error(calibration_predict(fit, sites = c(2, 2)), "distinct")
+  expect_error(calibration_predict(fit, sites = 5), "between 1 and 4")
+  expect_error(calibration_predict(fit, sites = 1.5), "between 1 and 4")
+  expect_error(calibration_predict(fit, sites = 2, joint = NA), "joint must be")
+  expect_error(calibration_predict(fit, sites = c(2, 4), m0_sites = 0), "must match sites")
+  expect_error(calibration_predict(fit, sites = 2, M0_sites = matrix(-1)),
+               "M0_sites must be a symmetric positive definite")
+})
+
 test_that("Stan models are compiled once and cached in memory and on disk", {
   skip_without_fake_rstan()
   saved_cache <- clear_stan_cache()

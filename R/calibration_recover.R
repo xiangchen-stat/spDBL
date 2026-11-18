@@ -189,6 +189,82 @@ recover_calibration_predictions <- function(eta, tau2, u, emulator_draw,
   list(y = y, z_rep = z_rep)
 }
 
+# Draws of the emulator field y, the discrepancy u and new observations z at
+# grid sites without observations, at the observation times. Each draw
+# conditions on the same posterior draw of y and u at the observed sites
+# (composition sampling: the on-grid case of Appendix B of the JMLR MLOSS
+# paper, with the calibration's own field covariance).
+# - y: at each time, y at the observed sites and at the sites is Gaussian
+#   with the mean and covariance of predict_calibration(), design-row term
+#   included, so y at the sites is drawn given y at the observed sites.
+# - u: u0 at the sites has prior N(m0_sites, tau2_0 M0_sites), independent of
+#   u0 at the observed sites, and each increment at the sites is drawn given
+#   the increment at the observed sites under N(0, tau2_t U). This extends the
+#   prior without changing the calibration posterior.
+# - z = y + u + N(0, tau2_t) at each site.
+# joint = TRUE draws the sites jointly; FALSE draws each site from its own
+# conditional distribution (sites independent; each u path stays a path).
+recover_site_predictions <- function(eta, tau2, tau2_0, u, u0, y,
+    emulator_draw, emulator, U, locations, sites,
+    m0_sites = rep(0, length(sites)), M0_sites = diag(length(sites)),
+    joint = FALSE, seed = 1234) {
+  restore_seed <- .cal_seed(seed)
+  on.exit(restore_seed(), add = TRUE)
+  n <- nrow(eta)
+  T <- emulator$T
+  K <- length(sites)
+  o <- seq_along(locations)
+  s <- length(locations) + seq_len(K)
+  draw <- if (joint) function(L, x) as.numeric(L %*% x) else function(L, x) L * x
+  # Discrepancy: increments at the sites given those at the observed sites.
+  L_U <- .cal_spd(U[locations, locations, drop = FALSE], "U")
+  A_U <- forwardsolve(t(L_U), U[locations, sites, drop = FALSE])
+  gamma_u <- backsolve(L_U, A_U)
+  L_u <- if (joint) .cal_psd_factor(U[sites, sites, drop = FALSE] - crossprod(A_U),
+                                    "Conditional discrepancy covariance") else
+    sqrt(pmax(diag(U)[sites] - colSums(A_U^2), 0))
+  L_0 <- if (joint) .cal_psd_factor(M0_sites, "M0_sites") else sqrt(diag(M0_sites))
+  # Emulator field covariance blocks that do not depend on the draw.
+  R_oo <- .cal_R_field(emulator, locations)
+  R_os <- .cal_R_cross(emulator, locations, sites)
+  R_ss <- if (joint) .cal_R_field(emulator, sites) else .cal_R_field_diag(emulator, sites)
+  y_s <- u_s <- z_s <- array(NA_real_, c(n, T, K))
+  for (i in seq_len(n)) {
+    current <- m0_sites + sqrt(tau2_0[i]) * draw(L_0, stats::rnorm(K))
+    previous <- u0[i, ]
+    for (t in seq_len(T)) {
+      current <- current + as.numeric(crossprod(gamma_u, u[i, t, ] - previous)) +
+        sqrt(tau2[i, t]) * draw(L_u, stats::rnorm(K))
+      previous <- u[i, t, ]
+      u_s[i, t, ] <- current
+    }
+    pred <- predict_calibration(eta[i, ], emulator_draw[i], emulator,
+                                c(locations, sites), covariance = "factors")
+    for (t in seq_len(T)) {
+      S_oo <- pred$scale * R_oo
+      S_os <- pred$scale * R_os
+      S_ss <- pred$scale * R_ss
+      if (length(pred$design_factors)) {
+        Z <- pred$design_factors[[t]]
+        v <- pred$design_variance[t]
+        S_oo <- S_oo + v * crossprod(Z[, o, drop = FALSE])
+        S_os <- S_os + v * crossprod(Z[, o, drop = FALSE], Z[, s, drop = FALSE])
+        S_ss <- S_ss + v * (if (joint) crossprod(Z[, s, drop = FALSE]) else
+          colSums(Z[, s, drop = FALSE]^2))
+      }
+      L <- t(.cal_spd(S_oo, "Emulator field covariance"))
+      A <- forwardsolve(L, S_os)
+      mean <- pred$mu[t, s] + as.numeric(crossprod(A, forwardsolve(L, y[i, t, ] - pred$mu[t, o])))
+      L_y <- if (joint) .cal_psd_factor(S_ss - crossprod(A),
+                                        "Conditional emulator field covariance") else
+        sqrt(pmax(S_ss - colSums(A^2), 0))
+      y_s[i, t, ] <- mean + draw(L_y, stats::rnorm(K))
+      z_s[i, t, ] <- y_s[i, t, ] + u_s[i, t, ] + stats::rnorm(K, sd = sqrt(tau2[i, t]))
+    }
+  }
+  list(y = y_s, u = u_s, z = z_s)
+}
+
 # Each fit has one fixed emulator draw. Equal pooling approximates Eq. (29),
 # rather than fitting a mixture likelihood that reweights the emulator draws.
 fit_calibration_rstan <- function(emulator, z, U,

@@ -2,23 +2,64 @@
 % Please edit documentation in R/calibration_fit.R
 \name{calibration_predict}
 \alias{calibration_predict}
-\title{Recover fields at the calibrated observation times and locations}
+\title{Recover fields at the observed sites and predict them at other grid sites}
 \usage{
-calibration_predict(object, seed = 1234L)
+calibration_predict(
+  object,
+  seed = 1234L,
+  sites = NULL,
+  joint = FALSE,
+  m0_sites = rep(0, length(sites)),
+  M0_sites = diag(length(sites))
+)
 }
 \arguments{
 \item{object}{Result from \code{\link[=calibration_fit]{calibration_fit()}}.}
 
 \item{seed}{Local RNG seed for Gaussian recovery.}
+
+\item{sites}{Optional grid indices, numbered as \code{locations} in
+\code{\link[=calibration_fit]{calibration_fit()}}, of sites without observations to predict at.}
+
+\item{joint}{If \code{FALSE} (default), each site is drawn from its own
+predictive distribution, so draws at different sites are independent;
+this avoids site-by-site matrices. If \code{TRUE}, the sites are drawn
+jointly, as needed for sums or maps over several sites.}
+
+\item{m0_sites, M0_sites}{Prior mean vector and covariance scale matrix of
+the starting discrepancy at \code{sites}. The defaults match those of
+\code{\link[=calibration_fit]{calibration_fit()}}.}
 }
 \value{
 A list containing y, u, and z_rep arrays, each with dimensions
-posterior draws by observation times by observed locations.
+posterior draws by observation times by observed locations. With
+\code{sites}, also \code{sites}, a list with the site indices \code{locations} and
+arrays \code{y}, \code{u} and \code{z} of dimensions posterior draws by observation
+times by sites.
 }
 \description{
 Recovers discrepancy trajectories when needed, then draws latent emulator
-fields conditional on the observations and fresh replicated observations.
-This is not forecasting at new times or new spatial sites.
+fields conditional on the observations and fresh replicated observations
+at the observed locations. With \code{sites}, it also predicts the emulator
+field, the discrepancy and new field observations at grid sites without
+observations, at the observation times. It does not forecast new times or
+predict at sites off the emulator grid.
+}
+\details{
+Predictions at \code{sites} are composition draws: each one conditions on the
+same posterior draw of the field and the discrepancy at the observed sites.
+At each time, the emulator field at the observed sites and at \code{sites} is
+Gaussian with the mean and covariance that calibration uses, design-row
+term included, so the field at \code{sites} is drawn given its values at the
+observed sites. The discrepancy's increments at \code{sites} are drawn given
+their values at the observed sites, with covariance scale \code{U} (the
+full-grid matrix given to \code{\link[=calibration_fit]{calibration_fit()}}); its starting value at
+\code{sites} has prior mean \code{m0_sites} and covariance \eqn{\tau_0^2}
+\code{M0_sites}, independent of its starting value at the observed sites. This
+extends the model to \code{sites} without changing the calibration posterior.
+New observations add independent noise of variance \eqn{\tau_t^2}. The
+discrepancy at \code{sites} is informed only through \code{U}, which is fixed, not
+estimated.
 }
 \examples{
 \dontshow{if (interactive() && requireNamespace("rstan", quietly = TRUE)) withAutoprint(\{ # examplesIf}
@@ -28,10 +69,16 @@ em <- emulator_learn(d$training$input, d$training$responses, d$Nx, d$Ny,
                      covariance = "sigma2R", episode_window = 2, nsam = 3,
                      seed = 1)
 cal <- calibration_prepare(em, d$lower, d$upper)
-fit <- calibration_fit(cal, d$field$z, d$field$U,
-                       locations = d$field$locations, draws = 1:2,
-                       chains = 1, iter = 200, seed = 1)
-pred <- calibration_predict(fit)
+# Leave two grid sites out of the calibration, then predict them.
+held_out <- c(8, 15)
+fit <- calibration_fit(cal, d$field$z[, -held_out], d$field$U,
+                       locations = d$field$locations[-held_out],
+                       draws = 1:2, chains = 1, iter = 200, seed = 1)
+pred <- calibration_predict(fit, sites = held_out)
 dim(pred$y)
+dim(pred$sites$z)
+# Predictive medians against the held-out observations at the first time
+rbind(median = apply(pred$sites$z[, 1, ], 2, stats::median),
+      observed = d$field$z[1, held_out])
 \dontshow{\}) # examplesIf}
 }

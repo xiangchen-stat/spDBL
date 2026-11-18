@@ -36,6 +36,11 @@ test_that("FFBS predictions match direct Gaussian conditioning", {
   expect_identical(pointwise$mu, subset$mu)
   expect_equal(pointwise$variance, t(vapply(seq_len(e$T), function(t)
     diag(spDBL:::.cal_time_covariance(subset, t)), numeric(3))), ignore_attr = TRUE)
+  parts <- spDBL:::predict_calibration(f$eta, 1L, e, sites, covariance = "factors")
+  expect_identical(parts$mu, subset$mu)
+  for (t in seq_len(e$T))
+    expect_equal(parts$scale * spDBL:::.cal_R_field(e, sites) + parts$design_variance[t] *
+      crossprod(parts$design_factors[[t]]), spDBL:::.cal_time_covariance(subset, t))
   mapped <- e
   mapped$block_cols <- matrix(c(4L, 2L, 1L, 3L), 2, byrow = TRUE)
   remapped <- spDBL:::predict_calibration(f$eta, 1L, mapped)
