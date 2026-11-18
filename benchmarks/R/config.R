@@ -182,6 +182,14 @@ local({
          methods = c("gasp_base", "gasp_starts", "gasp_trend", "gasp_m32",
                      "gasp_powexp", "gasp_mmle", "gasp_refgamma", "gasp_pt",
                      "gasp_pt_trend")))
+  # Round 2, added after round 1 (where gasp_pt_trend had the lowest CRPS and
+  # the Matern 3/2 and power-exponential kernels the highest coverage):
+  # combinations of the round-1 settings that each lowered CRPS, on the same
+  # designs. The same rule then selects among round 1's winner and these.
+  bench_profiles$e2$gasp_tune2 <<- utils::modifyList(bench_profiles$e2$gasp_tune,
+    list(label = "RobustGaSP tuning round 2 on designs 11-12",
+         methods = c("gasp_pt_m32", "gasp_pt_powexp", "gasp_pt_trend_m32",
+                     "gasp_pt_trend_powexp", "gasp_trend_m32")))
 })
 
 # RobustCalibration (S-GaSP and GaSP) with a comparable setup to spDBL's

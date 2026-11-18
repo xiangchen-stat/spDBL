@@ -135,7 +135,15 @@ gasp_specs <- list(
   gasp_mmle = list(method = "mmle"),
   gasp_refgamma = list(prior_choice = "ref_gamma"),
   gasp_pt = list(per_time = TRUE),
-  gasp_pt_trend = list(per_time = TRUE, trend = "linear"))
+  gasp_pt_trend = list(per_time = TRUE, trend = "linear"),
+  # Round 2: combinations of the round-1 settings that each lowered CRPS
+  # (per-time fits, the linear trend, the Matern 3/2 and power-exponential
+  # kernels).
+  gasp_pt_m32 = list(per_time = TRUE, kernel_type = "matern_3_2"),
+  gasp_pt_powexp = list(per_time = TRUE, kernel_type = "pow_exp"),
+  gasp_pt_trend_m32 = list(per_time = TRUE, trend = "linear", kernel_type = "matern_3_2"),
+  gasp_pt_trend_powexp = list(per_time = TRUE, trend = "linear", kernel_type = "pow_exp"),
+  gasp_trend_m32 = list(trend = "linear", kernel_type = "matern_3_2"))
 
 fit_ppgasp_spec <- function(d, cfg, task, spec) {
   suppressPackageStartupMessages(library(RobustGaSP))
