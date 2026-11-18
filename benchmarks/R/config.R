@@ -212,6 +212,10 @@ local({
   bench_profiles$e3$rc_pilot <<- utils::modifyList(base,
     list(label = "RobustCalibration proposal-scale pilot", rc_S = 6000L,
          rc_S0 = 1500L))
+  # rc_pilot (replicates 1-3, scales 0.7, 1.2, 2.0): 1.2 gave the most
+  # effective samples per CPU second for both S-GaSP and GaSP (medians 0.030
+  # and 0.030, acceptance 24% and 28%).
   bench_profiles$e3$n100_rc_tuned <<- utils::modifyList(base,
-    list(label = "100 training runs, RobustCalibration with a comparable setup"))
+    list(label = "100 training runs, RobustCalibration with a comparable setup",
+         rc_sd_scale = 1.2))
 })
