@@ -225,3 +225,18 @@ local({
     list(label = "100 training runs, RobustCalibration with a comparable setup",
          rc_sd_scale = 1.2))
 })
+
+# spDBL and PCA-GP tuning study for E2 (results/e2/tune_sp_pca), the same
+# procedure as RobustGaSP's: designs 11-12 (run with --reps=11,12), round 1
+# changes one setting at a time (e2_worker.R's spdbl_specs and pca_specs),
+# round 2 combines the round-1 settings that each lowered CRPS, and the
+# lowest CRPS averaged over the three grids and two designs selects (ties by
+# RMSE), separately for each method. Fixed before any result was seen.
+local({
+  bench_profiles$e2$tune_sp_pca <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "spDBL and PCA-GP tuning on designs 11-12", designs = 12,
+         methods = c("sp_base", "sp_ar1", "sp_w1", "sp_w5", "sp_tune025",
+                     "sp_tune1", "sp_nugget", "sp_sigma2", "sp_sqexp", "sp_shared",
+                     "sp_nsam50", "pc_base", "pc_99", "pc_9999", "pc_linear",
+                     "pc_nugget", "pc_tries")))
+})
