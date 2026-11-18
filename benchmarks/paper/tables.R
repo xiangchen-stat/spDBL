@@ -126,7 +126,7 @@ add("\\bottomrule", "\\end{tabular}",
     "$^{d}$Each method's setting selected on designs 11--12 (Table~\\ref{tab:e2-tuning}): \\pkg{spDBL} with episode",
     "window 5, \\code{gp\\_tune = 1} and 50 draws; \\code{ppgasp} fitted per time step with a linear trend and",
     "the Mat\\'ern 3/2 kernel; the PCA-GP with a linear mean, 99.99\\% of variance, a nugget and 20",
-    "restarts; times and memory from design 1, one task per node.}",
+    "restarts; times and memory from design 1, one task per node; the tuned \\code{ppgasp}'s fit time includes prediction.}",
     "\\label{tab:e2}", "\\end{table}", "")
 
 # Table: E2 tuned settings, each competitor minus tuned spDBL, paired by
