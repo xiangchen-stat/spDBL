@@ -190,6 +190,12 @@ local({
     list(label = "RobustGaSP tuning round 2 on designs 11-12",
          methods = c("gasp_pt_m32", "gasp_pt_powexp", "gasp_pt_trend_m32",
                      "gasp_pt_trend_powexp", "gasp_trend_m32")))
+  # The selected setting (gasp_pt_trend_m32: per-time fits, linear trend,
+  # Matern 3/2; mean CRPS 0.106, RMSE 0.442, coverage 91% on designs 11-12)
+  # on E2's designs 1-10 (results/e2/fixed_gasp), as ppgasp_opt.
+  bench_profiles$e2$fixed_gasp <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, 10 designs: RobustGaSP with the tuned setting",
+         methods = "ppgasp_opt"))
 })
 
 # RobustCalibration (S-GaSP and GaSP) with a comparable setup to spDBL's
