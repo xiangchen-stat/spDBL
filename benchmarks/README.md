@@ -105,8 +105,13 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 | Folder | Profile | Used for |
 |---|---|---|
 | `results/e1/paper/` | `paper` | E1, Figure 2(a), Table A1 |
-| `results/e2/fixed/` | `fixed` | E2, Figure 2(b, c), Tables A2 and A3 |
-| `results/e3/n100/` | `n100` | E3 with 100 training runs: Figure 2(d), Table A4, and its replicates 1-10 in Table A6 |
+| `results/e2/fixed_tuned/`, `fixed_gasp/` | `fixed_tuned`, `fixed_gasp` | E2 with every method's tuned setting (spDBL, PCA-GP; RobustGaSP): Figure 2(b, c), Tables A2 and A3 |
+| `results/e2/gasp_tune/`, `gasp_tune2/`, `tune_sp_pca/`, `tune_sp_pca2/` | `gasp_tune*`, `tune_sp_pca*` | E2 tuning study on designs 11-12 (two rounds per method), the E2 tuning table |
+| `results/e2/fixed_tuned_timing/` | `fixed_tuned_timing` | times and memory of the tuned settings, design 1, one task per node (Table A2) |
+| `results/e2/fixed/` | `fixed` | E2 with the settings before tuning: Table A2 and the untuned paired table |
+| `results/e3/n100/` | `n100` | E3 with 100 training runs: spDBL in Figure 2(d) and Table A4; RobustCalibration with default proposals (its own table); replicates 1-10 in the ablation table |
+| `results/e3/n100_rc_tuned/` | `n100_rc_tuned` | E3 RobustCalibration with tuned proposals, 20 MLE starts and an emulator nugget: Figure 2(d), Table A4 |
+| `results/e3/rc_pilot/scale_*/` | `rc_pilot` | proposal-scale pilot on replicates 1-3 (the pilot table) |
 | `results/e3/mode/` | `mode` | E3 with the 40 bundled runs: Table A5, and the baseline of Table A6 |
 | `results/e3_diagnostic/rep011_draw01_c24/` | `paper` | the local modes in E3 |
 | `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
