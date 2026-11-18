@@ -174,14 +174,27 @@ spdbl_specs <- list(
   sp_sigma2 = list(gp_sigma2 = 4),
   sp_sqexp = list(design_kernel = "sqexp"),
   sp_shared = list(design_groups = "shared"),
-  sp_nsam50 = list(nsam = 50L))
+  sp_nsam50 = list(nsam = 50L),
+  # Round 2: combinations of the round-1 settings that lowered CRPS (window
+  # 5, gp_tune 1, 50 draws).
+  sp_w5_tune1 = list(episode_window = 5L, gp_tune = 1),
+  sp_w5_nsam50 = list(episode_window = 5L, nsam = 50L),
+  sp_tune1_nsam50 = list(gp_tune = 1, nsam = 50L),
+  sp_w5_tune1_nsam50 = list(episode_window = 5L, gp_tune = 1, nsam = 50L))
 pca_specs <- list(
   pc_base = list(),
   pc_99 = list(PC.percent = 99),
   pc_9999 = list(PC.percent = 99.99),
   pc_linear = list(constantMean = 0),
   pc_nugget = list(nugget = 1e-4),
-  pc_tries = list(simplex.ntries = 20L))
+  pc_tries = list(simplex.ntries = 20L),
+  # Round 2: combinations of the round-1 settings that lowered CRPS (linear
+  # mean, 99.99% of variance, nugget, 20 restarts).
+  pc_linear_9999 = list(constantMean = 0, PC.percent = 99.99),
+  pc_linear_nugget = list(constantMean = 0, nugget = 1e-4),
+  pc_9999_nugget = list(PC.percent = 99.99, nugget = 1e-4),
+  pc_linear_9999_nugget = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4),
+  pc_all = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L))
 
 fit_ppgasp_spec <- function(d, cfg, task, spec) {
   suppressPackageStartupMessages(library(RobustGaSP))

@@ -239,4 +239,11 @@ local({
                      "sp_tune1", "sp_nugget", "sp_sigma2", "sp_sqexp", "sp_shared",
                      "sp_nsam50", "pc_base", "pc_99", "pc_9999", "pc_linear",
                      "pc_nugget", "pc_tries")))
+  # Round 2, added after round 1 (CRPS lowered by: spDBL window 5, gp_tune 1,
+  # 50 draws; PCA-GP linear mean, 99.99% of variance, nugget, 20 restarts).
+  bench_profiles$e2$tune_sp_pca2 <<- utils::modifyList(bench_profiles$e2$tune_sp_pca,
+    list(label = "spDBL and PCA-GP tuning round 2 on designs 11-12",
+         methods = c("sp_w5_tune1", "sp_w5_nsam50", "sp_tune1_nsam50",
+                     "sp_w5_tune1_nsam50", "pc_linear_9999", "pc_linear_nugget",
+                     "pc_9999_nugget", "pc_linear_9999_nugget", "pc_all")))
 })
