@@ -1,3 +1,19 @@
+# spDBL (development version)
+
+## New features
+
+* `calibration_predict()` gains `sites`, to predict at grid sites without
+  field observations. For each posterior draw it draws the emulator field,
+  the discrepancy and new field observations there, at the observation
+  times, conditional on that draw's field and discrepancy at the observed
+  sites. The field uses the mean and covariance that calibration uses,
+  design-row term included; the discrepancy uses the rows of `U` for the
+  sites and a prior for its starting value there (`m0_sites`, `M0_sites`).
+  `joint = TRUE` draws the sites jointly, for sums or maps over sites; the
+  default draws each site from its own predictive distribution. Results at
+  the observed sites are unchanged. Sites off the emulator grid and new
+  times are not supported.
+
 # spDBL 1.2.0
 
 ## Changes that affect existing code or results

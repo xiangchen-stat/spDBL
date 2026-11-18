@@ -174,6 +174,78 @@ test_that("predictive field draws condition on the discrepancy and noise", {
   }
 })
 
+test_that("site predictions follow the exact Gaussian predictive", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
+  f <- calibration_fixture()
+  e <- f$emulator
+  n <- 4000
+  o <- c(1L, 3L)
+  s <- c(2L, 4L)
+  tau2_0 <- 0.4
+  tau2 <- c(0.3, 0.2)
+  m0 <- c(0.1, -0.1)
+  M0 <- matrix(c(1, 0.3, 0.3, 1), 2)
+  m0_sites <- c(0.05, -0.2)
+  M0_sites <- matrix(c(0.8, 0.2, 0.2, 1.2), 2)
+  eta <- matrix(f$eta, n, 2, byrow = TRUE)
+  tau2_draws <- matrix(tau2, n, 2, byrow = TRUE)
+  states <- spDBL:::recover_calibration_discrepancy(eta, tau2_draws, rep(tau2_0, n),
+    rep(2L, n), e, f$z[, o], f$U, o, m0, M0, seed = 7L)
+  fields <- spDBL:::recover_calibration_predictions(eta, tau2_draws, states$u,
+    rep(2L, n), e, f$z[, o], o, seed = 8L)
+  site_draws <- function(joint) spDBL:::recover_site_predictions(eta, tau2_draws,
+    rep(tau2_0, n), states$u, states$u0, fields$y, rep(2L, n), e, f$U, o, s,
+    m0_sites, M0_sites, joint = joint, seed = 9L)
+  set.seed(102)
+  before <- .Random.seed
+  out <- site_draws(TRUE)
+  expect_identical(.Random.seed, before)
+  expect_identical(dim(out$z), c(as.integer(n), 2L, 2L))
+  # Exact joint Gaussian on the observed sites and the sites together, from
+  # the independent blocks u0, the two increments, y_1, y_2 and the two noises.
+  a <- c(o, s)
+  pred <- spDBL:::predict_calibration(f$eta, 2L, e, a)
+  M0a <- matrix(0, 4, 4)
+  M0a[1:2, 1:2] <- M0
+  M0a[3:4, 3:4] <- M0_sites
+  blocks <- list(tau2_0 * M0a, tau2[1] * f$U[a, a], tau2[2] * f$U[a, a],
+    pred$Sigma + design_cov(pred, 1), pred$Sigma + design_cov(pred, 2),
+    diag(tau2[1], 4), diag(tau2[2], 4))
+  Cw <- matrix(0, 28, 28)
+  for (j in 1:7) Cw[(j - 1) * 4 + 1:4, (j - 1) * 4 + 1:4] <- blocks[[j]]
+  mw <- c(m0, m0_sites, rep(0, 8), pred$mu[1, ], pred$mu[2, ], rep(0, 8))
+  op <- function(js) {
+    A <- matrix(0, 4, 28)
+    for (j in js) A[, (j - 1) * 4 + 1:4] <- diag(4)
+    A
+  }
+  u_op <- function(t) op(seq_len(t + 1))
+  y_op <- function(t) op(3 + t)
+  z_op <- function(t) u_op(t) + y_op(t) + op(5 + t)
+  at_o <- diag(4)[1:2, ]
+  at_s <- diag(4)[3:4, ]
+  A <- rbind(at_o %*% z_op(1), at_o %*% z_op(2), at_s %*% y_op(1), at_s %*% y_op(2),
+             at_s %*% u_op(1), at_s %*% u_op(2), at_s %*% z_op(1), at_s %*% z_op(2))
+  mean_x <- A %*% mw
+  cov_x <- A %*% Cw %*% t(A)
+  obs <- 1:4
+  target <- 5:16
+  post_mean <- mean_x[target] + cov_x[target, obs] %*%
+    solve(cov_x[obs, obs], c(f$z[1, o], f$z[2, o]) - mean_x[obs])
+  post_cov <- cov_x[target, target] -
+    cov_x[target, obs] %*% solve(cov_x[obs, obs], cov_x[obs, target])
+  as_draws <- function(x) cbind(x$y[, 1, ], x$y[, 2, ], x$u[, 1, ], x$u[, 2, ],
+                                x$z[, 1, ], x$z[, 2, ])
+  draws <- as_draws(out)
+  se <- sqrt(diag(post_cov) / n)
+  expect_lt(max(abs(colMeans(draws) - post_mean) / se), 4.5)
+  expect_equal(stats::cov(draws), post_cov, tolerance = 0.1, ignore_attr = TRUE)
+  # Site-by-site draws have the same marginal distributions.
+  pointwise <- as_draws(site_draws(FALSE))
+  expect_lt(max(abs(colMeans(pointwise) - post_mean) / se), 4.5)
+  expect_equal(apply(pointwise, 2, stats::var), diag(post_cov), tolerance = 0.1)
+})
+
 test_that("Stan output columns are reshaped by their indices", {
   cols <- c("u[2,1]", "lp__", "u[1,1]", "u[1,2]", "u[2,2]", "u[1,3]", "u[2,3]")
   samples <- matrix(0, 4, length(cols), dimnames = list(NULL, cols))

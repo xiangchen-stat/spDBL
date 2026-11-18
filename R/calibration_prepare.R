@@ -388,6 +388,35 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
   rep(emulator$field_kernel$sigma2 + emulator$field_kernel$tau2, length(locations))
 }
 
+# Block of the full-grid emulator covariance between the sites `rows` and
+# `cols`: the stored R_field, or the exponential kernel, whose nugget enters
+# only where a row site and a column site coincide. The distances are summed
+# over coordinates in the same order as stats::dist(), so the block matches
+# .cal_R_field() entry by entry.
+.cal_R_cross <- function(emulator, rows, cols) {
+  if (!is.null(emulator$R_field))
+    return(emulator$R_field[rows, cols, drop = FALSE])
+  k <- emulator$field_kernel
+  a <- k$coords[rows, , drop = FALSE]
+  b <- k$coords[cols, , drop = FALSE]
+  d2 <- matrix(0, nrow(a), nrow(b))
+  for (j in seq_len(ncol(a))) d2 <- d2 + outer(a[, j], b[, j], "-")^2
+  unname(k$sigma2 * exp(-k$phi * sqrt(d2)) + k$tau2 * outer(rows, cols, "=="))
+}
+
+# Lower factor L with L L' = x for a covariance matrix that may be singular
+# up to rounding error (conditional covariances); negative eigenvalues
+# larger than rounding error are an error.
+.cal_psd_factor <- function(x, name = "covariance") {
+  x <- (x + t(x)) / 2
+  L <- tryCatch(t(chol(x)), error = function(e) NULL)
+  if (!is.null(L)) return(L)
+  e <- eigen(x, symmetric = TRUE)
+  if (min(e$values) < -1e-8 * max(1, abs(e$values)))
+    stop(name, " is not positive semidefinite")
+  e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(x))
+}
+
 # Field covariance at time t: the emulator term shared by all times plus the
 # design-row term, if any.
 .cal_time_covariance <- function(pred, t) {
@@ -408,8 +437,13 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
 # covariance = "marginal": variance is the T x S matrix of pointwise
 #   variances, computed without forming S x S matrices.
 # covariance = "none": the mean only.
+# covariance = "factors": the pieces of the covariance without forming it:
+#   the field covariance at time t is scale * R_field + design_variance[t] *
+#   Z_t' Z_t, with Z_t from design_factors (empty when design uncertainty is
+#   off).
 predict_calibration <- function(eta, emulator_draw, emulator,
-    locations = seq_len(emulator$S), covariance = c("full", "marginal", "none")) {
+    locations = seq_len(emulator$S),
+    covariance = c("full", "marginal", "none", "factors")) {
   covariance <- match.arg(covariance)
   m <- as.integer(emulator_draw)
   if (length(m) != 1 || is.na(m) || m < 1 || m > emulator$M ||
@@ -434,6 +468,9 @@ predict_calibration <- function(eta, emulator_draw, emulator,
   scale <- emulator$posterior$sigma2[m] * factor
   factors <- .cal_design_factors(emulator, m, locations)
   time_factor <- .cal_time_factor(design, emulator)
+  if (covariance == "factors")
+    return(c(out, list(scale = scale, design_variance = time_factor,
+                       design_factors = factors)))
   if (covariance == "marginal") {
     variance <- matrix(scale * .cal_R_field_diag(emulator, locations),
                        emulator$T, length(locations), byrow = TRUE)

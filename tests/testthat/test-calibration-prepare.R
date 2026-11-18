@@ -142,10 +142,26 @@ test_that("calibration builds the field covariance only where it is needed", {
                    spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_explicit, loc, mode),
                    ignore_attr = TRUE)
   }
+  # Cross blocks for site prediction match the square blocks entry by entry.
+  for (cal in list(cal_lazy, cal_explicit)) {
+    expect_identical(spDBL:::.cal_R_cross(cal, 1:4, 1:4), spDBL:::.cal_R_field(cal, 1:4))
+    expect_identical(spDBL:::.cal_R_cross(cal, c(3L, 1L), c(4L, 2L)),
+                     spDBL:::.cal_R_field(cal, 1:4)[c(3, 1), c(4, 2)])
+  }
   z <- matrix(0.5, 3, 2)
   expect_equal(spDBL:::make_stan_calibration_data(cal_lazy, 1L, z, diag(4), c(2L, 4L))$R_field,
                R_full[c(2, 4), c(2, 4)], ignore_attr = TRUE)
   expect_error(spDBL:::make_offline_calibration_input(cal_lazy$input, cal_lazy$Y,
     cal_lazy$F_ls, cal_lazy$posterior, cal_lazy$block_cols, NULL, 2, c(0, 0), c(1, 1)),
     "Supply R_field or a valid field_kernel")
+})
+
+test_that("conditional covariances are factored even when singular", {
+  x <- matrix(1, 2, 2)  # rank 1: chol() fails
+  expect_error(chol(x))
+  L <- spDBL:::.cal_psd_factor(x)
+  expect_equal(L %*% t(L), x)
+  expect_equal(spDBL:::.cal_psd_factor(diag(2)), diag(2))
+  expect_error(spDBL:::.cal_psd_factor(diag(c(1, -1)), "Test covariance"),
+               "Test covariance is not positive semidefinite")
 })
