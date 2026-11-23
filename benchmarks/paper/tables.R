@@ -195,10 +195,12 @@ for (pre in c("sp_", "gasp_", "pc_")) {
 }
 add("\\bottomrule", "\\end{tabular}",
     "\\caption{E2 tuning study: every setting tried for each method on designs 11 and 12, which E2 does not",
-    "evaluate, all three grids, means over the six grid--design pairs. Round 1 changes one setting of the",
-    "method's E2 setting (first row of round 1); round 2 combines the round-1 changes that lowered CRPS.",
-    "The setting with the lowest mean CRPS (bold; ties broken by RMSE), a rule fixed before any result,",
-    "is the tuned setting of Tables~\\ref{tab:e2} and~\\ref{tab:e2-paired}. Settings not listed are the package defaults.}",
+    "evaluate, all three grids, means over the six grid--design pairs, sorted by mean CRPS. Round 1 changes",
+    "one setting at a time from the method's E2 setting (the row labelled E2); round 2 combines the round-1",
+    "changes that lowered CRPS. The setting with the lowest mean CRPS (bold; ties broken by RMSE), a rule",
+    "fixed before any result, is the tuned setting of Tables~\\ref{tab:e2} and~\\ref{tab:e2-paired}. Settings",
+    "not listed are the package defaults. Three \\code{ppgasp} settings (10 starts, \\code{mmle},",
+    "\\code{ref\\_gamma}) change its mean CRPS by under $10^{-5}$.}",
     "\\label{tab:e2-tuning}", "\\end{table}", "")
 
 # E3 per parameter, replicate-bootstrap 95% intervals: 100 training runs with
