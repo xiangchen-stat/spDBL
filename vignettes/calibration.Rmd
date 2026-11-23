@@ -325,7 +325,8 @@ noise. To predict at grid sites left out of the calibration, give their grid
 indices as `sites`; `fields$sites` then holds draws of y, u and new
 observations z there, at the observation times
 (`vignette("calibration-details")` describes the model). This interface does
-not forecast new times or predict at sites off the grid. The compact record
+not forecast new times. Points off the grid are given as `coords`, with the
+discrepancy's covariance function as `discrepancy_kernel`. The compact record
 stores the quantiles computed by the same recovery operation.
 
 ## Panel: TAU2, U, Z

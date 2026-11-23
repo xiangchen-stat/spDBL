@@ -246,6 +246,81 @@ test_that("site predictions follow the exact Gaussian predictive", {
   expect_equal(apply(pointwise, 2, stats::var), diag(post_cov), tolerance = 0.1)
 })
 
+test_that("off-grid point predictions follow the exact Gaussian predictive", {
+  skip_on_cran()  # slow; runs in CI (NOT_CRAN=true)
+  f <- calibration_fixture()
+  e <- f$emulator
+  grid <- cbind(c(1, 2, 1, 2), c(1, 1, 2, 2))  # sites 1-4 on a 2 x 2 lattice
+  e$grid_coords <- grid
+  kernel <- function(a, b) exp(-sqrt(outer(a[, 1], b[, 1], "-")^2 +
+                                     outer(a[, 2], b[, 2], "-")^2) / 1.5)
+  U <- kernel(grid, grid)
+  n <- 4000
+  o <- c(1L, 4L)
+  points <- rbind(c(1.5, 1.5), c(1.2, 1.7))
+  tau2_0 <- 0.4
+  tau2 <- c(0.3, 0.2)
+  m0 <- c(0.1, -0.1)
+  M0 <- matrix(c(1, 0.3, 0.3, 1), 2)
+  m0_points <- c(0.05, -0.2)
+  M0_points <- matrix(c(0.8, 0.2, 0.2, 1.2), 2)
+  eta <- matrix(f$eta, n, 2, byrow = TRUE)
+  tau2_draws <- matrix(tau2, n, 2, byrow = TRUE)
+  states <- spDBL:::recover_calibration_discrepancy(eta, tau2_draws, rep(tau2_0, n),
+    rep(2L, n), e, f$z[, o], U, o, m0, M0, seed = 7L)
+  fields <- spDBL:::recover_calibration_predictions(eta, tau2_draws, states$u,
+    rep(2L, n), e, f$z[, o], o, seed = 8L)
+  # Field weights on cells 1-4: bilinear, and the containing cell (cells 4, 3).
+  W <- list(bilinear = rbind(rep(0.25, 4), c(0.8 * 0.3, 0.2 * 0.3, 0.8 * 0.7, 0.2 * 0.7)),
+            cell = rbind(c(0, 0, 0, 1), c(0, 0, 1, 0)))
+  # Exact joint Gaussian from the independent blocks: u0, two increments (at
+  # the observed sites and the points), y_1 and y_2 at the four cells, and
+  # two noise vectors (at the observed sites and the points).
+  pred <- spDBL:::predict_calibration(f$eta, 2L, e, 1:4)
+  C <- kernel(rbind(grid[o, ], points), rbind(grid[o, ], points))
+  M0a <- matrix(0, 4, 4)
+  M0a[1:2, 1:2] <- M0
+  M0a[3:4, 3:4] <- M0_points
+  blocks <- list(tau2_0 * M0a, tau2[1] * C, tau2[2] * C,
+    pred$Sigma + design_cov(pred, 1), pred$Sigma + design_cov(pred, 2),
+    diag(tau2[1], 4), diag(tau2[2], 4))
+  Cw <- matrix(0, 28, 28)
+  for (j in 1:7) Cw[(j - 1) * 4 + 1:4, (j - 1) * 4 + 1:4] <- blocks[[j]]
+  mw <- c(m0, m0_points, rep(0, 8), pred$mu[1, ], pred$mu[2, ], rep(0, 8))
+  block <- function(j, A) { out <- matrix(0, nrow(A), 28); out[, (j - 1) * 4 + 1:4] <- A; out }
+  I4 <- diag(4)
+  u_op <- function(t) Reduce(`+`, lapply(seq_len(t + 1), function(j) block(j, I4)))
+  for (field in names(W)) {
+    sel_y <- rbind(I4[o, ], W[[field]])           # y at the observed sites, then the points
+    y_op <- function(t) block(3 + t, sel_y)
+    z_op <- function(t) u_op(t) + y_op(t) + block(5 + t, I4)
+    at_o <- I4[1:2, ]
+    at_p <- I4[3:4, ]
+    A <- rbind(at_o %*% z_op(1), at_o %*% z_op(2), at_p %*% y_op(1), at_p %*% y_op(2),
+               at_p %*% u_op(1), at_p %*% u_op(2), at_p %*% z_op(1), at_p %*% z_op(2))
+    mean_x <- A %*% mw
+    cov_x <- A %*% Cw %*% t(A)
+    obs <- 1:4
+    target <- 5:16
+    post_mean <- mean_x[target] + cov_x[target, obs] %*%
+      solve(cov_x[obs, obs], c(f$z[1, o], f$z[2, o]) - mean_x[obs])
+    post_cov <- cov_x[target, target] -
+      cov_x[target, obs] %*% solve(cov_x[obs, obs], cov_x[obs, target])
+    draw <- function(joint) spDBL:::recover_point_predictions(eta, tau2_draws,
+      rep(tau2_0, n), states$u, states$u0, fields$y, rep(2L, n), e, U, kernel, o,
+      points, field, m0_points, M0_points, joint = joint, seed = 9L)
+    as_draws <- function(x) cbind(x$y[, 1, ], x$y[, 2, ], x$u[, 1, ], x$u[, 2, ],
+                                  x$z[, 1, ], x$z[, 2, ])
+    draws <- as_draws(draw(TRUE))
+    se <- sqrt(diag(post_cov) / n)
+    expect_lt(max(abs(colMeans(draws) - post_mean) / se), 4.5)
+    expect_equal(stats::cov(draws), post_cov, tolerance = 0.1, ignore_attr = TRUE)
+    pointwise <- as_draws(draw(FALSE))
+    expect_lt(max(abs(colMeans(pointwise) - post_mean) / se), 4.5)
+    expect_equal(apply(pointwise, 2, stats::var), diag(post_cov), tolerance = 0.1)
+  }
+})
+
 test_that("Stan output columns are reshaped by their indices", {
   cols <- c("u[2,1]", "lp__", "u[1,1]", "u[1,2]", "u[2,2]", "u[1,3]", "u[2,3]")
   samples <- matrix(0, 4, length(cols), dimnames = list(NULL, cols))

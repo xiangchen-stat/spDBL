@@ -142,8 +142,12 @@ test_that("calibration builds the field covariance only where it is needed", {
                    spDBL:::predict_calibration(c(0.4, 0.6), 2L, cal_explicit, loc, mode),
                    ignore_attr = TRUE)
   }
-  # Cross blocks for site prediction match the square blocks entry by entry.
+  # Cross blocks for site prediction match the square blocks entry by entry,
+  # and both objects keep the grid coordinates for off-grid prediction.
   for (cal in list(cal_lazy, cal_explicit)) {
+    expect_identical(spDBL:::.cal_grid_coords(cal), unname(as.matrix(s$ind_sp)))
+    expect_identical(spDBL:::.cal_R_pairs(cal, c(1L, 2L, 4L), c(1L, 3L, 4L)),
+      spDBL:::.cal_R_field(cal, 1:4)[cbind(c(1, 2, 4), c(1, 3, 4))])
     expect_identical(spDBL:::.cal_R_cross(cal, 1:4, 1:4), spDBL:::.cal_R_field(cal, 1:4))
     expect_identical(spDBL:::.cal_R_cross(cal, c(3L, 1L), c(4L, 2L)),
                      spDBL:::.cal_R_field(cal, 1:4)[c(3, 1), c(4, 2)])
@@ -164,4 +168,26 @@ test_that("conditional covariances are factored even when singular", {
   expect_equal(spDBL:::.cal_psd_factor(diag(2)), diag(2))
   expect_error(spDBL:::.cal_psd_factor(diag(c(1, -1)), "Test covariance"),
                "Test covariance is not positive semidefinite")
+})
+
+test_that("points map to their containing cell or four surrounding cell centres", {
+  grid <- cbind(rep(1:3, times = 2), rep(1:2, each = 3))  # 3 rows x 2 columns
+  cell <- spDBL:::.cal_point_cells(grid, rbind(c(1.2, 1.4), c(2.5, 1.5), c(3.4, 1.49)), "cell")
+  expect_identical(as.integer(cell$cells), c(1L, 6L, 3L))
+  bil <- spDBL:::.cal_point_cells(grid, rbind(c(1.2, 1.4), c(3, 2), c(0.6, 1.5)), "bilinear")
+  # (1.2, 1.4): corners (1,1), (2,1), (1,2), (2,2) = sites 1, 2, 4, 5.
+  expect_equal(bil$weights[1, ], c(0.8 * 0.6, 0.2 * 0.6, 0.8 * 0.4, 0.2 * 0.4))
+  expect_identical(bil$cells[1, ], c(1L, 2L, 4L, 5L))
+  # A cell centre on the last row and column: all weight on site 6.
+  expect_identical(bil$cells[2, !is.na(bil$cells[2, ])], 6L)
+  expect_equal(sum(bil$weights[2, ]), 1)
+  # Beyond the outer cell centres the point is clamped to them.
+  expect_equal(bil$weights[3, ], c(0.5, 0, 0.5, 0))
+  expect_identical(bil$cells[3, c(1, 3)], c(1L, 4L))
+  expect_equal(rowSums(bil$weights), rep(1, 3))
+  expect_error(spDBL:::.cal_point_cells(grid, rbind(c(3.6, 1)), "cell"), "within the grid's cells")
+  expect_error(spDBL:::.cal_point_cells(grid[-2, ], rbind(c(1, 1)), "cell"), "full integer lattice")
+  expect_error(spDBL:::.cal_point_cells(grid, rbind(c(NA, 1)), "cell"), "numeric matrix")
+  one_row <- spDBL:::.cal_point_cells(cbind(1, 1:3), rbind(c(1.3, 2.25)), "bilinear")
+  expect_equal(one_row$weights[1, ], c(0.75, 0, 0.25, 0))
 })

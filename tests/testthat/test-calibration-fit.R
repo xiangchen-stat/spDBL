@@ -207,9 +207,63 @@ test_that("calibration_predict predicts at grid sites without observations", {
   expect_error(calibration_predict(fit, sites = 5), "between 1 and 4")
   expect_error(calibration_predict(fit, sites = 1.5), "between 1 and 4")
   expect_error(calibration_predict(fit, sites = 2, joint = NA), "joint must be")
-  expect_error(calibration_predict(fit, sites = c(2, 4), m0_sites = 0), "must match sites")
+  expect_error(calibration_predict(fit, sites = c(2, 4), m0_sites = 0), "must match the sites")
   expect_error(calibration_predict(fit, sites = 2, M0_sites = matrix(-1)),
                "M0_sites must be a symmetric positive definite")
+})
+
+test_that("calibration_predict predicts at points in the grid's cells", {
+  f <- calibration_fit_fixture()
+  e <- f$emulator
+  grid <- cbind(c(1, 2, 1, 2), c(1, 1, 2, 2))  # sites 1-4 on a 2 x 2 lattice
+  e$grid_coords <- grid
+  o <- c(1L, 3L)
+  eta <- cbind(a = c(0.3, 0.5, 0.4, 0.6), b = c(0.2, 0.4, 0.6, 0.5))
+  fit <- structure(list(mcmc_eta = eta, mcmc_tau2 = matrix(0.2, 4, 2),
+    tau2_0 = rep(0.3, 4), emulator_draw = c(1L, 1L, 2L, 2L), emulator = e,
+    field = list(z = f$z[, o], U = f$U, locations = o, m0 = rep(0, 2), M0 = diag(2))),
+    class = "spDBL_calibration")
+  # A kernel that reproduces U exactly on the grid (lookup).
+  key <- function(x) paste(x[, 1], x[, 2])
+  lookup <- function(a, b) f$U[match(key(a), key(grid)), match(key(b), key(grid)), drop = FALSE]
+  base <- calibration_predict(fit, seed = 9L)
+  # At cell centres, points are the grid sites themselves.
+  for (joint in c(FALSE, TRUE)) {
+    sites <- calibration_predict(fit, seed = 9L, sites = c(4, 2), joint = joint)$sites
+    for (field in c("cell", "bilinear")) {
+      pts <- calibration_predict(fit, seed = 9L, coords = grid[c(4, 2), ], joint = joint,
+                                 discrepancy_kernel = lookup, field = field)
+      expect_identical(pts[c("y", "u", "z_rep")], base)
+      expect_identical(pts$points$cell, c(4L, 2L))
+      expect_equal(pts$points[c("y", "u", "z")], sites[c("y", "u", "z")], tolerance = 1e-12)
+    }
+  }
+  # A point in an observed cell takes that cell's drawn field under "cell".
+  smooth <- function(a, b) 1.1001 * 0.2^sqrt(outer(a[, 1], b[, 1], "-")^2 +
+                                             outer(a[, 2], b[, 2], "-")^2)
+  fit$field$U <- smooth(grid, grid)
+  in_cell <- calibration_predict(fit, seed = 9L, coords = rbind(c(1.2, 1.4)),
+                                 discrepancy_kernel = smooth)
+  expect_identical(in_cell$points$cell, 1L)
+  expect_identical(in_cell$points$y[, , 1], in_cell$y[, , 1])
+  bilinear <- calibration_predict(fit, seed = 9L, coords = rbind(c(1.5, 1.5), c(2.4, 0.6)),
+                                  discrepancy_kernel = smooth, field = "bilinear")
+  expect_identical(dim(bilinear$points$z), c(4L, 2L, 2L))
+  expect_true(all(is.finite(bilinear$points$z)))
+  expect_error(calibration_predict(fit, sites = 2, coords = grid[2, , drop = FALSE],
+    discrepancy_kernel = smooth), "either sites or coords")
+  expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE]), "needs discrepancy_kernel")
+  expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE],
+    discrepancy_kernel = function(a, b) 2 * smooth(a, b)), "must reproduce U")
+  expect_error(calibration_predict(fit, coords = rbind(c(3, 1)), discrepancy_kernel = smooth),
+    "within the grid's cells")
+  expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE],
+    discrepancy_kernel = function(a, b) 1), "must return a finite")
+  expect_error(calibration_predict(fit, coords = rbind(c(1, 1)), discrepancy_kernel = smooth,
+    field = "nearest"), "should be one of")
+  fit$emulator$grid_coords <- NULL
+  expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE],
+    discrepancy_kernel = smooth), "no grid coordinates")
 })
 
 test_that("Stan models are compiled once and cached in memory and on disk", {
