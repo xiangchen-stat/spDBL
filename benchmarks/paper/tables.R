@@ -18,7 +18,6 @@ e1 <- rd("e1", "paper", "e1_results.csv")
 e1_lazy <- rd("e1", "paper_lazy", "e1_results.csv")
 e2 <- rd("e2", "fixed", "e2_results.csv")
 e2_summary <- rd("e2", "fixed", "e2_summary.csv")
-e2_paired <- rd("e2", "fixed", "e2_paired.csv")
 # Times and memory: design 1 rerun after the 1.2.0 speed-ups (same accuracy).
 e2_timing <- rd("e2", "fixed_timing", "e2_results.csv")
 # E3: 100 Latin-hypercube training runs (main text) and the 40 bundled runs.
@@ -44,8 +43,6 @@ e3_cols <- c("rep", "method", "parameter", "covered", "rel_error", "rel_width", 
              "ess_bulk_min", "sampling_cpu_s", "ess_per_cpu_s", "accept_rate_theta")
 e3_tuned <- rbind(pick(e3_100[e3_100$method == "spdbl", ], e3_cols),
                   pick(rd("e3", "n100_rc_tuned", "e3_results.csv"), e3_cols))
-e3_pilot <- do.call(rbind, lapply(c("0.7", "1.2", "2.0"), function(sc)
-  cbind(pick(rd("e3", "rc_pilot", paste0("scale_", sc), "e3_results.csv"), e3_cols), scale = sc)))
 gib <- function(mb) mb / 1024
 # round() then + 0 so that tiny negatives print as 0, not -0; negatives get a
 # true minus sign.
@@ -201,37 +198,10 @@ add("\\bottomrule", "\\end{tabular}",
     "is the tuned setting of Tables~\\ref{tab:e2} and~\\ref{tab:e2-paired}. Settings not listed are the package defaults.}",
     "\\label{tab:e2-tuning}", "\\end{table}", "")
 
-# Table A3: E2 paired differences from spDBL over the 10 designs, common times
-lab3 <- c(designgp_only = "design GP alone", ppgasp_default = "\\code{ppgasp}, default",
-  ppgasp_tuned = "\\code{ppgasp}, tuned", ppgasp_per_time = "\\code{ppgasp} per time step",
-  mlegp_pca = "PCA-GP (\\pkg{mlegp})")
-cell <- function(g, m, k, scale = 1, d = 3) {
-  r <- e2_paired[e2_paired$grid == g & e2_paired$method == m & e2_paired$metric == k, ]
-  if (!nrow(r)) return("--")
-  sprintf("%s [%s, %s]", f(scale * r$difference, d), f(scale * r$lo95, d), f(scale * r$hi95, d))
-}
-add("\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{3pt}",
-    "\\begin{tabular}{@{}llrrr@{}}", "\\toprule",
-    "Grid & Method & $\\Delta$ RMSE & $\\Delta$ CRPS & $\\Delta$ coverage (points) \\\\", "\\midrule")
-for (g in sort(unique(e2_paired$grid))) {
-  first <- TRUE
-  for (m in names(lab3)) {
-    add(sprintf("%s & %s & %s & %s & %s \\\\", if (first) sprintf("$%d^2$", g) else "", lab3[[m]],
-      cell(g, m, "rmse_common"), cell(g, m, "crps_common"), cell(g, m, "coverage_common", 100, 1)))
-    first <- FALSE
-  }
-  if (g != max(e2_paired$grid)) add("\\addlinespace")
-}
-add("\\bottomrule", "\\end{tabular}",
-    "\\caption{E2 on the fixed domain with the settings before tuning: each method minus \\pkg{spDBL}'s simulator-free prediction,",
-    "paired by design, mean and 95\\% $t$ interval over the 10 designs, at the times $3 \\le t \\le 25$",
-    "that every method predicts. Positive RMSE and CRPS differences favour \\pkg{spDBL}; negative",
-    "coverage differences mean the method's 95\\% intervals cover less than \\pkg{spDBL}'s, which",
-    "cover 94.5--95.8\\%.}",
-    "\\label{tab:ablation}", "\\end{table}", "")
-
-# Tables A4 and A5: E3 per parameter, replicate-bootstrap 95% intervals, for
-# 100 training runs and for the 40 bundled runs.
+# E3 per parameter, replicate-bootstrap 95% intervals: 100 training runs with
+# the tuned competitors, and the 40 bundled runs with their default settings.
+# The pilot of the proposal scale and the untuned runs (results/e3/rc_pilot,
+# n100, e2/fixed) are described in the paper's text, not tabulated.
 labm <- c(spdbl = "\\pkg{spDBL}", rc_sgasp = "S-GaSP", rc_gasp = "GaSP")
 labp <- c(eta1 = "$\\eta_1$", eta2 = "$\\eta_2$", alpha2 = "$\\alpha_2$", all = "all")
 e3_table <- function(e3, label, caption, cpu_note) {
@@ -287,38 +257,11 @@ cpu_100 <- "one Slurm job per calibration (\\pkg{spDBL} on one core; \\pkg{Robus
 e3_table(e3_tuned, "tab:e3",
   paste("E3 with 100 Latin-hypercube training runs (one design for every replicate and method): 30 replicate calibrations of the three free inputs $\\eta = (\\eta_1, \\eta_2, \\alpha_2)$ by \\pkg{spDBL} and by \\pkg{RobustCalibration} with its S-GaSP and GaSP discrepancies,", e3_setting_tuned),
   cpu_100)
-e3_table(e3_100, "tab:e3-default",
-  paste("E3 with 100 training runs and \\pkg{RobustCalibration}'s default proposal scales, no emulator nugget and 10 maximum-likelihood starts; \\pkg{spDBL}'s runs are those of Table~\\ref{tab:e3}:", e3_setting),
-  cpu_100)
 e3_table(e3_40, "tab:e3-40",
-  paste("E3 with the 40 training runs bundled with the package (\\code{dt\\_calibration}), otherwise as Table~\\ref{tab:e3-default}:", e3_setting),
+  paste("E3 with the 40 training runs bundled with the package (\\code{dt\\_calibration}), with \\pkg{RobustCalibration}'s default proposal scales, no emulator nugget and 10 maximum-likelihood starts:", e3_setting),
   "with 18 one-core tasks per 36-core node")
 
-# Table: RobustCalibration proposal-scale pilot (replicates 1-3).
-pil <- do.call(rbind, lapply(split(e3_pilot, list(e3_pilot$method, e3_pilot$scale), drop = TRUE), function(d) {
-  r <- split(d, d$rep)
-  data.frame(method = d$method[1], scale = d$scale[1],
-    accept = stats::median(sapply(r, function(x) x$accept_rate_theta[1])),
-    ess_cpu = stats::median(sapply(r, function(x) x$ess_per_cpu_s[1])),
-    ess_min = stats::median(sapply(r, function(x) min(x$ess_bulk_min))),
-    rhat = max(d$rhat_max))
-}))
-pil <- pil[order(pil$method != "rc_sgasp", pil$scale), ]
-add("", "\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{4pt}",
-    "\\begin{tabular}{@{}lrrrrr@{}}", "\\toprule",
-    "Discrepancy & Scale & Acceptance & ESS per CPU s & Smallest bulk ESS & Largest $\\hat R$ \\\\", "\\midrule")
-for (i in seq_len(nrow(pil)))
-  add(sprintf("%s & %s & %s & %s & %s & %s \\\\", if (i == 1 || pil$method[i] != pil$method[i - 1])
-    c(rc_sgasp = "S-GaSP", rc_gasp = "GaSP")[[pil$method[i]]] else "", pil$scale[i],
-    f(pil$accept[i], 2), f(pil$ess_cpu[i], 4), f(pil$ess_min[i], 0), f(pil$rhat[i], 3)))
-add("\\bottomrule", "\\end{tabular}",
-    "\\caption{E3 proposal-scale pilot for \\pkg{RobustCalibration} on replicates 1--3 with chains of 6{,}000",
-    "iterations: each $\\theta$'s random-walk proposal sd is the scale times its posterior sd in a 4{,}000-iteration",
-    "pilot chain from the mode (medians over replicates; largest $\\hat R$ over replicates and parameters). The",
-    "scale with the most effective samples per CPU second, 1.2 for both discrepancies, is used in",
-    "Table~\\ref{tab:e3}; the rule uses no true values. The package default is 5\\% of each prior range,",
-    "multiplied by the range again in its sampler.}", "\\label{tab:e3-pilot}", "\\end{table}")
-# Table A6: E3 ablations on replicates 1-10, against the 40-run (mode) run on
+# E3 ablations on replicates 1-10, against the 40-run (mode) run on
 # the same replicates, with paired replicate-bootstrap 95% intervals of the
 # differences.
 abl <- c(abl_joint = "Joint paths", abl_m60 = "60 draws",
