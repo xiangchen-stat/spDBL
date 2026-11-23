@@ -132,7 +132,8 @@ in [NEWS.md](https://xiangchen-stat.github.io/spDBL/NEWS.md).
 ## Quality assurance and documentation
 
 - **Tests.**
-  - Coverage is 99.9% of R and C++ lines (`covr`), up from 31% in 1.1.1.
+  - Coverage is 99.1% of R and C++ lines (`covr`, with the Stan tests,
+    in CI on the 1.2.0 release), up from 31% in 1.1.1.
   - Numerical components are checked against independent calculations:
     the filter against exact Gaussian conditioning, the Stan log
     densities against R code, and the samplers by their moments.
