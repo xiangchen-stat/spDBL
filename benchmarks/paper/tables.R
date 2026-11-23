@@ -116,7 +116,7 @@ add("\\bottomrule", "\\end{tabular}",
     "and mean width of central 95\\% intervals (\\pkg{spDBL}'s from \\code{predict(..., interval",
     "= \"prediction\")}). Fit and prediction time and peak memory are from design 1, rerun with",
     "spDBL 1.2.0's batched prediction, one task per node; \\code{ppgasp} per time step fits one \\code{ppgasp} per time, and its fit time includes",
-    "prediction. $^{a}$Times $3 \\le t \\le 25$; it has no prediction for the last time. $^{b}$Uses the",
+    "prediction. $^{a}$Times $3 \\le t \\le 25$: it has no prediction for the last time, $t = 26$. $^{b}$Uses the",
     "simulator's outputs at the test inputs to build the autoregressive rows (one-step prediction), so",
     "it is not simulator-free. $^{c}$With coefficient draws regenerated on demand",
     "(\\code{emulator\\_learn(keep\\_draws = FALSE)}); its predictions are identical.",
@@ -133,7 +133,10 @@ paired_tuned <- function(g, m, k, scale = 1, d = 3) {
   b <- e2_tuned[e2_tuned$grid == g & e2_tuned$method == "sp_opt", c("design", k)]
   x <- merge(a, b, by = "design"); dlt <- scale * (x[[2]] - x[[3]])
   ci <- mean(dlt) + c(-1, 1) * stats::qt(0.975, length(dlt) - 1) * stats::sd(dlt) / sqrt(length(dlt))
-  sprintf("%s [%s, %s]", f(mean(dlt), d), f(ci[1], d), f(ci[2], d))
+  # A bound that would print as zero gets one more decimal, so that the
+  # interval shows on which side of zero it lies.
+  fb <- function(x) if (x != 0 && round(x, d) == 0) f(x, d + 1) else f(x, d)
+  sprintf("%s [%s, %s]", f(mean(dlt), d), fb(ci[1]), fb(ci[2]))
 }
 add("\\begin{table}[ht]", "\\centering\\footnotesize\\setlength{\\tabcolsep}{3pt}",
     "\\begin{tabular}{@{}llrrr@{}}", "\\toprule",
