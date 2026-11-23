@@ -143,3 +143,71 @@ sir_calibration_replicates <- function(n_rep, seed, box, cache, inner = 0.8,
   bench_save_atomic(out, file)
   file
 }
+
+# Off-grid validation data (e3_offgrid.R). The E3 truths (same Latin
+# hypercube, seed + 7) are simulated on a grid `refine` times finer over the
+# same domain (sir_pde_domain(); refine odd, so every coarse cell centre is
+# the centre of a fine cell). Field data are taken at the 36 coarse cell
+# centres and at n_targets fine cell centres per replicate that are not
+# coarse centres (off the emulator's grid), with one discrepancy over all of
+# them from the E3 recipe: tau2_t ~ IG(n0, d0), u0 ~ N(0, tau2_0 I), and
+# increments N(0, tau2_t C) with C the continuous kernel behind
+# dt_calibration's U, then N(0, tau2_t) noise. Coordinates are the coarse
+# grid's (cell centres at the integer row and column indices). The true field
+# everywhere is the fine solution, so the coarse simulator's discretisation
+# error is part of the discrepancy, as for any simulator run coarser than the
+# process it models.
+sir_offgrid_kernel <- function(phi) function(a, b) {
+  h <- sqrt(outer(a[, 1], b[, 1], "-")^2 + outer(a[, 2], b[, 2], "-")^2)
+  (1.1 * exp(-phi * h) + 1e-4 * (h == 0)) / 1.1001
+}
+sir_offgrid_replicates <- function(n_rep, seed, box, cache, inner = 0.8, n0 = 30,
+                                   d0 = 2, refine = 3L, n_targets = 24L) {
+  file <- file.path(cache, sprintf("sirofg_r%d_s%d_in%g_n%g_d%g_f%d_k%d.rds",
+    as.integer(n_rep), as.integer(seed), inner, n0, d0, as.integer(refine),
+    as.integer(n_targets)))
+  if (file.exists(file)) return(file)
+  if (refine %% 2 != 1) stop("refine must be odd")
+  utils::data("dt_calibration", package = "spDBL", envir = environment())
+  d <- get("dt_calibration", environment())
+  L <- d$Nx
+  if (d$Ny != L) stop("The off-grid data need a square grid")
+  g <- L * refine
+  T <- length(d$time)
+  grid <- unname(as.matrix(d$grid))
+  centre <- (seq_len(g) - 0.5) / refine + 0.5
+  fine <- cbind(rep(centre, times = g), rep(centre, each = g))  # fine site i + (j - 1) g
+  coarse_fine <- match(paste(grid[, 1], grid[, 2]), paste(fine[, 1], fine[, 2]))
+  if (anyNA(coarse_fine)) stop("Coarse cell centres must be fine cell centres")
+  phi <- 3 / (0.5 * max(stats::dist(grid)))
+  kernel <- sir_offgrid_kernel(phi)
+  truths <- sir_lhs(n_rep, d$lower, d$upper, seed + 7L, inner = inner)
+  reps <- lapply(seq_len(n_rep), function(r) {
+    y_fine <- sir_pde_domain(truths[r, ], g, box$n_people, T, L)
+    set.seed(seed + 2000L + r)
+    targets <- sort(sample(setdiff(seq_len(g^2), coarse_fine), n_targets))
+    locs <- rbind(grid, fine[targets, , drop = FALSE])
+    Lc <- t(chol(kernel(locs, locs)))
+    tau <- 1 / stats::rgamma(T + 1L, shape = n0, rate = d0)
+    previous <- sqrt(tau[1]) * stats::rnorm(nrow(locs))
+    u <- z <- matrix(NA_real_, T, nrow(locs))
+    y <- y_fine[, c(coarse_fine, targets), drop = FALSE]
+    for (t in seq_len(T)) {
+      previous <- as.numeric(previous + sqrt(tau[t + 1L]) * Lc %*% stats::rnorm(nrow(locs)))
+      u[t, ] <- previous
+      z[t, ] <- y[t, ] + previous + stats::rnorm(nrow(locs), sd = sqrt(tau[t + 1L]))
+    }
+    obs <- seq_len(nrow(grid))
+    list(eta = truths[r, ], target_coords = fine[targets, , drop = FALSE],
+         target_fine = targets, y = y[, obs], u = u[, obs], z = z[, obs],
+         y_target = y[, -obs, drop = FALSE], u_target = u[, -obs, drop = FALSE],
+         z_target = z[, -obs, drop = FALSE], tau2 = tau[-1], tau2_0 = tau[1])
+  })
+  out <- list(training = d$training, lower = d$lower, upper = d$upper,
+    Nx = d$Nx, Ny = d$Ny, time = d$time, grid = d$grid, U = kernel(grid, grid),
+    kernel_phi = phi, refine = refine, prior = list(n0 = n0, d0 = d0),
+    replicates = reps,
+    generator = "fine-grid sir_pde_domain truth + continuous-kernel random-walk discrepancy")
+  bench_save_atomic(out, file)
+  file
+}

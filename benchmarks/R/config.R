@@ -190,3 +190,17 @@ local({
          n_draws = 2, chains = 1, iter = 60, warmup = 30, draws_per_emulator = 30,
          init = "midpoint", cores = 1, timeout_sec = 600))
 })
+
+# Off-grid prediction (results/e3/offgrid; e3_offgrid.R): the sites profile's
+# training design and sampling, with the true field simulated on a grid
+# `refine` times finer and n_targets points between the coarse cell centres
+# predicted with calibration_predict(coords = ...). offgrid_check is a
+# seconds-long check.
+local({
+  bench_profiles$e3$offgrid <<- utils::modifyList(bench_profiles$e3$sites,
+    list(label = "off-grid prediction, 24 points, 100 training runs",
+         methods = "spdbl_offgrid", refine = 3L, n_targets = 24L, site_holdout = NULL))
+  bench_profiles$e3$offgrid_check <<- utils::modifyList(bench_profiles$e3$sites_check,
+    list(label = "off-grid prediction, quick check", methods = "spdbl_offgrid",
+         refine = 3L, n_targets = 24L, site_holdout = NULL))
+})
