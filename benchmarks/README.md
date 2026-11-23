@@ -120,6 +120,15 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 | `results/e1/paper_lazy/` | `paper_lazy` | E1 with `keep_draws = FALSE`, Table A1 |
 | `results/e2/fixed_timing/` | `fixed_timing` | E2 design 1 retimed with the 1.2.0 code: times and memory of Table A2 |
 
+Not in the manuscript (they evaluate `calibration_predict(sites =, coords =)`
+of the development version), run as small jobs on shared nodes
+(`hoffman2/e3_pred.sh`, accuracy only):
+
+| Folder | Profile | Contents |
+|---|---|---|
+| `results/e3/sites/` | `sites` | On-grid prediction at 6 held-out sites in each of the 30 E3 replicates: pooled and paired scores (`sites_pooled.csv`, `sites_paired.csv`) and `prediction.png`, from `paper/prediction_summary.R` and `paper/prediction_fig_sites.R` |
+| `results/e3/offgrid/` | `offgrid` | Off-grid prediction at 24 points per replicate against a 3x finer simulation: pooled, paired and edge-versus-interior scores, `prediction.png` and `true-vs-predicted.png` (both studies), from `paper/prediction_summary.R`, `paper/prediction_fig_offgrid.R` and `paper/prediction_fig_true_vs_pred.R` |
+
 Superseded runs, kept for the record and cited in the manuscript's appendix
 where they bear on a result:
 
