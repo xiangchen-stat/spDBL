@@ -253,6 +253,8 @@ test_that("calibration_predict predicts at points in the grid's cells", {
   expect_error(calibration_predict(fit, sites = 2, coords = grid[2, , drop = FALSE],
     discrepancy_kernel = smooth), "either sites or coords")
   expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE]), "needs discrepancy_kernel")
+  expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE], joint = NA,
+    discrepancy_kernel = smooth), "joint must be")
   expect_error(calibration_predict(fit, coords = grid[2, , drop = FALSE],
     discrepancy_kernel = function(a, b) 2 * smooth(a, b)), "must reproduce U")
   expect_error(calibration_predict(fit, coords = rbind(c(3, 1)), discrepancy_kernel = smooth),
