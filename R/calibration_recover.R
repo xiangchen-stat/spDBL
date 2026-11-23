@@ -189,6 +189,162 @@ recover_calibration_predictions <- function(eta, tau2, u, emulator_draw,
   list(y = y, z_rep = z_rep)
 }
 
+# Draws of the emulator field y, the discrepancy u and new observations z at
+# prediction targets, at the observation times. Each draw conditions on the
+# same posterior draw of y and u at the observed sites (composition sampling:
+# Appendix B of the JMLR MLOSS paper, with the calibration's own field
+# covariance).
+# - Targets: each is a weighted sum of up to `ncol(cells)` grid cells (cells,
+#   weights: targets x slots; NA cells have weight 0). An on-grid site is one
+#   cell with weight 1; an off-grid point is its containing cell or the
+#   bilinear interpolation of the surrounding cell centres.
+# - y: at each time, y at the observed sites and the cells is Gaussian with
+#   the mean and covariance of predict_calibration(), design-row term
+#   included. Observed cells contribute their drawn values; the rest of each
+#   target is drawn given y at the observed sites.
+# - u: u0 at the targets has prior N(m0, tau2_0 M0), independent of u0 at the
+#   observed sites, and each increment at the targets is drawn given the
+#   increment at the observed sites under the discrepancy covariance (U_oo at
+#   the observed sites, U_oP to the targets, U_PP at the targets: a matrix
+#   when joint, the diagonal otherwise). This extends the prior without
+#   changing the calibration posterior.
+# - z = y + u + N(0, tau2_t) at each target.
+# joint = TRUE draws the targets jointly; FALSE draws each from its own
+# conditional distribution (targets independent; each u path stays a path).
+.cal_target_draws <- function(eta, tau2, tau2_0, u, u0, y, emulator_draw,
+    emulator, locations, cells, weights, U_oo, U_oP, U_PP, m0, M0, joint, seed) {
+  restore_seed <- .cal_seed(seed)
+  on.exit(restore_seed(), add = TRUE)
+  n <- nrow(eta)
+  T <- emulator$T
+  K <- nrow(cells)
+  nslot <- ncol(cells)
+  draw <- if (joint) function(L, x) as.numeric(L %*% x) else function(L, x) L * x
+  # Discrepancy: increments at the targets given those at the observed sites.
+  L_U <- .cal_spd(U_oo, "U")
+  A_U <- forwardsolve(t(L_U), U_oP)
+  gamma_u <- backsolve(L_U, A_U)
+  L_u <- if (joint) .cal_psd_factor(U_PP - crossprod(A_U),
+                                    "Conditional discrepancy covariance") else
+    sqrt(pmax(U_PP - colSums(A_U^2), 0))
+  L_0 <- if (joint) .cal_psd_factor(M0, "M0") else sqrt(diag(M0))
+  # Emulator field: split each target into observed cells (known given the
+  # draw) and unobserved cells (drawn), slot by slot.
+  pos <- matrix(match(cells, locations), K)
+  w_obs <- ifelse(!is.na(pos), weights, 0)
+  w_new <- ifelse(is.na(pos) & !is.na(cells), weights, 0)
+  new_cells <- unique(cells[w_new != 0])
+  idx <- matrix(match(cells, new_cells), K)
+  idx[w_new == 0] <- NA
+  o <- seq_along(locations)
+  s <- length(locations) + seq_along(new_cells)
+  # Sum over slots of f(slot) * weight, with f giving one column per target.
+  combine <- function(f, rows) {
+    out <- matrix(0, rows, K)
+    for (m in seq_len(nslot)) {
+      use <- which(w_new[, m] != 0)
+      if (length(use)) out[, use] <- out[, use] + sweep(f(idx[use, m]), 2, w_new[use, m], "*")
+    }
+    out
+  }
+  R_oo <- .cal_R_field(emulator, locations)
+  R_oP <- if (length(new_cells))
+    combine(function(i) .cal_R_cross(emulator, locations, new_cells[i]), length(o)) else
+    matrix(0, length(o), K)
+  R_PP <- if (joint) matrix(0, K, K) else numeric(K)
+  for (m in seq_len(nslot)) for (k in seq_len(nslot)) {
+    a <- which(w_new[, m] != 0)
+    b <- which(w_new[, k] != 0)
+    if (!length(a) || !length(b)) next
+    if (joint) {
+      R_PP[a, b] <- R_PP[a, b] + outer(w_new[a, m], w_new[b, k]) *
+        .cal_R_cross(emulator, new_cells[idx[a, m]], new_cells[idx[b, k]])
+    } else {
+      both <- intersect(a, b)
+      R_PP[both] <- R_PP[both] + w_new[both, m] * w_new[both, k] *
+        .cal_R_pairs(emulator, new_cells[idx[both, m]], new_cells[idx[both, k]])
+    }
+  }
+  y_s <- u_s <- z_s <- array(NA_real_, c(n, T, K))
+  for (i in seq_len(n)) {
+    current <- m0 + sqrt(tau2_0[i]) * draw(L_0, stats::rnorm(K))
+    previous <- u0[i, ]
+    for (t in seq_len(T)) {
+      current <- current + as.numeric(crossprod(gamma_u, u[i, t, ] - previous)) +
+        sqrt(tau2[i, t]) * draw(L_u, stats::rnorm(K))
+      previous <- u[i, t, ]
+      u_s[i, t, ] <- current
+    }
+    pred <- predict_calibration(eta[i, ], emulator_draw[i], emulator,
+                                c(locations, new_cells), covariance = "factors")
+    for (t in seq_len(T)) {
+      known <- as.numeric(rowSums(w_obs * matrix(y[i, t, ][pos], K), na.rm = TRUE))
+      mu_P <- as.numeric(combine(function(j) matrix(pred$mu[t, s[j]], 1), 1))
+      S_oo <- pred$scale * R_oo
+      S_oP <- pred$scale * R_oP
+      S_PP <- pred$scale * R_PP
+      if (length(pred$design_factors)) {
+        Z <- pred$design_factors[[t]]
+        v <- pred$design_variance[t]
+        Z_P <- combine(function(j) Z[, s[j], drop = FALSE], nrow(Z))
+        S_oo <- S_oo + v * crossprod(Z[, o, drop = FALSE])
+        S_oP <- S_oP + v * crossprod(Z[, o, drop = FALSE], Z_P)
+        S_PP <- S_PP + v * (if (joint) crossprod(Z_P) else colSums(Z_P^2))
+      }
+      L <- t(.cal_spd(S_oo, "Emulator field covariance"))
+      A <- forwardsolve(L, S_oP)
+      mean <- known + mu_P + as.numeric(crossprod(A, forwardsolve(L, y[i, t, ] - pred$mu[t, o])))
+      L_y <- if (joint) .cal_psd_factor(S_PP - crossprod(A),
+                                        "Conditional emulator field covariance") else
+        sqrt(pmax(S_PP - colSums(A^2), 0))
+      y_s[i, t, ] <- mean + draw(L_y, stats::rnorm(K))
+      z_s[i, t, ] <- y_s[i, t, ] + u_s[i, t, ] + stats::rnorm(K, sd = sqrt(tau2[i, t]))
+    }
+  }
+  list(y = y_s, u = u_s, z = z_s)
+}
+
+# Grid sites without observations: each target is one cell, and the
+# discrepancy covariance comes from the full-grid matrix U.
+recover_site_predictions <- function(eta, tau2, tau2_0, u, u0, y,
+    emulator_draw, emulator, U, locations, sites,
+    m0_sites = rep(0, length(sites)), M0_sites = diag(length(sites)),
+    joint = FALSE, seed = 1234) {
+  .cal_target_draws(eta, tau2, tau2_0, u, u0, y, emulator_draw, emulator,
+    locations, cells = matrix(as.integer(sites)), weights = matrix(1, length(sites)),
+    U_oo = U[locations, locations, drop = FALSE],
+    U_oP = U[locations, sites, drop = FALSE],
+    U_PP = if (joint) U[sites, sites, drop = FALSE] else diag(U)[sites],
+    m0 = m0_sites, M0 = M0_sites, joint = joint, seed = seed)
+}
+
+# Points anywhere on the grid's domain, in grid coordinates (cell centres at
+# the grid's integer coordinates). field = "cell" takes the emulated field of
+# the cell containing each point; "bilinear" interpolates the four
+# surrounding cell centres (at the edge, the nearest ones). The discrepancy
+# covariance at the observed sites is the fitted U; kernel(a, b), C at the
+# rows of two coordinate matrices, gives it at and to the points themselves.
+recover_point_predictions <- function(eta, tau2, tau2_0, u, u0, y,
+    emulator_draw, emulator, U, kernel, locations, coords, field = c("cell", "bilinear"),
+    m0_points = rep(0, nrow(coords)), M0_points = diag(nrow(coords)),
+    joint = FALSE, seed = 1234) {
+  field <- match.arg(field)
+  coords <- as.matrix(coords)
+  grid <- .cal_grid_coords(emulator)
+  map <- .cal_point_cells(grid, coords, field)
+  K <- nrow(coords)
+  grid_o <- grid[locations, , drop = FALSE]
+  .cal_target_draws(eta, tau2, tau2_0, u, u0, y, emulator_draw, emulator,
+    locations, cells = map$cells, weights = map$weights,
+    U_oo = U[locations, locations, drop = FALSE],
+    U_oP = .cal_kernel_matrix(kernel, grid_o, coords),
+    U_PP = if (joint) .cal_kernel_matrix(kernel, coords, coords) else
+      vapply(seq_len(K), function(k)
+        .cal_kernel_matrix(kernel, coords[k, , drop = FALSE], coords[k, , drop = FALSE])[1, 1],
+        numeric(1)),
+    m0 = m0_points, M0 = M0_points, joint = joint, seed = seed)
+}
+
 # Each fit has one fixed emulator draw. Equal pooling approximates Eq. (29),
 # rather than fitting a mixture likelihood that reweights the emulator draws.
 fit_calibration_rstan <- function(emulator, z, U,

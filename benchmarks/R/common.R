@@ -362,3 +362,33 @@ list_to_array <- function(x) {
   array(unlist(lapply(x, as.matrix)), c(nrow(as.matrix(x[[1]])),
     ncol(as.matrix(x[[1]])), length(x)))
 }
+
+# --- Scores of predictive draws (site-prediction studies) -------------------
+
+# Sample CRPS, E|X - y| - E|X - X'| / 2, for each column of draws (n x m)
+# against truth (length m); the second term from the sorted draws.
+crps_sample <- function(draws, truth) {
+  n <- nrow(draws)
+  first <- colMeans(abs(sweep(draws, 2, truth)))
+  w <- 2 * seq_len(n) - n - 1
+  first - colSums(apply(draws, 2, sort) * w) / n^2
+}
+
+# Scores of draws (n x T x K) against truth (T x K); a point prediction when
+# draws is a T x K matrix (CRPS is then the absolute error).
+score_draws <- function(draws, truth) {
+  y <- as.vector(truth)
+  if (length(dim(draws)) == 2L) {
+    m <- as.vector(draws)
+    return(data.frame(n_cells = length(y), rmse = sqrt(mean((y - m)^2)),
+      mae = mean(abs(y - m)), crps = mean(abs(y - m)), coverage95 = NA_real_,
+      width95 = NA_real_, bias = mean(m - y)))
+  }
+  x <- matrix(draws, dim(draws)[1])
+  m <- colMeans(x)
+  q <- apply(x, 2, stats::quantile, c(0.025, 0.975), names = FALSE)
+  data.frame(n_cells = length(y), rmse = sqrt(mean((y - m)^2)),
+    mae = mean(abs(y - m)), crps = mean(crps_sample(x, y)),
+    coverage95 = mean(y >= q[1, ] & y <= q[2, ]), width95 = mean(q[2, ] - q[1, ]),
+    bias = mean(m - y))
+}

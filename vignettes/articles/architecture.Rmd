@@ -86,7 +86,8 @@ instead, so no new simulator runs are needed.
    `summary()`, `print()` and `plot()` methods.
 4. `calibration_predict()` recovers discrepancy paths
    (`recover_calibration_discrepancy()`) and field draws
-   (`recover_calibration_predictions()`).
+   (`recover_calibration_predictions()`) and, with `sites`, draws at grid
+   sites without observations (`recover_site_predictions()`).
 
 There are two Stan programs in `inst/stan/`:
 

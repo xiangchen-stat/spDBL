@@ -1,0 +1,35 @@
+Calibration conditional on emulator draw 1 (1/10)
+Calibration conditional on emulator draw 2 (2/10)
+Calibration conditional on emulator draw 3 (3/10)
+Calibration conditional on emulator draw 4 (4/10)
+Calibration conditional on emulator draw 5 (5/10)
+Calibration conditional on emulator draw 6 (6/10)
+Calibration conditional on emulator draw 7 (7/10)
+Calibration conditional on emulator draw 8 (8/10)
+Calibration conditional on emulator draw 9 (9/10)
+Calibration conditional on emulator draw 10 (10/10)
+Recover discrepancy trajectories by Gaussian backward sampling
+There were 29 warnings (use warnings() to see them)
+	Command being timed: "/u/local/apps/R/4.6.1/gcc-11.5.0_intel-2026.2.0/lib64/R/bin/Rscript ~/spDBL-sites/benchmarks/e3_sites_worker.R ~/spDBL-sites/benchmarks/results/e3/sites/tasks/sites_r027.rds"
+	User time (seconds): 5924.44
+	System time (seconds): 3.25
+	Percent of CPU this job got: 155%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:03:43
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 508632
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 7
+	Minor (reclaiming a frame) page faults: 1690127
+	Voluntary context switches: 13307
+	Involuntary context switches: 4580
+	Swaps: 0
+	File system inputs: 400
+	File system outputs: 4288
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

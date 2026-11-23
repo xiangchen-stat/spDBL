@@ -13,6 +13,8 @@ calibration quality. The scripts live outside the package build
 | Check | `check_predictive.R` | Verifies the analytic spDBL predictive variance used in E2 against Monte Carlo built from the package's own samplers. |
 | E2 summary | `e2_summary.R` | Means over designs and design-paired t intervals against spDBL (`e2_summary.csv`, `e2_paired.csv`). |
 | E2 ablation | `e2_ablation.R` | (First E2 profile; profile `fixed` runs the same ablations as methods.) Where spDBL's simulator-free accuracy comes from: the design GP alone and `ppgasp` fitted per time step, against spDBL, on the same runs. |
+| E3 site prediction | `e3_sites.R` (+ `e3_sites_worker.R`) | On-grid prediction at sites left out of the calibration (`calibration_predict(sites =)`, development version): in each E3 replicate, 6 of the 36 grid sites are held out, and their observations and noise-free field (simulator at the true parameters plus the true discrepancy) are predicted at every time. RMSE, MAE, sample CRPS, 95% coverage and width for spDBL, the calibrated emulator without the discrepancy, and inverse-distance interpolation of the observed field (profile `sites`, Hoffman2 job `e3_sites.sh`). |
+| E3 off-grid prediction | `e3_offgrid.R` (+ `e3_offgrid_worker.R`) | Prediction at points between the emulator's grid sites (`calibration_predict(coords =)`, development version): the E3 truths simulated on a 3x finer grid of the same domain, field data at the 36 coarse cell centres and 24 off-grid points per replicate. Scores for the held-out observations and the true field, for spDBL with `field = "cell"` and `"bilinear"`, the calibrated emulator without the discrepancy, and inverse-distance interpolation (profile `offgrid`, Hoffman2 job `e3_offgrid.sh`). |
 | E3 chain diagnostic | `e3_chain_diagnostic.R` | 24 NUTS chains from random starts on one replicate and emulator draw: where each chain starts and settles, and its log density (the local modes in the manuscript). |
 | E3 MLE check | `e3_rc_mle_check.R` | Where RobustCalibration stores its maximum-likelihood estimate and how long a multi-start fit takes (used to start its chains in profile `mode`). |
 | Listing 1 | `listing1.R`, `listing1_run.R` | The manuscript's Listing 1, run exactly as printed, with its output, run time, git commit and session. |
@@ -82,6 +84,8 @@ Rscript benchmarks/e2_summary.R     --profile=fixed
 Rscript benchmarks/e2_ablation.R
 Rscript benchmarks/e3_calibration.R --profile=n100 --jobs=14
 Rscript benchmarks/e3_calibration.R --profile=mode --jobs=14
+Rscript benchmarks/e3_sites.R       --profile=sites --jobs=15
+Rscript benchmarks/e3_offgrid.R     --profile=offgrid --jobs=15
 Rscript benchmarks/listing1_run.R
 ```
 
@@ -106,20 +110,29 @@ Outputs go to `results/<experiment>/<profile>/` (override with `--out`):
 |---|---|---|
 | `results/e1/paper/` | `paper` | E1, Figure 2(a), Table A1 |
 | `results/e2/fixed_tuned/`, `fixed_gasp/` | `fixed_tuned`, `fixed_gasp` | E2 with every method's tuned setting (spDBL, PCA-GP; RobustGaSP): Figure 2(b, c), Tables A2 and A3 |
-| `results/e2/gasp_tune/`, `gasp_tune2/`, `tune_sp_pca/`, `tune_sp_pca2/` | `gasp_tune*`, `tune_sp_pca*` | E2 tuning study on designs 11-12 (two rounds per method), the E2 tuning table |
+| `results/e2/gasp_tune/`, `gasp_tune2/`, `tune_sp_pca/`, `tune_sp_pca2/` | `gasp_tune*`, `tune_sp_pca*` | E2 tuning study on designs 11-12 (two rounds per method): Table A4 |
 | `results/e2/fixed_tuned_timing/` | `fixed_tuned_timing` | times and memory of the tuned settings, design 1, one task per node (Table A2) |
-| `results/e2/fixed/` | `fixed` | E2 with the settings before tuning: Table A2 and the untuned paired table |
-| `results/e3/n100/` | `n100` | E3 with 100 training runs: spDBL in Figure 2(d) and Table A4; RobustCalibration with default proposals (its own table); replicates 1-10 in the ablation table |
-| `results/e3/n100_rc_tuned/` | `n100_rc_tuned` | E3 RobustCalibration with tuned proposals, 20 MLE starts and an emulator nugget: Figure 2(d), Table A4 |
-| `results/e3/rc_pilot/scale_*/` | `rc_pilot` | proposal-scale pilot on replicates 1-3 (the pilot table) |
-| `results/e3/mode/` | `mode` | E3 with the 40 bundled runs: Table A5, and the baseline of Table A6 |
+| `results/e2/fixed/` | `fixed` | E2 with the settings before tuning: the untuned rows of Table A2, and the before-tuning comparison in Appendix A's text |
+| `results/e3/n100/` | `n100` | E3 with 100 training runs: spDBL in Figure 2(d) and Table A5; RobustCalibration with default proposals (Appendix A's text); replicates 1-10 in Table A7 |
+| `results/e3/n100_rc_tuned/` | `n100_rc_tuned` | E3 RobustCalibration with tuned proposals, 20 MLE starts and an emulator nugget: Figure 2(d), Table A5 |
+| `results/e3/rc_pilot/scale_*/` | `rc_pilot` | proposal-scale pilot on replicates 1-3 (the scale 1.2 chosen in Appendix A's text) |
+| `results/e3/mode/` | `mode` | E3 with the 40 bundled runs: Table A6, and the baseline of Table A7 |
 | `results/e3_diagnostic/rep011_draw01_c24/` | `paper` | the local modes in E3 |
 | `results/listing1/` | -- | the run time and diagnostics of Listing 1 |
 | `results/e3_ablation/emulator_error/` | `mode` | the emulator's error at the true parameters (`e3_emulator_error.R`, no MCMC) |
-| `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A6 |
-| `results/e3/abl_n40/`, `abl_n80/`, `abl_n160/`, `abl_two/` | `abl_*` | E3 with other training designs, Table A6 |
+| `results/e3/abl_joint/`, `abl_m60/`, `abl_nodu/`, `abl_self/` | `abl_*` | E3 ablations on replicates 1-10, Table A7 |
+| `results/e3/abl_n40/`, `abl_n80/`, `abl_n160/`, `abl_two/` | `abl_*` | E3 with other training designs, Table A7 |
 | `results/e1/paper_lazy/` | `paper_lazy` | E1 with `keep_draws = FALSE`, Table A1 |
-| `results/e2/fixed_timing/` | `fixed_timing` | E2 design 1 retimed with the 1.2.0 code: times and memory of Table A2 |
+| `results/e2/fixed_timing/` | `fixed_timing` | E2 design 1 retimed with the 1.2.0 code: times and memory of Table A2's untuned rows |
+
+Not in the manuscript (they evaluate `calibration_predict(sites =, coords =)`
+of the development version), run as small jobs on shared nodes
+(`hoffman2/e3_pred.sh`, accuracy only):
+
+| Folder | Profile | Contents |
+|---|---|---|
+| `results/e3/sites/` | `sites` | On-grid prediction at 6 held-out sites in each of the 30 E3 replicates: pooled and paired scores (`sites_pooled.csv`, `sites_paired.csv`) and `prediction.png`, from `paper/prediction_summary.R` and `paper/prediction_fig_sites.R` |
+| `results/e3/offgrid/` | `offgrid` | Off-grid prediction at 24 points per replicate against a 3x finer simulation: pooled, paired and edge-versus-interior scores, `prediction.png` and `true-vs-predicted.png` (both studies), from `paper/prediction_summary.R`, `paper/prediction_fig_offgrid.R` and `paper/prediction_fig_true_vs_pred.R` |
 
 Superseded runs, kept for the record and cited in the manuscript's appendix
 where they bear on a result:
