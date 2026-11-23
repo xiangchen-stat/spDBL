@@ -19,7 +19,7 @@ calibration quality. The scripts live outside the package build
 | E3 MLE check | `e3_rc_mle_check.R` | Where RobustCalibration stores its maximum-likelihood estimate and how long a multi-start fit takes (used to start its chains in profile `mode`). |
 | Listing 1 | `listing1.R`, `listing1_run.R` | The manuscript's Listing 1, run exactly as printed, with its output, run time, git commit and session. |
 
-`paper/` holds the scripts that draw the manuscript's Figures 1 and 2 and
+`paper/` holds the scripts that draw the manuscript's Figures 1 to 3 and
 write its appendix tables from the committed results; run them from the
 paper's folder, e.g. `Rscript <spDBL>/benchmarks/paper/tables.R`.
 
@@ -131,8 +131,8 @@ of the development version), run as small jobs on shared nodes
 
 | Folder | Profile | Contents |
 |---|---|---|
-| `results/e3/sites/` | `sites` | On-grid prediction at 6 held-out sites in each of the 30 E3 replicates: pooled and paired scores (`sites_pooled.csv`, `sites_paired.csv`) and `prediction.png`, from `paper/prediction_summary.R` and `paper/prediction_fig_sites.R` |
-| `results/e3/offgrid/` | `offgrid` | Off-grid prediction at 24 points per replicate against a 3x finer simulation: pooled, paired and edge-versus-interior scores, `prediction.png` and `true-vs-predicted.png` (both studies), from `paper/prediction_summary.R`, `paper/prediction_fig_offgrid.R` and `paper/prediction_fig_true_vs_pred.R` |
+| `results/e3/sites/` | `sites` | On-grid prediction at 6 held-out sites in each of the 30 E3 replicates: pooled and paired scores (`sites_pooled.csv`, `sites_paired.csv`) and `prediction.png`, from `paper/prediction_summary.R` and `paper/prediction_fig_sites.R`; with `results/e3/offgrid/`, the manuscript's Figure 3 (Appendix B.6), from `paper/prediction_figure.R` |
+| `results/e3/offgrid/` | `offgrid` | Off-grid prediction at 24 points per replicate against a 3x finer simulation: pooled, paired and edge-versus-interior scores, `prediction.png` and `true-vs-predicted.png` (both studies), from `paper/prediction_summary.R`, `paper/prediction_fig_offgrid.R` and `paper/prediction_fig_true_vs_pred.R`; with `results/e3/sites/`, the manuscript's Figure 3 (Appendix B.6), from `paper/prediction_figure.R` |
 
 Superseded runs, kept for the record and cited in the manuscript's appendix
 where they bear on a result:
