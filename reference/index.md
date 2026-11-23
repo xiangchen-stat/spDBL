@@ -34,7 +34,8 @@ uses RStan (suggested package).
 - [`calibration_fit()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_fit.md)
   : Fit modular calibration conditional on emulator posterior draws
 - [`calibration_predict()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_predict.md)
-  : Recover fields at the calibrated observation times and locations
+  : Recover fields at the observed sites and predict them at new
+  locations
 - [`summary(`*`<spDBL_calibration>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/summary.spDBL_calibration.md)
   : Summarize modular calibration samples
 - [`plot(`*`<spDBL_calibration>`*`)`](https://xiangchen-stat.github.io/spDBL/reference/plot.spDBL_calibration.md)

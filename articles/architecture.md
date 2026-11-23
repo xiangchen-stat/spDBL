@@ -110,7 +110,9 @@ simulator runs are needed.
     [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
 4.  [`calibration_predict()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_predict.md)
     recovers discrepancy paths (`recover_calibration_discrepancy()`) and
-    field draws (`recover_calibration_predictions()`).
+    field draws (`recover_calibration_predictions()`) and, with `sites`,
+    draws at grid sites without observations
+    (`recover_site_predictions()`).
 
 There are two Stan programs in `inst/stan/`:
 

@@ -400,9 +400,14 @@ and locations:</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">x</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>, <span class="va">quantile</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.025</span>, <span class="fl">0.5</span>, <span class="fl">0.975</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>The raw arrays have dimensions calibration sample by observation time
 by observed location. Replicated observations include fresh independent
-measurement noise. This interface does not forecast new times or spatial
-sites. The compact record stores the quantiles computed by the same
-recovery operation.</p>
+measurement noise. To predict at grid sites left out of the calibration,
+give their grid indices as <code>sites</code>; <code>fields$sites</code>
+then holds draws of y, u and new observations z there, at the
+observation times (<code><a href="../articles/calibration-details.html">vignette("calibration-details")</a></code>
+describes the model). This interface does not forecast new times. Points
+off the grid are given as <code>coords</code>, with the discrepancy’s
+covariance function as <code>discrepancy_kernel</code>. The compact
+record stores the quantiles computed by the same recovery operation.</p>
 </div>
 <div class="section level2">
 <h2 id="panel-tau2-u-z">Panel: TAU2, U, Z<a class="anchor" aria-label="anchor" href="#panel-tau2-u-z"></a>

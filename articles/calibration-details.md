@@ -266,4 +266,33 @@ The initial public calibration interface supports the sigma2R emulator,
 fixed discrepancy covariance scale, finite complete observation
 matrices, and subsets of the original time/grid setup. It does not
 silently convert an inverse-Wishart fit, fill missing observations, or
-forecast new sites or times.
+forecast new times. `calibration_predict(fit, sites = ...)` predicts at
+grid sites without observations, at the observation times: each draw
+conditions on the same posterior draw of the emulator field and the
+discrepancy at the observed sites. At each time the emulator field at
+the observed sites and the new sites is Gaussian with the calibration’s
+mean and covariance, design-row term included. The discrepancy’s
+increments at the new sites are drawn given those at the observed sites
+with covariance scale `U`, and its starting value there has its own
+prior (`m0_sites`, `M0_sites`), independent of the starting value at the
+observed sites, which leaves the calibration posterior unchanged.
+Because `U` is fixed, the discrepancy at a new site borrows from the
+observed sites only as much as `U` allows.
+
+`calibration_predict(fit, coords = ..., discrepancy_kernel = ...)`
+predicts at points off the grid, given in grid coordinates (cell centres
+at the integer row and column indices). The emulator defines no field
+between its grid sites: its coefficients are shared by the sites of a
+block and evolve across blocks, so there is no coefficient at an
+off-grid point to impute. The field at a point is therefore that of the
+cell containing it (`field = "cell"`, exact for simulators whose outputs
+are cell averages, such as
+[`gen_pde()`](https://xiangchen-stat.github.io/spDBL/reference/gen_pde.md))
+or the bilinear interpolation of the four surrounding cell centres
+(`field = "bilinear"`, which assumes the field is smooth within a cell),
+drawn with the grid sites’ joint distribution given the observed sites.
+The difference from the true field at the point is left to the
+discrepancy, which the model defines everywhere: its increments are a
+Gaussian process with covariance function `discrepancy_kernel`, of which
+`U` is the matrix at the grid sites. The kernel must reproduce `U` at
+the observed sites, so the extension does not change the calibration.

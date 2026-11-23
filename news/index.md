@@ -1,5 +1,32 @@
 # Changelog
 
+## spDBL (development version)
+
+### New features
+
+- [`calibration_predict()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_predict.md)
+  gains `sites`, to predict at grid sites without field observations.
+  For each posterior draw it draws the emulator field, the discrepancy
+  and new field observations there, at the observation times,
+  conditional on that draw’s field and discrepancy at the observed
+  sites. The field uses the mean and covariance that calibration uses,
+  design-row term included; the discrepancy uses the rows of `U` for the
+  sites and a prior for its starting value there (`m0_sites`,
+  `M0_sites`). `joint = TRUE` draws the sites jointly, for sums or maps
+  over sites; the default draws each site from its own predictive
+  distribution. Results at the observed sites are unchanged. New times
+  are not supported.
+- [`calibration_predict()`](https://xiangchen-stat.github.io/spDBL/reference/calibration_predict.md)
+  also predicts at points off the emulator grid (`coords`, in grid
+  coordinates). The emulator field at a point is that of its containing
+  cell (`field = "cell"`, exact for cell-average simulators such as
+  [`gen_pde()`](https://xiangchen-stat.github.io/spDBL/reference/gen_pde.md))
+  or the bilinear interpolation of the four surrounding cell centres
+  (`field = "bilinear"`); the discrepancy is predicted at the point
+  itself from `discrepancy_kernel`, the covariance function behind `U`,
+  which must reproduce `U` at the observed sites. Calibration objects
+  now keep the grid coordinates.
+
 ## spDBL 1.2.0
 
 CRAN release: 2026-11-16

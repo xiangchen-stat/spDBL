@@ -42,6 +42,16 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="spdbl-development-version">spDBL (development version)<a class="anchor" aria-label="anchor" href="#spdbl-development-version"></a></h2>
+<div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/calibration_predict.html">calibration_predict()</a></code> gains <code>sites</code>, to predict at grid sites without field observations. For each posterior draw it draws the emulator field, the discrepancy and new field observations there, at the observation times, conditional on that draw’s field and discrepancy at the observed sites. The field uses the mean and covariance that calibration uses, design-row term included; the discrepancy uses the rows of <code>U</code> for the sites and a prior for its starting value there (<code>m0_sites</code>, <code>M0_sites</code>). <code>joint = TRUE</code> draws the sites jointly, for sums or maps over sites; the default draws each site from its own predictive distribution. Results at the observed sites are unchanged. New times are not supported.</li>
+<li>
+<code><a href="../reference/calibration_predict.html">calibration_predict()</a></code> also predicts at points off the emulator grid (<code>coords</code>, in grid coordinates). The emulator field at a point is that of its containing cell (<code>field = "cell"</code>, exact for cell-average simulators such as <code><a href="../reference/gen_pde.html">gen_pde()</a></code>) or the bilinear interpolation of the four surrounding cell centres (<code>field = "bilinear"</code>); the discrepancy is predicted at the point itself from <code>discrepancy_kernel</code>, the covariance function behind <code>U</code>, which must reproduce <code>U</code> at the observed sites. Calibration objects now keep the grid coordinates.</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.2.0" id="spdbl-120">spDBL 1.2.0<a class="anchor" aria-label="anchor" href="#spdbl-120"></a></h2><p class="text-muted">CRAN release: 2026-11-16</p>
 <div class="section level3">
 <h3 id="changes-that-affect-existing-code-or-results-1-2-0">Changes that affect existing code or results<a class="anchor" aria-label="anchor" href="#changes-that-affect-existing-code-or-results-1-2-0"></a></h3>
