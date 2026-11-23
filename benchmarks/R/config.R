@@ -170,3 +170,37 @@ local({
          train_n = 100, train_seed = bench_profiles$e3$mode$seed + 3000L,
          rc_cores = 4))
 })
+
+# On-grid site prediction (results/e3/sites; e3_sites.R): in each replicate
+# of the 30-replicate E3 data, site_holdout grid sites are left out of the
+# calibration and then predicted with calibration_predict(sites = ...), at all
+# observation times, against the true field. The n100 profile's training
+# design and mode starts, with lighter sampling (prediction depends little on
+# the last digits of the parameter posterior): 10 emulator draws, 2 chains of
+# 1,000 iterations, and draws_per_emulator posterior draws from each
+# conditional fit for prediction. sites_check is a seconds-long check.
+local({
+  bench_profiles$e3$sites <<- utils::modifyList(bench_profiles$e3$n100,
+    list(label = "on-grid site prediction, 6 held-out sites, 100 training runs",
+         methods = "spdbl_sites", site_holdout = 6L, n_draws = 10, chains = 2,
+         iter = 1000, warmup = 500, draws_per_emulator = 200, cores = 2,
+         timeout_sec = 6 * 3600))
+  bench_profiles$e3$sites_check <<- utils::modifyList(bench_profiles$e3$sites,
+    list(label = "site prediction, quick check", n_rep = 30, train_n = NULL,
+         n_draws = 2, chains = 1, iter = 60, warmup = 30, draws_per_emulator = 30,
+         init = "midpoint", cores = 1, timeout_sec = 600))
+})
+
+# Off-grid prediction (results/e3/offgrid; e3_offgrid.R): the sites profile's
+# training design and sampling, with the true field simulated on a grid
+# `refine` times finer and n_targets points between the coarse cell centres
+# predicted with calibration_predict(coords = ...). offgrid_check is a
+# seconds-long check.
+local({
+  bench_profiles$e3$offgrid <<- utils::modifyList(bench_profiles$e3$sites,
+    list(label = "off-grid prediction, 24 points, 100 training runs",
+         methods = "spdbl_offgrid", refine = 3L, n_targets = 24L, site_holdout = NULL))
+  bench_profiles$e3$offgrid_check <<- utils::modifyList(bench_profiles$e3$sites_check,
+    list(label = "off-grid prediction, quick check", methods = "spdbl_offgrid",
+         refine = 3L, n_targets = 24L, site_holdout = NULL))
+})

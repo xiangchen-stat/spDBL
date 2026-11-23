@@ -332,6 +332,8 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
   structure(list(version = 1L, input = input, Y = Y, F_ls = F_ls,
     posterior = posterior, block_cols = block_cols, R_field = R_field,
     field_kernel = if (is.null(R_field)) field_kernel,
+    grid_coords = if (is.list(field_kernel) && is.matrix(field_kernel$coords))
+      field_kernel$coords,
     phi_para = phi_para, gp_sigma2 = gp_sigma2, gp_tau2 = gp_tau2,
     V_chol = V_chol, residual_cache = new.env(parent = emptyenv()),
     predictor = predictor, design_uncertainty = design_uncertainty,
@@ -388,6 +390,107 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
   rep(emulator$field_kernel$sigma2 + emulator$field_kernel$tau2, length(locations))
 }
 
+# Block of the full-grid emulator covariance between the sites `rows` and
+# `cols`: the stored R_field, or the exponential kernel, whose nugget enters
+# only where a row site and a column site coincide. The distances are summed
+# over coordinates in the same order as stats::dist(), so the block matches
+# .cal_R_field() entry by entry.
+.cal_R_cross <- function(emulator, rows, cols) {
+  if (!is.null(emulator$R_field))
+    return(emulator$R_field[rows, cols, drop = FALSE])
+  k <- emulator$field_kernel
+  a <- k$coords[rows, , drop = FALSE]
+  b <- k$coords[cols, , drop = FALSE]
+  d2 <- matrix(0, nrow(a), nrow(b))
+  for (j in seq_len(ncol(a))) d2 <- d2 + outer(a[, j], b[, j], "-")^2
+  unname(k$sigma2 * exp(-k$phi * sqrt(d2)) + k$tau2 * outer(rows, cols, "=="))
+}
+
+# Elementwise field covariance between sites a[i] and b[i] (the diagonal of
+# .cal_R_cross(emulator, a, b) when a and b are the same sites).
+.cal_R_pairs <- function(emulator, a, b) {
+  if (!is.null(emulator$R_field)) return(emulator$R_field[cbind(a, b)])
+  k <- emulator$field_kernel
+  d2 <- rowSums((k$coords[a, , drop = FALSE] - k$coords[b, , drop = FALSE])^2)
+  k$sigma2 * exp(-k$phi * sqrt(d2)) + k$tau2 * (a == b)
+}
+
+# Grid coordinates of the sites (cell centres), one row per site.
+.cal_grid_coords <- function(emulator) {
+  coords <- emulator$grid_coords
+  if (is.null(coords)) coords <- emulator$field_kernel$coords
+  if (is.null(coords))
+    stop("The calibration input has no grid coordinates; rerun calibration_prepare()")
+  unname(as.matrix(coords))
+}
+
+# Cells and weights for points in grid coordinates on a full lattice of
+# integer cell centres. "cell": the cell containing each point (ties to the
+# higher cell); "bilinear": the four surrounding cell centres, with the
+# point clamped to the cell centres at the edges. Unused slots are NA.
+.cal_point_cells <- function(grid, coords, field = c("cell", "bilinear")) {
+  field <- match.arg(field)
+  grid <- as.matrix(grid)
+  coords <- as.matrix(coords)
+  if (ncol(grid) != 2L || ncol(coords) != 2L || !is.numeric(coords) ||
+      !nrow(coords) || any(!is.finite(coords)))
+    stop("coords must be a numeric matrix with two columns of grid coordinates")
+  lo <- apply(grid, 2, min)
+  hi <- apply(grid, 2, max)
+  key <- function(r, c) paste(r, c)
+  site_key <- key(grid[, 1], grid[, 2])
+  full <- key(rep(seq(lo[1], hi[1]), times = hi[2] - lo[2] + 1),
+              rep(seq(lo[2], hi[2]), each = hi[1] - lo[1] + 1))
+  if (any(grid != round(grid)) || anyDuplicated(site_key) ||
+      length(full) != nrow(grid) || anyNA(match(full, site_key)))
+    stop("Off-grid prediction needs grid coordinates that form a full integer lattice")
+  if (any(coords[, 1] < lo[1] - 0.5 | coords[, 1] > hi[1] + 0.5 |
+          coords[, 2] < lo[2] - 0.5 | coords[, 2] > hi[2] + 0.5))
+    stop("coords must lie within the grid's cells")
+  cell_at <- function(r, c) match(key(r, c), site_key)
+  if (field == "cell") {
+    nearest <- function(x, j) pmin(pmax(floor(x + 0.5), lo[j]), hi[j])
+    return(list(cells = matrix(cell_at(nearest(coords[, 1], 1), nearest(coords[, 2], 2))),
+                weights = matrix(1, nrow(coords))))
+  }
+  corner <- function(x, j) {
+    x <- pmin(pmax(x, lo[j]), hi[j])
+    x0 <- if (hi[j] > lo[j]) pmin(floor(x), hi[j] - 1) else rep(lo[j], length(x))
+    list(x0 = x0, a = x - x0)
+  }
+  r <- corner(coords[, 1], 1)
+  c <- corner(coords[, 2], 2)
+  cells <- cbind(cell_at(r$x0, c$x0), cell_at(r$x0 + 1, c$x0),
+                 cell_at(r$x0, c$x0 + 1), cell_at(r$x0 + 1, c$x0 + 1))
+  weights <- cbind((1 - r$a) * (1 - c$a), r$a * (1 - c$a), (1 - r$a) * c$a, r$a * c$a)
+  weights[is.na(cells)] <- 0
+  cells[weights == 0] <- NA
+  list(cells = cells, weights = weights)
+}
+
+# A user-supplied covariance function at the rows of two coordinate
+# matrices, checked for shape and finiteness.
+.cal_kernel_matrix <- function(kernel, a, b) {
+  k <- kernel(a, b)
+  if (!is.numeric(k) || !identical(as.integer(dim(as.matrix(k))), c(nrow(a), nrow(b))) ||
+      any(!is.finite(k)))
+    stop("discrepancy_kernel(a, b) must return a finite nrow(a) x nrow(b) matrix")
+  unname(as.matrix(k))
+}
+
+# Lower factor L with L L' = x for a covariance matrix that may be singular
+# up to rounding error (conditional covariances); negative eigenvalues
+# larger than rounding error are an error.
+.cal_psd_factor <- function(x, name = "covariance") {
+  x <- (x + t(x)) / 2
+  L <- tryCatch(t(chol(x)), error = function(e) NULL)
+  if (!is.null(L)) return(L)
+  e <- eigen(x, symmetric = TRUE)
+  if (min(e$values) < -1e-8 * max(1, abs(e$values)))
+    stop(name, " is not positive semidefinite")
+  e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(x))
+}
+
 # Field covariance at time t: the emulator term shared by all times plus the
 # design-row term, if any.
 .cal_time_covariance <- function(pred, t) {
@@ -408,8 +511,13 @@ make_offline_calibration_input <- function(input, Y, F_ls, posterior, block_cols
 # covariance = "marginal": variance is the T x S matrix of pointwise
 #   variances, computed without forming S x S matrices.
 # covariance = "none": the mean only.
+# covariance = "factors": the pieces of the covariance without forming it:
+#   the field covariance at time t is scale * R_field + design_variance[t] *
+#   Z_t' Z_t, with Z_t from design_factors (empty when design uncertainty is
+#   off).
 predict_calibration <- function(eta, emulator_draw, emulator,
-    locations = seq_len(emulator$S), covariance = c("full", "marginal", "none")) {
+    locations = seq_len(emulator$S),
+    covariance = c("full", "marginal", "none", "factors")) {
   covariance <- match.arg(covariance)
   m <- as.integer(emulator_draw)
   if (length(m) != 1 || is.na(m) || m < 1 || m > emulator$M ||
@@ -434,6 +542,9 @@ predict_calibration <- function(eta, emulator_draw, emulator,
   scale <- emulator$posterior$sigma2[m] * factor
   factors <- .cal_design_factors(emulator, m, locations)
   time_factor <- .cal_time_factor(design, emulator)
+  if (covariance == "factors")
+    return(c(out, list(scale = scale, design_variance = time_factor,
+                       design_factors = factors)))
   if (covariance == "marginal") {
     variance <- matrix(scale * .cal_R_field_diag(emulator, locations),
                        emulator$T, length(locations), byrow = TRUE)
