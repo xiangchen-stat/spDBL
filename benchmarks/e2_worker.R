@@ -23,6 +23,11 @@
 #                           inaccurate for many outputs).
 #   mlegp_pca               mlegp GPs on principal-component weights of the
 #                           centred outputs (Higdon-style PCA-GP).
+#   gasp_*                  RobustGaSP tuning study (profile gasp_tune, on
+#                           designs 11-12 that E2 does not evaluate): the
+#                           settings in gasp_specs below. The selected one is
+#                           run on designs 1-10 as ppgasp_opt (profile
+#                           fixed_gasp).
 
 local({
   file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
@@ -34,8 +39,12 @@ source(file.path(getOption("spdbl_bench_dir"), "R", "spdbl_predictive.R"))
 # Runs x (S * T) matrix, column (t - 1) * S + s, from a time-indexed list.
 flatten_runs <- function(x) do.call(cbind, lapply(x, as.matrix))
 
-fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE, keep_draws = TRUE) {
+fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE, keep_draws = TRUE,
+                      spec = list()) {
   suppressPackageStartupMessages(library(spDBL))
+  # spec (tuning study): emulator and design-GP settings; unset ones keep the
+  # profile's values and the package defaults, as for spdbl_s2r_designgp.
+  setting <- function(name, default) if (is.null(spec[[name]])) default else spec[[name]]
   X_train <- d$input_train
   X_test <- d$input_test
   lower <- d$lower
@@ -48,10 +57,14 @@ fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE, keep_draws
   }
   fit <- timed({
     em <- emulator_learn(X_train, d$train, Nx = d$grid, Ny = d$grid,
-      nsam = cfg$nsam, AR_choice = cfg$ar_choice,
-      episode_window = cfg$episode_window, covariance = covariance,
+      nsam = setting("nsam", cfg$nsam), AR_choice = setting("AR_choice", cfg$ar_choice),
+      episode_window = setting("episode_window", cfg$episode_window),
+      gp_tune = setting("gp_tune", 0.5), gp_sigma2 = setting("gp_sigma2", 1.1),
+      gp_tau2 = setting("gp_tau2", 1e-4), covariance = covariance,
       seed = task$seed, keep_draws = keep_draws)
-    if (design == "designgp") list(em = em, cal = calibration_prepare(em, lower, upper)) else
+    if (design == "designgp") list(em = em, cal = calibration_prepare(em, lower, upper,
+      design_kernel = setting("design_kernel", "matern52"),
+      design_groups = setting("design_groups", "time"))) else
       list(em = em)
   })
   heap_fit <- gc_peak_mb()
@@ -73,6 +86,7 @@ fit_spdbl <- function(d, cfg, task, covariance, design, unit = FALSE, keep_draws
     extra$design_uncertainty <- isTRUE(cal$design_uncertainty)
   }
   extra$fit_object_mb <- as.numeric(utils::object.size(fit$value)) / 2^20
+  if (length(spec)) extra$spdbl_spec <- paste(names(spec), unlist(spec), sep = "=", collapse = ";")
   list(pred = pred$value, fit_s = fit$elapsed, fit_cpu_s = fit$cpu,
        predict_s = pred$elapsed, predict_cpu_s = pred$cpu,
        heap_fit = heap_fit, extra = extra)
@@ -113,6 +127,115 @@ fit_designgp_only <- function(d, cfg, task) {
   list(pred = pred$value, fit_s = fit$elapsed, fit_cpu_s = fit$cpu,
        predict_s = pred$elapsed, predict_cpu_s = pred$cpu, heap_fit = NA_real_,
        extra = list(last_time_predicted = FALSE))
+}
+
+# RobustGaSP settings of the tuning study. Each starts from ppgasp_tuned
+# (estimated nugget, Nelder-Mead) and changes one setting; per_time fits one
+# ppgasp per time step. ppgasp_opt is the setting selected on designs 11-12.
+gasp_base <- list(per_time = FALSE, nugget.est = TRUE, optimization = "nelder-mead",
+                  kernel_type = "matern_5_2", trend = "constant", method = "post_mode",
+                  prior_choice = "ref_approx", num_initial_values = 2L)
+gasp_specs <- list(
+  gasp_base = list(),
+  gasp_starts = list(num_initial_values = 10L),
+  gasp_trend = list(trend = "linear"),
+  gasp_m32 = list(kernel_type = "matern_3_2"),
+  gasp_powexp = list(kernel_type = "pow_exp"),
+  gasp_mmle = list(method = "mmle"),
+  gasp_refgamma = list(prior_choice = "ref_gamma"),
+  gasp_pt = list(per_time = TRUE),
+  gasp_pt_trend = list(per_time = TRUE, trend = "linear"),
+  # Round 2: combinations of the round-1 settings that each lowered CRPS
+  # (per-time fits, the linear trend, the Matern 3/2 and power-exponential
+  # kernels).
+  gasp_pt_m32 = list(per_time = TRUE, kernel_type = "matern_3_2"),
+  gasp_pt_powexp = list(per_time = TRUE, kernel_type = "pow_exp"),
+  gasp_pt_trend_m32 = list(per_time = TRUE, trend = "linear", kernel_type = "matern_3_2"),
+  gasp_pt_trend_powexp = list(per_time = TRUE, trend = "linear", kernel_type = "pow_exp"),
+  gasp_trend_m32 = list(trend = "linear", kernel_type = "matern_3_2"),
+  # Selected on designs 11-12 (lowest mean CRPS over both rounds: 0.106,
+  # against 0.137 for ppgasp_tuned's setting), run on designs 1-10.
+  ppgasp_opt = list(per_time = TRUE, trend = "linear", kernel_type = "matern_3_2"))
+
+# spDBL and PCA-GP tuning studies (profile tune_sp_pca, designs 11-12, the
+# same rule as RobustGaSP's): each starts from the method's E2 setting
+# (spdbl_s2r_designgp: nsam 20, AR(2), episode window 2, gp_tune 0.5,
+# gp_sigma2 1.1, gp_tau2 1e-4, Matern 5/2 design GP per time step;
+# mlegp_pca: 99.9% of variance, constant mean, no nugget, 5 simplex starts)
+# and changes one setting.
+spdbl_specs <- list(
+  sp_base = list(),
+  sp_ar1 = list(AR_choice = 1L),
+  sp_w1 = list(episode_window = 1L),
+  sp_w5 = list(episode_window = 5L),
+  sp_tune025 = list(gp_tune = 0.25),
+  sp_tune1 = list(gp_tune = 1),
+  sp_nugget = list(gp_tau2 = 1e-2),
+  sp_sigma2 = list(gp_sigma2 = 4),
+  sp_sqexp = list(design_kernel = "sqexp"),
+  sp_shared = list(design_groups = "shared"),
+  sp_nsam50 = list(nsam = 50L),
+  # Round 2: combinations of the round-1 settings that lowered CRPS (window
+  # 5, gp_tune 1, 50 draws).
+  sp_w5_tune1 = list(episode_window = 5L, gp_tune = 1),
+  sp_w5_nsam50 = list(episode_window = 5L, nsam = 50L),
+  sp_tune1_nsam50 = list(gp_tune = 1, nsam = 50L),
+  sp_w5_tune1_nsam50 = list(episode_window = 5L, gp_tune = 1, nsam = 50L),
+  # Selected on designs 11-12 (lowest mean CRPS over both rounds: 0.1182,
+  # against 0.1200 for spdbl_s2r_designgp's setting), run on designs 1-10.
+  sp_opt = list(episode_window = 5L, gp_tune = 1, nsam = 50L))
+pca_specs <- list(
+  pc_base = list(),
+  pc_99 = list(PC.percent = 99),
+  pc_9999 = list(PC.percent = 99.99),
+  pc_linear = list(constantMean = 0),
+  pc_nugget = list(nugget = 1e-4),
+  pc_tries = list(simplex.ntries = 20L),
+  # Round 2: combinations of the round-1 settings that lowered CRPS (linear
+  # mean, 99.99% of variance, nugget, 20 restarts).
+  pc_linear_9999 = list(constantMean = 0, PC.percent = 99.99),
+  pc_linear_nugget = list(constantMean = 0, nugget = 1e-4),
+  pc_9999_nugget = list(PC.percent = 99.99, nugget = 1e-4),
+  pc_linear_9999_nugget = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4),
+  pc_all = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L),
+  # Selected on designs 11-12 (0.1180, against 0.1276 for mlegp_pca's
+  # setting), run on designs 1-10.
+  pc_opt = list(constantMean = 0, PC.percent = 99.99, nugget = 1e-4, simplex.ntries = 20L))
+
+fit_ppgasp_spec <- function(d, cfg, task, spec) {
+  suppressPackageStartupMessages(library(RobustGaSP))
+  spec <- utils::modifyList(gasp_base, spec)
+  active <- d$upper > d$lower
+  X <- d$input_train[, active, drop = FALSE]
+  X_new <- d$input_test[, active, drop = FALSE]
+  n <- nrow(X_new); S <- d$grid^2; T <- length(d$train)
+  trend <- if (spec$trend == "linear") cbind(1, X) else matrix(1, nrow(X), 1)
+  trend_new <- if (spec$trend == "linear") cbind(1, X_new) else matrix(1, n, 1)
+  fit_one <- function(Y) {
+    const <- apply(Y, 2, function(v) max(v) - min(v) < 1e-12)
+    out <- list(mean = matrix(rep(Y[1, ], each = n), n, ncol(Y)))
+    out$lower <- out$upper <- out$mean
+    out$sd <- matrix(0, n, ncol(Y))
+    if (any(!const)) {
+      utils::capture.output(fit <- ppgasp(design = X, response = Y[, !const, drop = FALSE],
+        trend = trend, nugget.est = spec$nugget.est, optimization = spec$optimization,
+        kernel_type = spec$kernel_type, method = spec$method,
+        prior_choice = spec$prior_choice, num_initial_values = spec$num_initial_values))
+      pp <- predict(fit, X_new, testing_trend = trend_new)
+      out$mean[, !const] <- pp$mean; out$sd[, !const] <- pp$sd
+      out$lower[, !const] <- pp$lower95; out$upper[, !const] <- pp$upper95
+    }
+    out
+  }
+  tm <- timed(if (spec$per_time) lapply(d$train, function(y) fit_one(as.matrix(y))) else
+    list(fit_one(flatten_runs(d$train))))
+  parts <- tm$value
+  shape <- function(k) array(do.call(cbind, lapply(parts, `[[`, k)), c(n, S, T))
+  list(pred = list(mean = shape("mean"), sd = shape("sd"), lower = shape("lower"),
+                   upper = shape("upper")),
+       fit_s = tm$elapsed, fit_cpu_s = tm$cpu, predict_s = NA_real_,
+       predict_cpu_s = NA_real_, heap_fit = NA_real_,
+       extra = list(gasp_spec = paste(names(spec), unlist(spec), sep = "=", collapse = ";")))
 }
 
 # Ablation: ppgasp fitted separately at each time step (same defaults).
@@ -178,8 +301,9 @@ fit_ppgasp <- function(d, cfg, task, tuned) {
          fit_object_mb = as.numeric(utils::object.size(fit$value)) / 2^20))
 }
 
-fit_mlegp <- function(d, cfg, task) {
+fit_mlegp <- function(d, cfg, task, spec = list()) {
   suppressPackageStartupMessages(library(mlegp))
+  setting <- function(name, default) if (is.null(spec[[name]])) default else spec[[name]]
   Y <- flatten_runs(d$train)
   const <- apply(Y, 2, function(v) max(v) - min(v) < 1e-12)
   active <- d$upper > d$lower
@@ -188,8 +312,10 @@ fit_mlegp <- function(d, cfg, task) {
   centre <- colMeans(Y[, !const, drop = FALSE])
   fit <- timed({
     Z <- t(sweep(Y[, !const, drop = FALSE], 2, centre))
-    utils::capture.output(m <- mlegp(X, Z, PC.percent = cfg$mlegp_pc_percent,
-                                     verbose = 0, seed = task$seed))
+    utils::capture.output(m <- mlegp(X, Z,
+      PC.percent = setting("PC.percent", cfg$mlegp_pc_percent),
+      constantMean = setting("constantMean", 1), nugget = setting("nugget", NULL),
+      simplex.ntries = setting("simplex.ntries", 5), verbose = 0, seed = task$seed))
     m
   })
   heap_fit <- gc_peak_mb()
@@ -220,7 +346,8 @@ fit_mlegp <- function(d, cfg, task) {
        fit_s = fit$elapsed, fit_cpu_s = fit$cpu, predict_s = pred$elapsed,
        predict_cpu_s = pred$cpu, heap_fit = heap_fit,
        extra = list(n_pc = fit$value$numGPs,
-         fit_object_mb = as.numeric(utils::object.size(fit$value)) / 2^20))
+         fit_object_mb = as.numeric(utils::object.size(fit$value)) / 2^20,
+         pca_spec = if (length(spec)) paste(names(spec), unlist(spec), sep = "=", collapse = ";") else NA))
 }
 
 bench_worker_main(function(task) {
@@ -239,7 +366,13 @@ bench_worker_main(function(task) {
     mlegp_pca = fit_mlegp(d, cfg, task),
     designgp_only = fit_designgp_only(d, cfg, task),
     ppgasp_per_time = fit_ppgasp_per_time(d, cfg, task),
-    stop("Unknown method ", task$method))
+    if (task$method %in% names(gasp_specs))
+      fit_ppgasp_spec(d, cfg, task, gasp_specs[[task$method]]) else
+    if (task$method %in% names(spdbl_specs))
+      fit_spdbl(d, cfg, task, "sigma2R", "designgp", spec = spdbl_specs[[task$method]]) else
+    if (task$method %in% names(pca_specs))
+      fit_mlegp(d, cfg, task, spec = pca_specs[[task$method]]) else
+      stop("Unknown method ", task$method))
   truth <- list_to_array(d$test)
   mask <- array(FALSE, dim(truth))
   mask[, , seq_len(dim(truth)[3]) >= cfg$eval_from] <- TRUE

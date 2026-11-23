@@ -171,6 +171,101 @@ local({
          rc_cores = 4))
 })
 
+# RobustGaSP tuning study for E2 (results/e2/gasp_tune): the fixed profile on
+# two designs E2 does not evaluate (11 and 12; run with --reps=11,12), with
+# the settings in e2_worker.R's gasp_specs. Selection rule, fixed before any
+# result was seen: the lowest CRPS averaged over the three grids and the two
+# designs; ties broken by RMSE.
+local({
+  bench_profiles$e2$gasp_tune <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "RobustGaSP tuning on designs 11-12", designs = 12,
+         methods = c("gasp_base", "gasp_starts", "gasp_trend", "gasp_m32",
+                     "gasp_powexp", "gasp_mmle", "gasp_refgamma", "gasp_pt",
+                     "gasp_pt_trend")))
+  # Round 2, added after round 1 (where gasp_pt_trend had the lowest CRPS and
+  # the Matern 3/2 and power-exponential kernels the highest coverage):
+  # combinations of the round-1 settings that each lowered CRPS, on the same
+  # designs. The same rule then selects among round 1's winner and these.
+  bench_profiles$e2$gasp_tune2 <<- utils::modifyList(bench_profiles$e2$gasp_tune,
+    list(label = "RobustGaSP tuning round 2 on designs 11-12",
+         methods = c("gasp_pt_m32", "gasp_pt_powexp", "gasp_pt_trend_m32",
+                     "gasp_pt_trend_powexp", "gasp_trend_m32")))
+  # The selected setting (gasp_pt_trend_m32: per-time fits, linear trend,
+  # Matern 3/2; mean CRPS 0.106, RMSE 0.442, coverage 91% on designs 11-12)
+  # on E2's designs 1-10 (results/e2/fixed_gasp), as ppgasp_opt.
+  bench_profiles$e2$fixed_gasp <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, 10 designs: RobustGaSP with the tuned setting",
+         methods = "ppgasp_opt"))
+})
+
+# RobustCalibration (S-GaSP and GaSP) with a comparable setup to spDBL's
+# (results/e3/rc_pilot_*, results/e3/n100_rc_tuned): the n100 profile with
+#   - rc_mle_starts = 20: chains start at the best of 20 maximum-likelihood
+#     starts, as spDBL's start at the best of 20 L-BFGS optima;
+#   - a pilot chain of rc_pilot iterations from that optimum setting each
+#     theta's random-walk proposal sd to rc_sd_scale times its pilot posterior
+#     sd (e3_worker.R), the counterpart of the step size and mass matrix that
+#     Stan adapts during spDBL's warm-up; the pilot's time counts;
+#   - rc_simul_nug = TRUE: the internal ppgasp emulator estimates a nugget,
+#     as the tuned RobustGaSP fits of E2 do.
+# rc_pilot compares rc_sd_scale on replicates 1-3 with shorter chains; the
+# scale is chosen per method by median effective samples per CPU second,
+# which uses no true values, and n100_rc_tuned reruns all 30 replicates.
+local({
+  base <- utils::modifyList(bench_profiles$e3$n100,
+    list(methods = c("rc_sgasp", "rc_gasp"), rc_mle_starts = 20L,
+         rc_pilot = 4000L, rc_sd_scale = 1, rc_simul_nug = TRUE))
+  bench_profiles$e3$rc_pilot <<- utils::modifyList(base,
+    list(label = "RobustCalibration proposal-scale pilot", rc_S = 6000L,
+         rc_S0 = 1500L))
+  # rc_pilot (replicates 1-3, scales 0.7, 1.2, 2.0): 1.2 gave the most
+  # effective samples per CPU second for both S-GaSP and GaSP (medians 0.030
+  # and 0.030, acceptance 24% and 28%).
+  bench_profiles$e3$n100_rc_tuned <<- utils::modifyList(base,
+    list(label = "100 training runs, RobustCalibration with a comparable setup",
+         rc_sd_scale = 1.2))
+})
+
+# spDBL and PCA-GP tuning study for E2 (results/e2/tune_sp_pca), the same
+# procedure as RobustGaSP's: designs 11-12 (run with --reps=11,12), round 1
+# changes one setting at a time (e2_worker.R's spdbl_specs and pca_specs),
+# round 2 combines the round-1 settings that each lowered CRPS, and the
+# lowest CRPS averaged over the three grids and two designs selects (ties by
+# RMSE), separately for each method. Fixed before any result was seen.
+local({
+  bench_profiles$e2$tune_sp_pca <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "spDBL and PCA-GP tuning on designs 11-12", designs = 12,
+         methods = c("sp_base", "sp_ar1", "sp_w1", "sp_w5", "sp_tune025",
+                     "sp_tune1", "sp_nugget", "sp_sigma2", "sp_sqexp", "sp_shared",
+                     "sp_nsam50", "pc_base", "pc_99", "pc_9999", "pc_linear",
+                     "pc_nugget", "pc_tries")))
+  # Round 2, added after round 1 (CRPS lowered by: spDBL window 5, gp_tune 1,
+  # 50 draws; PCA-GP linear mean, 99.99% of variance, nugget, 20 restarts).
+  bench_profiles$e2$tune_sp_pca2 <<- utils::modifyList(bench_profiles$e2$tune_sp_pca,
+    list(label = "spDBL and PCA-GP tuning round 2 on designs 11-12",
+         methods = c("sp_w5_tune1", "sp_w5_nsam50", "sp_tune1_nsam50",
+                     "sp_w5_tune1_nsam50", "pc_linear_9999", "pc_linear_nugget",
+                     "pc_9999_nugget", "pc_linear_9999_nugget", "pc_all")))
+})
+
+# The selected spDBL and PCA-GP settings on E2's designs 1-10
+# (results/e2/fixed_tuned): sp_opt (episode window 5, gp_tune 1, 50 draws)
+# and pc_opt (linear mean, 99.99% of variance, nugget, 20 restarts).
+local({
+  bench_profiles$e2$fixed_tuned <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, 10 designs: spDBL and PCA-GP with tuned settings",
+         methods = c("sp_opt", "pc_opt")))
+})
+
+# Times and memory of the three tuned E2 settings, as fixed_timing measured
+# the untuned ones: design 1, one task at a time on a whole node
+# (results/e2/fixed_tuned_timing; run with --reps=1 --jobs=1, --exclusive).
+local({
+  bench_profiles$e2$fixed_tuned_timing <<- utils::modifyList(bench_profiles$e2$fixed,
+    list(label = "fixed domain, design 1, timing of the tuned settings",
+         methods = c("sp_opt", "ppgasp_opt", "pc_opt")))
+})
+
 # On-grid site prediction (results/e3/sites; e3_sites.R): in each replicate
 # of the 30-replicate E3 data, site_holdout grid sites are left out of the
 # calibration and then predicted with calibration_predict(sites = ...), at all

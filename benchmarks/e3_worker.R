@@ -198,7 +198,11 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
              col = rep(d$grid$col, T))[keep, , drop = FALSE]
   X_sim <- training$input[, active, drop = FALSE]
   theta_range <- cbind(d$lower[active], d$upper[active])
-  emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep])))
+  # rc_simul_nug: RobustCalibration's ppgasp emulator estimates a nugget, as
+  # the tuned RobustGaSP fits of E2 do (default FALSE, the package default).
+  simul_nug <- isTRUE(cfg$rc_simul_nug)
+  emu <- timed(utils::capture.output(ppgasp(design = X_sim, response = Y[, keep],
+    nugget.est = simul_nug)))
   # init = "mode": RobustCalibration's own maximum-likelihood estimate from
   # rc_mle_starts initial values, the counterpart of spDBL's mode search; its
   # time counts towards the calibration time.
@@ -210,10 +214,37 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       observations = obs, p_theta = length(active), simul_type = 0,
       input_simul = X_sim, output_simul = Y[, keep],
       loc_index_emulator = seq_len(sum(keep)), theta_range = theta_range,
-      discrepancy_type = discrepancy, method = "mle",
+      simul_nug = simul_nug, discrepancy_type = discrepancy, method = "mle",
       num_initial_values = cfg$rc_mle_starts)))
     theta_mode <- fit_mle@param_est[seq_along(active)]
     mode_s <- mle$elapsed
+  }
+  # Proposal scales tuned from a pilot chain (profile option rc_pilot, the
+  # pilot's iterations). RobustCalibration proposes all of theta at once with
+  # sd sd_proposal[i] * (range of theta_i), and its default sd_proposal[i] is
+  # 5% of that range, so the default steps are 10% of the range for eta1
+  # (range 2) and 1% for eta2 and alpha2 (range 0.2); E3 accepted about 11%
+  # of them. The pilot starts at the mode with the default scales; each
+  # theta's proposal sd then becomes rc_sd_scale times its pilot posterior
+  # sd (divided by the range, which RobustCalibration multiplies back). No
+  # true values are used, and the pilot's time counts towards the calibration.
+  sd_proposal <- NULL
+  pilot_s <- 0
+  if (!is.null(cfg$rc_pilot)) {
+    set.seed(task$seed + 99L)
+    pilot <- timed(rcalibration(design = x, observations = obs,
+      p_theta = length(active), simul_type = 0, input_simul = X_sim,
+      output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
+      theta_range = theta_range, S = cfg$rc_pilot, S_0 = cfg$rc_pilot %/% 4,
+      simul_nug = simul_nug, discrepancy_type = discrepancy,
+      initial_values = theta_mode))
+    pilot_draws <- pilot$value@post_sample[, seq_along(active), drop = FALSE]
+    width <- theta_range[, 2] - theta_range[, 1]
+    sd_theta <- cfg$rc_sd_scale * apply(pilot_draws, 2, stats::sd) / width
+    # Keep RobustCalibration's defaults for the discrepancy's range
+    # parameters and nugget.
+    sd_proposal <- c(sd_theta, rep(0.25, ncol(x)), 0.25)
+    pilot_s <- pilot$elapsed
   }
   # Each chain seeds itself, so running chains at the same time (rc_cores > 1,
   # forked) gives the same draws as running them one after another.
@@ -233,7 +264,8 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
       p_theta = length(active), simul_type = 0, input_simul = X_sim,
       output_simul = Y[, keep], loc_index_emulator = seq_len(sum(keep)),
       theta_range = theta_range, S = cfg$rc_S, S_0 = cfg$rc_S0,
-      discrepancy_type = discrepancy, initial_values = start))
+      simul_nug = simul_nug, discrepancy_type = discrepancy,
+      initial_values = start, sd_proposal = sd_proposal))
     list(sample = run$value@post_sample[, seq_along(active), drop = FALSE],
          time = run$elapsed, accept = run$value@accept_S[1] / cfg$rc_S)
   }
@@ -261,17 +293,28 @@ run_rc <- function(d, rep, cfg, task, discrepancy) {
   out$n_obs_used <- length(obs)
   out$emulator_s <- emu$elapsed
   out$mode_search_s <- mode_s
+  out$pilot_s <- pilot_s
+  # The proposal sd of each theta in its own units (RobustCalibration's
+  # sd_proposal times the range).
+  out$sd_proposal_theta <- paste(signif((if (is.null(sd_proposal))
+    0.05 * (theta_range[, 2] - theta_range[, 1]) else sd_proposal[seq_along(active)]) *
+    (theta_range[, 2] - theta_range[, 1]), 3), collapse = ";")
   # Each chain is single-threaded: CPU time is the sum over chains, wall time
-  # the slowest chain when they run at the same time.
-  wall <- (if (rc_cores > 1L) max(times) else sum(times)) + mode_s
+  # the slowest chain when they run at the same time. The mode search and
+  # the pilot run before the chains, on one core.
+  setup_s <- mode_s + pilot_s
+  wall <- (if (rc_cores > 1L) max(times) else sum(times)) + setup_s
   out$n_train <- nrow(training$input)
   out$sampling_s <- wall
-  out$sampling_cpu_s <- sum(times) + mode_s
+  out$sampling_cpu_s <- sum(times) + setup_s
   out$wall_total_s <- wall
   out$ess_per_s <- min(out$ess_bulk_total) / wall
-  out$ess_per_cpu_s <- min(out$ess_bulk_total) / (sum(times) + mode_s)
-  out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s", discrepancy,
-    cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","))
+  out$ess_per_cpu_s <- min(out$ess_bulk_total) / (sum(times) + setup_s)
+  out$settings <- sprintf("%s S=%d S_0=%d chains=%d init=%s%s", discrepancy,
+    cfg$rc_S, cfg$rc_S0, cfg$rc_chains, paste(cfg$init, collapse = ","),
+    if (is.null(cfg$rc_pilot)) "" else sprintf(" pilot=%d sd_scale=%g",
+      as.integer(cfg$rc_pilot), cfg$rc_sd_scale),
+    if (simul_nug) " simul_nug" else "")
   out
 }
 

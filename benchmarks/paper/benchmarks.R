@@ -22,10 +22,20 @@ e1 <- read("e1", "e1_results.csv")
 # faster fits and less memory, identical results.
 e1_lazy <- utils::read.csv(file.path(res, "e1", "paper_lazy", "e1_results.csv"))
 e1_lazy <- e1_lazy[e1_lazy$status == "OK", ]
-e2 <- utils::read.csv(file.path(res, "e2", "fixed", "e2_per_design.csv"))
+# E2 with each method's tuned setting (selected on designs 11-12): spDBL and
+# the PCA-GP from e2/fixed_tuned, RobustGaSP from e2/fixed_gasp.
+e2 <- rbind(
+  utils::read.csv(file.path(res, "e2", "fixed_tuned", "e2_results.csv"))[, c("grid", "design", "method", "rmse", "coverage95")],
+  utils::read.csv(file.path(res, "e2", "fixed_gasp", "e2_results.csv"))[, c("grid", "design", "method", "rmse", "coverage95")])
 e2$S <- e2$grid^2
-# E3 with 100 training runs (the 40 bundled runs are in the appendix tables).
-e3 <- utils::read.csv(file.path(res, "e3", "n100", "e3_results.csv")); e3 <- e3[e3$status == "OK", ]
+# E3 with 100 training runs: spDBL (e3/n100) and RobustCalibration with
+# tuned proposals (e3/n100_rc_tuned); the default-proposal and 40-run results
+# are in the appendix tables.
+e3_cols <- c("rep", "method", "parameter", "status", "rel_error", "covered")
+e3 <- rbind(
+  subset(utils::read.csv(file.path(res, "e3", "n100", "e3_results.csv")), method == "spdbl")[, e3_cols],
+  utils::read.csv(file.path(res, "e3", "n100_rc_tuned", "e3_results.csv"))[, e3_cols])
+e3 <- e3[e3$status == "OK", ]
 
 # Colour follows the package: spDBL blue, Gu's RobustGaSP/RobustCalibration
 # orange, mlegp aqua; shapes repeat the encoding for greyscale print.
@@ -65,7 +75,7 @@ panel_title("(a) E1: fit time")
 
 # (b), (c) E2: held-out RMSE and 95% coverage by grid size, mean over the 10
 # designs with 95% t intervals; methods are offset slightly to keep the bars apart.
-e2m <- list(spdbl = "spdbl_s2r_designgp", gu = "ppgasp_tuned", mlegp = "mlegp_pca")
+e2m <- list(spdbl = "sp_opt", gu = "ppgasp_opt", mlegp = "pc_opt")
 pch2 <- c(spdbl = 16, gu = 17, mlegp = 15)
 offset <- c(spdbl = 1, gu = 0.9, mlegp = 1.1)
 e2_panel <- function(metric, ylim, yat, ref = NULL, title, ylab) {
@@ -89,7 +99,7 @@ e2_panel <- function(metric, ylim, yat, ref = NULL, title, ylab) {
 e2_panel("rmse", c(0.3, 1.1), seq(0.3, 1.1, 0.2), title = "(b) E2: RMSE", ylab = "held-out RMSE")
 e2_panel("coverage95", c(0.7, 1), seq(0.7, 1, 0.1), ref = 0.95,
          title = "(c) E2: 95% coverage", ylab = "coverage")
-legend("bottomright", legend = c("spDBL", "RobustGaSP (tuned)", "PCA-GP (mlegp)"),
+legend("bottomright", legend = c("spDBL", "RobustGaSP", "PCA-GP (mlegp)"),
        col = col, pch = pch2, lwd = 1.6, bty = "n", cex = 0.8, text.col = ink,
        seg.len = 1.4, inset = c(0, 0.02))
 
